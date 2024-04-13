@@ -66,7 +66,7 @@ const Header = () => {
                     <div className='flex items-center gap-4 '>
                         {/* sign in button */}
 
-                        <Link to='/login' className='py-2 px-3 bg-black text-white text-[15px] h-[35px] w-[80px]
+                        <Link to='/signin' className='py-2 px-3 bg-black text-white text-[15px] h-[35px] w-[80px]
                             flex items-center justify-center border-white rounded-[20px] hover:bg-[#2c2c2c]'>Sign In</Link >
 
                     </div>
