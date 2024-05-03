@@ -1,8 +1,10 @@
 import React from 'react';
 import fatima_hero from '../assets/images/fatima_hero.png';
-import { NavLink, Link } from 'react-router-dom';
+import { NavLink} from 'react-router-dom';
+
 
 const Home = () => {
+
   return (
     <>
       <section className='2xl:h-[800px] w-full home-bg'>
@@ -19,8 +21,8 @@ const Home = () => {
                   <div className='lg:w-[570px] ml-[40px]'>
                     <h1 className='text-[51.27px] leading-[46px] font-semibold text-headingColor mr-[200px] w-full'>Fatima Mohsin Naqvi, </h1>
                     <h2 className='text-[26.25px] leading-[46px] text-headingColor mr-[200px] w-full pb-3'>Licensed Therapist | NYU Graduate</h2>
-                    <Link to='/signup' className='py-2 px-3 bg-black text-white h-[58px] w-[179px]
-                             border-white rounded-[20px] hover:bg-[#2c2c2c]'>Book a Session</Link>
+                    <NavLink to='/signup' className='py-2 px-4 bg-black text-white h-[58px] w-[179px]
+                             border-white rounded-[20px] hover:bg-[#2c2c2c]'>Book a Session</NavLink>
                   </div>
                 </div>
               </div>

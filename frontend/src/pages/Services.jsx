@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import Faq from "react-faq-component";
 import service_hero from '../assets/images/services_hero.png';
 
@@ -131,7 +131,9 @@ const Services = () => {
               Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s.
               </p>
             </div>
+          
           </div>
+
         </div>
       </section>
       {/* FAQ Section */}
