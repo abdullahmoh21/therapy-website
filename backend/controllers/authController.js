@@ -21,7 +21,7 @@ const handleLogin = async (req, res) => {
         const accessToken = jwt.sign(
             { "username": foundUser.username },
              process.env.ACCESS_TOKEN_SECRET, 
-             { expiresIn: '30s' }
+             { expiresIn: '60s' }
         );
         const refreshToken = jwt.sign(
             { "username": foundUser.username },
@@ -36,7 +36,7 @@ const handleLogin = async (req, res) => {
         await fsPromises.writeFile(path.join(__dirname, '../model/users.json'), JSON.stringify(usersDB.users, null, 2));
 
         //http only cookie cannot be accessed by JS
-        res.cookie('jwt', refreshToken, { httpOnly: true ,maxAge:24*60*60*1000});
+        res.cookie('jwt', refreshToken, { httpOnly: true ,sameSite: 'None', secure: true, maxAge:24*60*60*1000});
         res.json({accessToken});
     } else {
         res.sendStatus(401);
