@@ -1,1 +1,5 @@
 20240504	09:55:06	1bfee1d1-2c0e-4855-bfd6-b8f5e0076c6d	Error: Not allowed by CORS
+20240505	13:54:35	7d64da73-3b35-449e-a8b4-6f87b3ab5446	ReferenceError: pwd is not defined
+20240505	13:57:35	59afc7c0-a17b-4f1b-8a73-2011c9092305	ReferenceError: pwd is not defined
+20240505	13:57:38	9f0d397c-9936-43a1-a8e4-e7269bb31f69	ReferenceError: pwd is not defined
+20240505	14:14:19	0bb5cfc2-739b-41b4-9c6f-1648385e55d4	SyntaxError: Unexpected token 'a', "{"user": abdullah, "... is not valid JSON
