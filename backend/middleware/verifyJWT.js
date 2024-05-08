@@ -12,8 +12,9 @@ const verifyJWT = (req, res, next) => {
         (err, decoded) => {
         if(err) return res.sendStatus(403); //forbidden
         //so other middleware can use this info
-        req.user = decoded.userInfo.username;
+        req.username = decoded.userInfo.username;
         req.role = decoded.userInfo.role
+        console.log(`The username ${req.username} has been added to the request object`)
         next();
     });
 }

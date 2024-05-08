@@ -7,7 +7,7 @@ const handleLogin = async (req, res) => {
     if (!user || !pwd) return res.status(400).json({ 'message': 'Username and password are required.' });
     const foundUser = await User.findOne({ username: user });
     if (!foundUser) return res.sendStatus(401); //Unauthorized 
-
+    console.log(`User found: ${foundUser}`);
     // evaluate password 
     const match = await bcrypt.compare(pwd, foundUser.password);
     if (match) {
@@ -21,7 +21,7 @@ const handleLogin = async (req, res) => {
                 } 
             },
              process.env.ACCESS_TOKEN_SECRET, 
-             { expiresIn: '60s' }
+             { expiresIn: '600s' }
         );
         const refreshToken = jwt.sign(
             { "username": foundUser.username },
@@ -30,8 +30,8 @@ const handleLogin = async (req, res) => {
         );
 
         //saving Refresh token in DB
-        foundUser.refreshToken = refreshToken;
-        foundUser.refreshTokenExp = Date.now() + 8*60*60*1000;
+        foundUser.refreshTokenHash = await bcrypt.hash(refreshToken,10);
+        foundUser.refreshTokenExp = Date.now() + 8*60*60*1000;  //8 hours
         const result = await foundUser.save();
         console.log(result);
 
