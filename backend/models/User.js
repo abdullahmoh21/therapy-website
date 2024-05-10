@@ -1,13 +1,29 @@
 const mongoose = require('mongoose');
+const { handleRefreshToken } = require('../controllers/refreshTokenController');
 const Schema = mongoose.Schema;
 
 const userSchema = new Schema(
     {
-        username: {
+        email: {
             type: String,
             required: true,
             unique: true,
             trim: true,
+        },
+        emailVerified: {
+            data:{
+                state:{
+                    type:Boolean,
+                    default:false
+                },
+                handleRefreshTokenash:{
+                    type:String,
+
+                },
+                expiresIn:{
+                    type:Date,
+                },
+            }
         },
         password: {
             type: String,
@@ -31,6 +47,12 @@ const userSchema = new Schema(
             type: String,
         },
         refreshTokenExp: {
+            type: Date,
+        },
+        resetPasswordTokenHash: {
+            type: String,
+        },
+        resetPasswordExpires: {
             type: Date,
         },
     },
