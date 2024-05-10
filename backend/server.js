@@ -32,9 +32,11 @@ app.use(cors(corsOptions));
 
 //----------------- ENDPOINTS------------------//
 app.use('/register',require('./endpoints/register'))
+app.use('/verifyEmail', require('./endpoints/verifyEmail'));
 app.use('/auth', require('./endpoints/authenticate'));
 app.use('/refresh', require('./endpoints/refresh'));
 app.use('/logout', require('./endpoints/logout'));
+app.use('/forgotPassword', require('./endpoints/forgotPassword'));
 
 // Apply verifyJWT middleware only to /api/user and /api/admin routes
 app.use('/api/user', verifyJWT, require('./endpoints/userAPI/user'));
