@@ -4,3 +4,11 @@
 20240505	13:57:38	9f0d397c-9936-43a1-a8e4-e7269bb31f69	ReferenceError: pwd is not defined
 20240505	14:14:19	0bb5cfc2-739b-41b4-9c6f-1648385e55d4	SyntaxError: Unexpected token 'a', "{"user": abdullah, "... is not valid JSON
 20240506	11:34:37	dbc0a993-7622-4ae5-a970-80aee64b16bc	SyntaxError: Expected ',' or '}' after property value in JSON at position 41 (line 2 column 40)
+20240511	09:21:47	57d271e1-ff6d-4ad6-bd8d-28f5d497a312	Error: Cannot set headers after they are sent to the client
+20240511	09:21:57	99247859-fe1e-479b-8653-73b8bd529524	MongoServerError: E11000 duplicate key error collection: FatimaDB.users index: username_1 dup key: { username: null }
+20240511	09:25:30	aed343ad-6caf-4fe8-9937-17a91b290be6	MongoServerError: E11000 duplicate key error collection: FatimaDB.users index: username_1 dup key: { username: null }
+20240511	10:27:36	a637dd5f-e986-4271-8af0-85fd15e94d20	MongoServerError: E11000 duplicate key error collection: FatimaDB.users index: username_1 dup key: { username: null }
+20240511	10:44:20	e36e7a68-b84d-4835-a3de-8c05baae65d7	MongoServerError: E11000 duplicate key error collection: FatimaDB.users index: username_1 dup key: { username: null }
+20240511	13:22:56	50119338-b0bb-46b7-bac4-e107c1eeb72f	SyntaxError: Unexpected token '+', ..." "phone": +923082182"... is not valid JSON
+20240512	09:49:42	b8324b49-9366-4e9b-84fb-bdf1eaa85229	ReferenceError: ROLES_LIST is not defined
+20240512	09:50:30	44b43fd1-c8f0-4e66-9094-872c532cf28a	ReferenceError: ROLES_LIST is not defined

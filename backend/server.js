@@ -14,7 +14,7 @@ const cors = require('cors');
 const corsOptions = require('./config/corsOptions');
 
 const cookieParser = require('cookie-parser');
-const PORT = process.env.PORT || 3500;
+const PORT = process.env.PORT || 3200;
 
 connectDB();
 
@@ -31,17 +31,8 @@ app.use(cors(corsOptions));
 
 
 //----------------- ENDPOINTS------------------//
-app.use('/register',require('./endpoints/register'))
-app.use('/verifyEmail', require('./endpoints/verifyEmail'));
-app.use('/auth', require('./endpoints/authenticate'));
-app.use('/refresh', require('./endpoints/refresh'));
-app.use('/logout', require('./endpoints/logout'));
-app.use('/forgotPassword', require('./endpoints/forgotPassword'));
-
-// Apply verifyJWT middleware only to /api/user and /api/admin routes
-app.use('/api/user', verifyJWT, require('./endpoints/userAPI/user'));
-app.use('/api/admin', verifyJWT, require('./endpoints/userAPI/admin'));
-
+app.use('/auth', require('./endpoints/authEndpoints'));
+app.use('/users', require('./endpoints/userEndpoints'));
 // ---------------------------------------------//
 
 
