@@ -16,6 +16,8 @@
     "date-fns": "^2.23.0",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
+    "express-async-handler": "^1.2.0",
+    "express-rate-limit": "^7.2.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.3.3",
     "mongoose-sequence": "^6.0.1",

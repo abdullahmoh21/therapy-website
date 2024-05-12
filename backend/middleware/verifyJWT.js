@@ -11,10 +11,10 @@ const verifyJWT = (req, res, next) => {
         process.env.ACCESS_TOKEN_SECRET, 
         (err, decoded) => {
         if(err) return res.sendStatus(403); //forbidden
+
         //so other middleware can use this info
-        req.username = decoded.userInfo.username;
-        req.role = decoded.userInfo.role
-        console.log(`The username ${req.username} has been added to the request object`)
+        req.email = decoded.userInfo.email;
+        req.role = decoded.userInfo.role;
         next();
     });
 }

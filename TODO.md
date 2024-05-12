@@ -1,5 +1,6 @@
 BACKEND
-- Verify all methods used in endpoints are correct (GET,POST, etc)
+- Data validation
+- Test all endpoints in Postman
 - Test refresh token
 - Calendly redirect landing page
 - implement https
