@@ -37,14 +37,10 @@ const userSchema = new Schema(
             required: true,
         },
         phone:{
-            type: Number,
+            type: String,
         },
         DOB: {
             type: Date,
-        },
-        dateJoined: {
-            type: Date,
-            default: Date.now,
         },
         refreshTokenHash: {
             type: String,

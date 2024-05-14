@@ -12,3 +12,6 @@
 20240511	13:22:56	50119338-b0bb-46b7-bac4-e107c1eeb72f	SyntaxError: Unexpected token '+', ..." "phone": +923082182"... is not valid JSON
 20240512	09:49:42	b8324b49-9366-4e9b-84fb-bdf1eaa85229	ReferenceError: ROLES_LIST is not defined
 20240512	09:50:30	44b43fd1-c8f0-4e66-9094-872c532cf28a	ReferenceError: ROLES_LIST is not defined
+20240512	11:01:49	0bb9c6cb-b403-4d86-a108-bd1a7f2f446c	ReferenceError: user is not defined
+20240512	19:12:44	dff3ce60-dcf0-4450-980e-59e0f826b010	Error: Not allowed by CORS
+20240513	10:50:00	23e67f1e-5910-4d35-ac16-3911980d5796	ReferenceError: user is not defined

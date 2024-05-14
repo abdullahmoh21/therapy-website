@@ -1,15 +1,13 @@
 BACKEND
-- Data validation
-- Test all endpoints in Postman
-- Test refresh token
+- Welcome, Account Deleted,Account activated, payment confirmation and password reset emails (with design)
 - Calendly redirect landing page
 - implement https
 - Jazzcash Payment API
-- (Optional) OTP codes for login and new user verification
 
 FRONTEND
 - Link CRUD operations and conditional dashboard loading
+- Protected client/admin dashboard design
+- Mobile View
 - Calendly redirect landing page design
 - Forgot pswd page form
-- Protected client/admin dashboard design
 - Book Now button redirect to Calendly page

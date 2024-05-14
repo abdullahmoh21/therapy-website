@@ -21,6 +21,7 @@ const transporter = nodemailer.createTransport({
 
 
 //@desc Get all users
+//@param {Object} req with valid role
 //@route GET /users
 //@access Private
 const getAllUsers_ADMIN = asyncHandler( async (req, res) => {
@@ -30,20 +31,33 @@ const getAllUsers_ADMIN = asyncHandler( async (req, res) => {
     res.json(users);
 })
 
+//@desc Delete a user
+//@param {Object} req with valid role and email
+//@route DELETE /users
+//@access Private
+const deleteUser_ADMIN = asyncHandler( async (req, res) => {
+    if (req.role !== ROLES_LIST.Admin) return res.sendStatus(401);
+    const { email } = req.body;
+    const users = await User.deleteOne({ email: email }).exec();
+    if (!users) return res.status(204).json({ 'message': 'No users found' });
+    
+    res.json(users).status(200).json({ 'message': 'User' +user+ 'deleted' });
+})
+
 //@desc Create a new user
+//@param {Object} req with valid email, password, name, and DOB
 //@route POST /users
 //@access Public
-
 const createNewUser = asyncHandler( async (req, res) => {
-    const { email, pwd,name ,DOB} = req.body;
-    if (!email || !pwd || !name || !DOB) return res.status(400).json({ message: 'All fields are required.' });
+    const { email, password,name ,DOB} = req.body;
+    if (!email || !password || !name || !DOB) return res.status(400).json({ message: 'All fields are required.' });
 
     // check for duplicate usernames in the db
     const duplicate = await User.findOne({ email }).lean().exec();
     if (duplicate) return res.sendStatus(409).json({ message: 'Duplicate email' }); //Conflict 
 
     //encrypt the password
-    const hashedPwd = await bcrypt.hash(pwd, 10);  
+    const hashedPassword = await bcrypt.hash(password, 10);  
     const token = crypto.randomBytes(20).toString('hex');
     const verificationHash = crypto.createHash('sha256').update(token).digest('hex');
     console.log(`Token: ${token} \t Hashed token: ${verificationHash}`);  //debugging
@@ -53,7 +67,7 @@ const createNewUser = asyncHandler( async (req, res) => {
         "email": email,
         "emailVerified.data.state": false,
         "name": name,
-        "password": hashedPwd,
+        "password": hashedPassword,
         "DOB": DOB,
         "emailVerified.data.hash": verificationHash,
         "emailVerified.data.expiresIn": Date.now() + 3600000, // 1 hour
@@ -93,41 +107,8 @@ const createNewUser = asyncHandler( async (req, res) => {
 
 })
 
-//@desc Update any user in DB
-//@route POST /users
-//@access Private
-const updateUser_ADMIN = asyncHandler( async (req, res) => {
-    const { email } = req.body;
-    const newData = req.body;
-    if (req.role !== ROLES_LIST.Admin) return res.sendStatus(401);
-
-    const updatedUser = await User.findOneAndUpdate(
-        { email: email }, // find a document with this username
-        newData, // data to update
-        { new: true, runValidators: true } // options: return updated one, run all schema validators again
-    );
-
-    if (!updatedUser) {
-        return res.status(404).json({ message: 'User not found' });
-    }
-
-    return res.json(updatedUser).select('-password').lean();
-
-})
-
-
-//@desc Delete a user
-//@route DELETE /users
-//@access Private
-const deleteUser_ADMIN = asyncHandler( async (req, res) => {
-    if (req.role !== ROLES_LIST.Admin) return res.sendStatus(401);
-    const { email } = req.body;
-    const users = await User.deleteOne({ email: email }).exec();
-    if (!users) return res.status(204).json({ 'message': 'No users found' });
-    res.json(users);
-})
-
 //@desc Verify a new user
+//@param {Object} req with valid token
 //@route GET /users/verifyEmail/:token
 //@access Public
 const verifyEmail = async (req, res) => {
@@ -158,16 +139,17 @@ const verifyEmail = async (req, res) => {
 };
 
 //@desc send forgot password email
+//@param {Object} req with valid email
 //@route POST /users/forgotPassword
 //@access Public
 const forgotPassword =  asyncHandler( async (req, res) => {
-    const { username } = req.body;
+    const { email } = req.body;
 
     let user;
-    user = await User.findOne({ username });
+    user = await User.findOne({ email });
 
     if (!user) {
-        return res.status(400).send('No user found with that username ');
+        return res.status(400).send('No user found with that email ');
     }
 
     const resetToken = crypto.randomBytes(20).toString('hex');
@@ -183,7 +165,7 @@ const forgotPassword =  asyncHandler( async (req, res) => {
 
     const mailOptions = {
         from: 'notifications@fatimanaqvi.com',
-        to: user.email,             //production: ensure actual email field is used not username
+        to: user.email,             //production: ensure actual email field is used not email
         subject: 'Password Reset',
         text: `Click on this link to reset your password: ${link}`
     };
@@ -200,6 +182,7 @@ const forgotPassword =  asyncHandler( async (req, res) => {
 })
 
 //@desc reset password
+//@param {Object} req with valid token and password
 //@route POST /users/forgotPassword/:token
 //@access Public
 const resetPassword = async (req, res) => {
@@ -239,6 +222,7 @@ const getMyData= async (req, res) => {
 }
 
 //@desc Update users own data
+//@param {Object} req with valid new data
 //@route PATCH /users/me
 //@access Public
 const updateMyUser = asyncHandler( async (req, res) => {
@@ -273,7 +257,6 @@ const updateMyUser = asyncHandler( async (req, res) => {
 module.exports = {
     getAllUsers_ADMIN,
     deleteUser_ADMIN,
-    updateUser_ADMIN,
     getMyData,
     updateMyUser,
     createNewUser,
