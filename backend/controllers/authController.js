@@ -6,12 +6,13 @@ const User = require('../models/User');
 // @route POST /auth
 // @access Public
 const login = async (req, res) => {
+    //TODO: Validation check sending number as pwd crashes server
+
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ 'message': 'Username and password are required.' });
     const foundUser = await User.findOne({ email: email });
-    if (!foundUser) return res.sendStatus(401); //Unauthorized 
+    if (!foundUser) return res.status(401).json({ message: 'Unauthorized' }); //Unauthorized 
 
-    //TODO: Validation check sending number as pwd crashes server
 
     // evaluate password 
     const match = await bcrypt.compare(password, foundUser.password);
@@ -28,6 +29,7 @@ const login = async (req, res) => {
              process.env.ACCESS_TOKEN_SECRET, 
              { expiresIn: '600s' }
         );
+        console.log(`AccessToken from authController: ${accessToken}`);
         const refreshToken = jwt.sign(
             { "email": foundUser.email },
              process.env.REFRESH_TOKEN_SECRET, 
@@ -42,9 +44,8 @@ const login = async (req, res) => {
         //http only cookie cannot be accessed by JS
         res.cookie('jwt', refreshToken, { httpOnly: true ,sameSite: 'None', secure: true, maxAge:24*60*60*1000});
         res.json({accessToken});
-        console.log(`role from authController: ${role}`);
     } else {
-        res.sendStatus(401);
+        return res.status(401).json({ message: 'Unauthorized' }); //Unauthorized 
     }
 }
 

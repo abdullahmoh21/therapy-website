@@ -9,11 +9,11 @@ const Layout = () => {
     return (
         <>
             {/* Renders the header&footer on all pages but the signin page */}
-            {location.pathname !== '/signin' && <Header />} 
+            {(location.pathname !== '/signin' && location.pathname !== '/dash') && <Header />} 
             <main>
                 <Routers/>
             </main>
-            {location.pathname !== '/signin' && <Footer />} 
+            {(location.pathname !== '/signin' && location.pathname !== '/dash')  && <Footer />} 
         
         </>
     )

@@ -9,28 +9,28 @@ const { userSchema, updateUser, emailSchema, resetPasswordSchema, tokenSchema } 
 
 //open routes
 router.route('/verifyEmail/:token')
-    .get(expressJoiValidation.params(tokenSchema), userController.verifyEmail)             //Tested
+    .get(expressJoiValidation.params(tokenSchema), userController.verifyEmail)            
     
 router.route('/forgotPassword/:token')           
-    .post(expressJoiValidation.params(resetPasswordSchema), userController.resetPassword)  //Tested
+    .post(expressJoiValidation.params(resetPasswordSchema), userController.resetPassword)  
 
 router.route('/forgotPassword')                  
-    .post(expressJoiValidation.body(emailSchema), userController.forgotPassword)           //Tested
+    .post(expressJoiValidation.body(emailSchema), userController.forgotPassword)           
 
 router.route('/')
-    .post(expressJoiValidation.body(userSchema), userController.createNewUser)           //Tested
+    .post(expressJoiValidation.body(userSchema), userController.createNewUser)           
 
 router.use(verifyJWT)   
 
 //protected routes
 router.route('/')
-    .get(userController.getAllUsers_ADMIN)        //Tested
-    .delete(expressJoiValidation.body(emailSchema), userController.deleteUser_ADMIN)      //Tested
+    .get(userController.getAllUsers_ADMIN)        
+    .delete(expressJoiValidation.body(emailSchema), userController.deleteUser_ADMIN)      
 
     
 router.route('/me')
-    .get(userController.getMyData)        //Tested
-    .patch(expressJoiValidation.body(updateUser), userController.updateMyUser)   //Tested
+    .get(userController.getMyData)        
+    .patch(expressJoiValidation.body(updateUser), userController.updateMyUser)   
 
 
 module.exports = router;
