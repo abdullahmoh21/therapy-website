@@ -15,3 +15,13 @@
 20240512	11:01:49	0bb9c6cb-b403-4d86-a108-bd1a7f2f446c	ReferenceError: user is not defined
 20240512	19:12:44	dff3ce60-dcf0-4450-980e-59e0f826b010	Error: Not allowed by CORS
 20240513	10:50:00	23e67f1e-5910-4d35-ac16-3911980d5796	ReferenceError: user is not defined
+20240514	16:20:35	f8fb8618-6404-42d9-a5d8-062bfaf441b1	Error: Not allowed by CORS
+20240514	16:32:21	323f0256-0966-4f74-a544-77879f1bc434	Error: ENOENT: no such file or directory, stat '/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/frontend/dist/index.html'
+20240514	16:32:22	99912228-1a3b-4aea-9d4a-add35725b309	Error: ENOENT: no such file or directory, stat '/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/frontend/dist/index.html'
+20240514	20:35:51	13800b80-e322-49c8-a6c8-a3a3762742f9	Error: ENOENT: no such file or directory, stat '/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/frontend/dist/index.html'
+20240514	20:35:51	fb0318f5-b19c-4a9a-9fe2-95105799fcfc	Error: ENOENT: no such file or directory, stat '/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/frontend/dist/index.html'
+20240515	11:21:36	798251b4-788b-48f3-83cd-ea40bd81f432	Error: ENOENT: no such file or directory, stat '/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/frontend/dist/index.html'
+20240515	11:21:36	77e15509-f8c8-41f9-b7a2-9388341828f6	Error: ENOENT: no such file or directory, stat '/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/frontend/dist/index.html'
+20240515	11:21:37	2dff258a-d8d1-4efa-b4c6-34d2590f125e	Error: ENOENT: no such file or directory, stat '/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/frontend/dist/index.html'
+20240516	07:57:35	dcd631df-228c-4300-9b4a-6323fd4cfea9	Error: ENOENT: no such file or directory, stat '/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/frontend/dist/index.html'
+20240516	07:57:36	4354f61c-e844-4f3e-ae2c-0c36f18a6f1d	Error: ENOENT: no such file or directory, stat '/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/frontend/dist/index.html'
