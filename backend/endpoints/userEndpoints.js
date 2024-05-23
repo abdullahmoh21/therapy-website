@@ -5,9 +5,11 @@ const verifyJWT = require('../middleware/verifyJWT');
 const expressJoiValidation = require('express-joi-validation').createValidator({})
 
 // Import validation schemas
-const { userSchema, updateUser, emailSchema, resetPasswordSchema, tokenSchema } = require('../validation/usersValidation');
+const { userSchema, updateMyUser, emailSchema, resetPasswordSchema, tokenSchema } = require('../validation/usersValidation');
 
 //open routes
+router.route(`/resendEmailVerification`)
+    .get(expressJoiValidation.body(emailSchema), userController.resendEmailVerification)
 router.route('/verifyEmail/:token')
     .get(expressJoiValidation.params(tokenSchema), userController.verifyEmail)            
     
@@ -15,10 +17,7 @@ router.route('/forgotPassword/:token')
     .post(expressJoiValidation.params(resetPasswordSchema), userController.resetPassword)  
 
 router.route('/forgotPassword')                  
-    .post(expressJoiValidation.body(emailSchema), userController.forgotPassword)           
-
-router.route('/')
-    .post(expressJoiValidation.body(userSchema), userController.createNewUser)           
+    .post(expressJoiValidation.body(emailSchema), userController.forgotPassword)                 
 
 router.use(verifyJWT)   
 
@@ -30,7 +29,7 @@ router.route('/')
     
 router.route('/me')
     .get(userController.getMyData)        
-    .patch(expressJoiValidation.body(updateUser), userController.updateMyUser)   
+    .patch(expressJoiValidation.body(updateMyUser), userController.updateMyUser)   
 
 
 module.exports = router;

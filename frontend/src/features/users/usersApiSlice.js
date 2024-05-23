@@ -10,7 +10,7 @@ const initialState = usersAdapter.getInitialState()
 
 export const usersApiSlice = apiSlice.injectEndpoints({
     endpoints: builder => ({
-        getUsers: builder.query({
+        getAllUsers: builder.query({
             query: () => '/users',
             validateStatus: (response, result) => {
                 return response.status === 200 && !result.isError
@@ -20,7 +20,9 @@ export const usersApiSlice = apiSlice.injectEndpoints({
                     user.id = user._id
                     return user
                 });
-                return usersAdapter.setAll(initialState, loadedUsers)
+                const temp = usersAdapter.setAll(initialState, loadedUsers)
+                console.log(`in transfromResponse: ${JSON.stringify(temp)}`)
+                return temp
             },
             providesTags: (result, error, arg) => {
                 if (result?.ids) {
@@ -31,52 +33,70 @@ export const usersApiSlice = apiSlice.injectEndpoints({
                 } else return [{ type: 'User', id: 'LIST' }]
             }
         }),
-        addNewUser: builder.mutation({
-            query: initialUserData => ({
-                url: '/users',
-                method: 'POST',
-                body: {
-                    ...initialUserData,
-                }
-            }),
-            invalidatesTags: [
-                { type: 'User', id: "LIST" }
-            ]
+        getMyUser: builder.query({
+            query: () => '/users/me',
+            validateStatus: (response, result) => {
+                return response.status === 200 && !result.isError
+            },
+            transformResponse: (responseData) => {
+                const MyUser = { ...responseData, id: responseData._id };
+                return usersAdapter.setOne(initialState, MyUser);
+            },
+            providesTags: (result, error, arg) => {
+                if (result?.id) {
+                    return [
+                    { type: 'User', id: result.id }
+                    ]
+                } else return []
+            }
         }),
-        updateUser: builder.mutation({
+        resendEmailVerification: builder.mutation({
+            query: () => 'users/verifyemail',
+            validateStatus: (response, result) => {
+                return response.status === 200 && !result.isError
+            },
+        }),
+        verifyEmail: builder.mutation({
+            query: (token) => `users/verifyemail/${token}`,
+            validateStatus: (response, result) => {
+                return response.status === 200 && !result.isError
+            },
+        }),
+        updateMyUser: builder.mutation({
             query: initialUserData => ({
-                url: '/users',
+                url: '/users/me',
                 method: 'PATCH',
                 body: {
                     ...initialUserData,
                 }
             }),
-            invalidatesTags: (result, error, arg) => [
-                { type: 'User', id: arg.id }
-            ]
         }),
         deleteUser: builder.mutation({
-            query: ({ id }) => ({
+            query: (email) => ({
                 url: `/users`,
                 method: 'DELETE',
-                body: { id }
+                body: { email}
             }),
             invalidatesTags: (result, error, arg) => [
-                { type: 'User', id: arg.id }
+                { type: 'User', id: arg.email }
             ]
         }),
     }),
 })
 
 export const {
-    useGetUsersQuery,
-    useAddNewUserMutation,
-    useUpdateUserMutation,
+    useGetAllUsersQuery,
     useDeleteUserMutation,
+    useGetMyUserQuery,
+    useResendEmailVerificationMutation,
+    useVerifyEmailMutation,
+    useUpdateMyUserMutation
 } = usersApiSlice
 
+export const selectMyUser = usersApiSlice.endpoints.getMyUser.select()
+
 // returns the query result object
-export const selectUsersResult = usersApiSlice.endpoints.getUsers.select()
+export const selectUsersResult = usersApiSlice.endpoints.getAllUsers.select()
 
 // creates memoized selector
 const selectUsersData = createSelector(

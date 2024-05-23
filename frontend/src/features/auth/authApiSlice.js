@@ -1,6 +1,7 @@
+import { Navigate } from "react-router-dom";
 import { apiSlice } from "../../app/api/apiSlice"
 import { logOut, setCredentials } from "./authSlice"
-import { jwtDecode } from 'jwt-decode'
+import { register } from "swiper/element";
 
 
 export const authApiSlice = apiSlice.injectEndpoints({
@@ -19,19 +20,29 @@ export const authApiSlice = apiSlice.injectEndpoints({
                 };
             },
         }),
-        sendLogout: builder.mutation({
+        register: builder.mutation({
+            query: initialUserData => ({
+                url: '/auth/register',
+                method: 'POST',
+                body: {
+                    ...initialUserData,
+                }
+            }),
+            invalidatesTags: [
+                { type: 'User' }
+            ]
+        }),
+        Logout: builder.mutation({
             query: () => ({
                 url: '/auth/logout',
                 method: 'POST',
             }),
             async onQueryStarted(arg, { dispatch, queryFulfilled }) {
                 try {
-                    const { data } = await queryFulfilled
-                    console.log(data)
-                    dispatch(logOut())
-                    setTimeout(() => {
-                        dispatch(apiSlice.util.resetApiState())
-                    }, 1000)
+                    await queryFulfilled
+                    console.log(queryFulfilled)
+                    dispatch(logOut())  //token = null
+                    dispatch(apiSlice.util.resetApiState())
                 } catch (err) {
                     console.log(err)
                 }
@@ -58,6 +69,7 @@ export const authApiSlice = apiSlice.injectEndpoints({
 
 export const {
     useLoginMutation,
-    useSendLogoutMutation,
+    useRegisterMutation,
+    useLogoutMutation,
     useRefreshMutation,
 } = authApiSlice 

@@ -1,17 +1,25 @@
-import { useLocation, Navigate, Outlet } from "react-router-dom"
-import useAuth from "../../hooks/useAuth"
+import { useLocation, Navigate, Outlet } from "react-router-dom";
+import useAuth from "../../hooks/useAuth";
+import { ROLES } from "../../config/roles";
 
 const RequireAuth = ({ allowedRole }) => {
-    const location = useLocation()
-    const { role } = useAuth()
+  const location = useLocation();
+  const { role } = useAuth();
 
-    const content = (
-        (allowedRole === role || allowedRole === 2121 )   //admin can access all routes
-            ? <Outlet />
-            : <Navigate to="/signin" state={{ from: location }} replace />
-    )
+  console.log("role", role);
+  let content = null;
 
-    return content
-}
+  if (Object.values(ROLES).includes(allowedRole)) {
+    //if the allowedRole is in ROLES then check if the role is equal to allowedRole
+    content =
+      role === allowedRole ? (
+        <Outlet />
+      ) : (
+        <Navigate to={"/signin"} state={{ from: location }} replace /> //if the role is not equal to allowedRole then navigate to /dash or /signin depending on the allowedRole
+      );
+  }
 
-export default RequireAuth
+  return content;
+};
+
+export default RequireAuth;

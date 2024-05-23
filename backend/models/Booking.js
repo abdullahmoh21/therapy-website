@@ -5,27 +5,37 @@ const autoIncrement = require('mongoose-sequence')(mongoose);
 
 const bookingSchema = new Schema(
     {
-        username: {
+        userId: {
             type: mongoose.Schema.Types.ObjectId,
             required: true,
         },
-        dateAndTime: {
+        eventStartTime: {
             type: Date,
             required: true,
         },
-        duration: {
-            type: Number,
+        eventEndTime: {
+            type: Date,
             required: true,
-            default: 60,
+        },
+        eventType: {
+            type: String,
+            required: true,
         },
         completed: {
             type: Boolean,
             default: false,
         },
-        payment:{
-            type: Boolean,
+        paymentAmmount:{
+            type: Number,
             required: true,
-            default: false,
+        },
+        paymentCurrency:{
+            type: String,
+            default: 'PKR',
+        },
+        paymentStatus:{
+            type: String,
+            default: 'Pending',
         },
     },
 );
@@ -33,7 +43,7 @@ const bookingSchema = new Schema(
 bookingSchema.plugin(autoIncrement, {
     inc_field: 'bookingId',
     id: 'booking_id',
-    start_seq: 570, 
+    start_seq: 208, 
 });
 
 module.exports = mongoose.model('Booking', bookingSchema);
