@@ -44,48 +44,33 @@ const deleteUser_ADMIN = asyncHandler( async (req, res) => {
     res.json(users).status(200).json({ 'message': 'User' +user+ 'deleted' });
 })
 
-//@desc Create a new user
-//@param {Object} req with valid email, password, name, and DOB
-//@route POST /users
+//@desc Resend email verification
+//@param {Object} req with valid email
+//@route GET /users/verifyEmail
 //@access Public
-const createNewUser = asyncHandler( async (req, res) => {
-    const { email, password,name ,DOB} = req.body;
-    if (!email || !password || !name || !DOB) return res.status(400).json({ message: 'All fields are required.' });
+const resendEmailVerification =  asyncHandler( async (req, res) => {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) {return res.status(400).send('No user found with that email ');}
+    if (user.emailVerified.data.state) {return res.status(400).send('Email already verified');}
 
-    // check for duplicate usernames in the db
-    const duplicate = await User.findOne({ email }).lean().exec();
-    if (duplicate) return res.sendStatus(409).json({ message: 'Duplicate email' }); //Conflict 
-
-    //encrypt the password
-    const hashedPassword = await bcrypt.hash(password, 10);  
     const token = crypto.randomBytes(20).toString('hex');
     const verificationHash = crypto.createHash('sha256').update(token).digest('hex');
-    console.log(`Token: ${token} \t Hashed token: ${verificationHash}`);  //debugging
 
+    //overwrite existing verification data
+    emailVerified.data.hash = verificationHash;
+    emailVerified.data.expiresIn = Date.now() + 3600000; // 1 hour
+    user.markModified('emailVerified.data');    //subdocument changes need to be marked modified
+    await user.save();
 
-    const result = await User.create({ 
-        "email": email,
-        "emailVerified.data.state": false,
-        "name": name,
-        "password": hashedPassword,
-        "DOB": DOB,
-        "emailVerified.data.hash": verificationHash,
-        "emailVerified.data.expiresIn": Date.now() + 3600000, // 1 hour
-    });
-
-    if (!result){ return res.sendStatus(400).json({ 'message': 'Error creating user' }); }
-
-    res.status(201).json({ 'success': `New user ${email} created! Email Verification Pending` });
-
-    // email verification link with unhashed token
     const link = `http://localhost:3500/users/verifyEmail/${token}`   //production: change to domain and https
 
     const mailOptions = {
-        from: 'notifications@fatimanaqvi.com',
+        from: 'verification@fatimanaqvi.com',
         to: email,             //production: ensure actual this field is always actual email
         subject: 'Welcome to my Clinic',
         text: 
-       `Dear ${name}, 
+       `Dear ${fullName}, 
 
         Click on this link to activate your account: ${link}
         This link expires in One hour.
@@ -101,7 +86,7 @@ const createNewUser = asyncHandler( async (req, res) => {
             res.status(500).send('Error sending email');
         } else {
             console.log('Email sent: ' + info.response);
-            res.status(200).send('Email Verification link sent to your email');
+            res.status(200).json({ 'success': `New user ${email} created! Email Verification link sent to your email` });
         }
     });
 
@@ -111,7 +96,7 @@ const createNewUser = asyncHandler( async (req, res) => {
 //@param {Object} req with valid token
 //@route GET /users/verifyEmail/:token
 //@access Public
-const verifyEmail = async (req, res) => {
+const verifyEmail = asyncHandler( async (req, res) => {
     const { token } = req.params;
 
     if(!token) return res.status(400).send('Invalid request');
@@ -136,7 +121,7 @@ const verifyEmail = async (req, res) => {
 
     await user.save();
     res.status(200).send('Email Verified!');
-};
+});
 
 //@desc send forgot password email
 //@param {Object} req with valid email
@@ -214,12 +199,13 @@ const resetPassword = async (req, res) => {
 //@desc get users own data
 //@route GET /users/me
 //@access Public
-const getMyData= async (req, res) => {
+const getMyData=  asyncHandler( async (req, res) => {
     const{ email } = req; //from verifyJWT
-    const user = await User.findOne({ "email": email }).select('-password').lean();
+    const user = await User.findOne({ "email": email }).select('-password -refreshTokenExp -refreshTokenHash -emailVerified').lean();
     if (!user) return res.status(204).json({ 'message': 'No users found' });
+    console.log(`follwoing user data sent: ${user}`);
     res.json(user);
-}
+});
 
 //@desc Update users own data
 //@param {Object} req with valid new data
@@ -242,14 +228,14 @@ const updateMyUser = asyncHandler( async (req, res) => {
 
     const updatedUser = await User.findOneAndUpdate(
         { email: email }, // find a document with this email
-        updates, // data to update
+        updates, // filtered data to update
         { new: true, runValidators: true } // options: return updated one, run all schema validators again
     );
 
     if (!updatedUser) {
         return res.status(404).json({ message: 'User not found' });
     }
-
+    console.log(`User Updated!  ${updatedUser}`);
     return res.json(updatedUser);
 
 })
@@ -259,8 +245,8 @@ module.exports = {
     deleteUser_ADMIN,
     getMyData,
     updateMyUser,
-    createNewUser,
     verifyEmail,
+    resendEmailVerification,
     forgotPassword,
     resetPassword
 }

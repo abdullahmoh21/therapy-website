@@ -138,3 +138,29 @@ body {
   width: 80%;
   max-width: 500px;
 }
+/* Spinner page */
+.spinner-page {
+  position: fixed; /* Fixed positioning */
+  top: 50%; /* Push it down 50% from the top */
+  left: 50%; /* Push it right 50% from the left */
+  transform: translate(-50%, -50%); /* Offset it by negative 50% on both the X and Y axis to center it */
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: radial-gradient(farthest-side,#ffffff 94%,#0000) top/9px 9px no-repeat,
+         conic-gradient(#0000 30%,#dddddd);
+  -webkit-mask: radial-gradient(farthest-side,#0000 calc(100% - 9px),#000 0);
+  animation: spinner-c7wet2 1s infinite linear;
+}
+
+@keyframes spinner-c7wet2 {
+  100% {
+     transform: rotate(1turn);
+  }
+}
+
+input.lp-ignore + div[data-lastpass-icon-root] {
+ display: none !important;
+}
+  
+  

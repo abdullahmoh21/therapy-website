@@ -4,6 +4,8 @@ const authController = require('../controllers/authController')
 const loginLimiter = require('../middleware/loginLimiter')
 const expressJoiValidation = require('express-joi-validation').createValidator({});
 const { loginSchema } = require('../validation/usersValidation');
+const { userSchema } = require('../validation/usersValidation');
+
 
 router.route('/')
     //loginLimiter to prevent brute force 
@@ -13,6 +15,9 @@ router.route('/refresh')
 
 router.route('/logout')
     .post(authController.logout)
+
+router.route('/register')
+.post(expressJoiValidation.body(userSchema), authController.register)      
 
 //formats any joi error into JSON for the client
 router.use((err, req, res, next) => {

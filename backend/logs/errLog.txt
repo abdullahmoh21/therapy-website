@@ -25,3 +25,13 @@
 20240515	11:21:37	2dff258a-d8d1-4efa-b4c6-34d2590f125e	Error: ENOENT: no such file or directory, stat '/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/frontend/dist/index.html'
 20240516	07:57:35	dcd631df-228c-4300-9b4a-6323fd4cfea9	Error: ENOENT: no such file or directory, stat '/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/frontend/dist/index.html'
 20240516	07:57:36	4354f61c-e844-4f3e-ae2c-0c36f18a6f1d	Error: ENOENT: no such file or directory, stat '/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/frontend/dist/index.html'
+20240516	08:51:58	0cc80680-3232-4ff9-8ddc-fd16d51bd88d	Error: Cannot set headers after they are sent to the client
+20240516	12:48:48	5c90ea25-caf9-4bf1-a286-142962651a63	Error: ENOENT: no such file or directory, stat '/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/frontend/dist/index.html'
+20240517	10:05:11	4b02d30f-031e-4b2e-8d06-3dbcd1ebfc17	Error: ENOENT: no such file or directory, stat '/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/frontend/dist/index.html'
+20240517	16:24:14	deed9b10-18c5-4859-8d21-54df3df0adcd	Error: ENOENT: no such file or directory, stat '/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/frontend/dist/index.html'
+20240520	15:21:53	f5b4be79-0e6f-4cef-bcfb-c4965f8d16a8	ReferenceError: user is not defined
+20240522	10:20:54	44214f58-05b9-4b84-a807-6f37b0b0538e	Error: Cannot set headers after they are sent to the client
+20240522	11:10:30	abb8e31c-a527-44dd-9395-00c1d3c6215c	ValidationError: Booking validation failed: paymentAmmount: Path `paymentAmmount` is required., endTime: Path `endTime` is required., startTime: Path `startTime` is required.
+20240522	17:57:24	ec4b2c2a-b606-4a0b-9499-04d6af2fbd56	Error: Cannot set headers after they are sent to the client
+20240522	18:03:58	c6c7a86e-367f-43dd-8385-42c61a32e534	Error: Cannot set headers after they are sent to the client
+20240523	05:25:52	b56204df-ad83-44e2-8a30-eaa127be7ed7	TypeError: Assignment to constant variable.

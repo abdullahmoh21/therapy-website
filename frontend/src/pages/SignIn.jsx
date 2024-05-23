@@ -1,109 +1,171 @@
 import { Link } from "react-router-dom";
 import logo from "../assets/images/logo.png";
-
+// import LoadingPage from "./LoadingPage";
 import { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { setCredentials } from "../features/auth/authSlice";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import Joi from "joi";
 import { useLoginMutation } from "../features/auth/authApiSlice";
+import { useResendEmailVerificationMutation } from "../features/users/usersApiSlice";
 import usePersist from "../hooks/usePersist";
-import useAuth from "../hooks/useAuth";
+import { ROLES } from "../config/roles";
+import { selectCurrentUserRole } from "../features/auth/authSlice";
 
-// TODO: Add loading spinner on button
-//TODO: Add error message for wrong credentials... etc
-//TODO: Add forgot password link
+{
+  /* TODO:
+  - FIX PAGE OVERFLOWING
+  - forgot password link
+  - Add error message for wrong credentials... etc
+*/
+}
+
+const schema = Joi.object({
+  email: Joi.string()
+    .email({ tlds: { allow: false } })
+    .required()
+    .messages({
+      "string.email": "Invalid Email. Please enter a valid email address",
+      "string.empty": "Email is required",
+    }),
+  password: Joi.string()
+    .min(8)
+    .max(30)
+    .pattern(new RegExp("[!@#$%*()_+^]"))
+    .required()
+    .messages({
+      "string.min": "Password must be at least 8 characters long",
+      "string.max": "Password must be at most 30 characters long",
+      "string.pattern.base":
+        "Password must one special character like ! or @ or # or _",
+      "string.empty": "Password is required",
+    }),
+});
 
 const Login = () => {
+  const role = useSelector(selectCurrentUserRole);
   const userRef = useRef();
-  const errRef = useRef();
-  const isAdmin = useAuth().isAdmin;
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [errMsg, setErrMsg] = useState("");
+  const [showResendVerification, setShowResendVerification] = useState(false);
   const [persist, setPersist] = usePersist();
-
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const handleUserInput = (e) => setEmail(e.target.value);
+  const handlePwdInput = (e) => setPassword(e.target.value);
 
-  const [login, { isLoading, data }] = useLoginMutation();
+  const [login, { isLoading: loginLoading, error: loginError }] =
+    useLoginMutation();
+
+  const [
+    resendEmailVerification,
+    {
+      //EV = Email Verification
+      isSuccess: resendEVSuccess,
+      error: resendEVError,
+      isLoading: resendEVIsLoading,
+    },
+  ] = useResendEmailVerificationMutation();
+
   useEffect(() => {
     if (userRef.current) {
       userRef.current.focus();
     }
   }, []);
 
+  //will navigate to the appropriate page when users role is determined
   useEffect(() => {
-    setErrMsg("");
-  }, [username, password]);
+    if (role === ROLES.Admin) {
+      navigate("/admin");
+      console.log(`Login successful. Redirecting to "/admin" `);
+    } else if (role) {
+      navigate("/dash");
+      console.log(`Login successful. Redirecting to "/dash" `);
+    }
+  }, [role]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      console.log(`Attempting login with username: ${username}`);
-      const { accessToken } = await login({
-        email: username,
-        password,
-      }).unwrap();
-      dispatch(setCredentials({ accessToken }));
-      setUsername("");
-      setPassword("");
-      console.log(
-        `Login successful. Redirecting to ${
-          (await isAdmin) ? "/dash/admin" : "/dash"
-        }`
-      );
+      //data validation
+      const { error } = schema.validate({ email, password });
+      if (error) {
+        toast.error(error.details[0].message); //validation errors
+        console.log(`in validation if block`);
+        return;
+      }
 
-      if (isAdmin) {
-        navigate("/dash/admin");
-      } else navigate("/dash");
+      console.log(`Attempting login with email: ${email}`);
+      const { accessToken } = await login({ email, password }).unwrap();
+      dispatch(setCredentials({ accessToken }));
+      setEmail("");
+      setPassword("");
+      setPersist(true); //persist login always
     } catch (err) {
+      //server error handling
       let Msg = "An error occurred. Please try again later.";
       if (!err.status && !err.data) {
         Msg =
           "Could not connect to server. Please check your internet connection and try again.";
       } else if (!err.status) {
         Msg = "No Server Response";
-      } else if (err.status === 400) {
-        // Bad Request
-        Msg = "Invalid Username or Password";
-      } else if (err.status === 401) {
-        // Unauthorized
-        Msg = "Unauthorized";
-      } else {
+      } else if (
+        err.status === 401 &&
+        err.data?.message ===
+          "Email not verified. Check your email for verification link"
+      ) {
+        Msg = "Email not verified. Check your email for verification link";
+        setShowResendVerification(true);
+      } else if (err.status === 401 || err.status === 400) {
+        Msg = "Invalid Email or Password"; // Unauthorized
+      } else if (err.data && typeof err.data === "string") {
         // Check if err.data is a string, and if so, set it as the error message
-        if (err.data && typeof err.data === "string") {
-          Msg = err.data;
-        } else if (err?.data?.message) {
-          Msg = err.data?.message;
-        }
+        Msg = err.data;
+      } else if (err?.data?.message) {
+        //or JSON object with a message property
+        Msg = err.data?.message;
+      } else {
+        Msg = "An error occurred. Please try again later.";
       }
-      setErrMsg(Msg);
+      toast.error(Msg);
     }
   };
 
-  const handleUserInput = (e) => setUsername(e.target.value);
-  const handlePwdInput = (e) => setPassword(e.target.value);
-  const handleToggle = () => setPersist((prev) => !prev);
+  const handleResendVerification = async () => {
+    try {
+      await resendEmailVerification();
+    } catch (err) {}
+  };
 
-  {
-    /* TODO:
-    - FIX PAGE OVERFLOWING
-    - forgot password link
-  */
-  }
+  const verificationContent = (
+    <>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-xl shadow-md">
+          <div>
+            <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+              Account not verified
+            </h2>
+            <p className="mt-2 text-center text-sm text-gray-600">
+              Please check your email for the verification link.
+            </p>
+          </div>
+          <div>
+            <button
+              onClick={handleResendVerification}
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              Resend Verification Email
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
 
   const content = (
     <>
-      {errMsg && (
-        <div className="error-modal">
-          <div className="error-modal-content">
-            <h2>Error</h2>
-            <p>{errMsg}</p>
-            <button onClick={() => setErrMsg("")}>Close</button>
-          </div>
-        </div>
-      )}
-
       <div className="flex h-screen">
         {/* LEFT SECTION */}
         <section className="w-1/2 h-screen bg-[#c45e3e]">
@@ -112,6 +174,7 @@ const Login = () => {
 
         {/* RIGHT SECTION */}
         <section className="home-bg w-1/2 h-screen relative">
+          <ToastContainer />
           {/* LOGO AND HEADING */}
           <div className="absolute top-0 left-1/2 transform -translate-x-1/2 pt-20">
             <Link to="/" className="flex justify-center items-center pb-[15px]">
@@ -130,11 +193,11 @@ const Login = () => {
                   className="py-2 px-3 border-b-2 border-[#262424] outline-none focus:border-[#c45e3e] bg-transparent"
                   placeholder="Email"
                   type="text"
-                  id="username"
+                  id="email"
                   ref={userRef}
-                  value={username}
+                  value={email}
+                  autoComplete="email"
                   onChange={handleUserInput}
-                  required
                 />
                 <div>
                   <div>
@@ -143,10 +206,9 @@ const Login = () => {
                       placeholder="Password"
                       type="password"
                       id="password"
-                      onChange={handlePwdInput}
-                      autoComplete="off"
                       value={password}
-                      required
+                      autoComplete="password"
+                      onChange={handlePwdInput}
                     />
                   </div>
                   <div className="w-full">
@@ -156,16 +218,6 @@ const Login = () => {
                       </p>
                     </Link>
                   </div>
-                  {/* <label htmlFor="persist" className="form__persist">
-                        <input
-                            type="checkbox"
-                            className="form__checkbox"
-                            id="persist"
-                            onChange={handleToggle}
-                            checked={persist}
-                        />
-                        Trust This Device
-                  </label> */}
                 </div>
                 {/* SIGN IN BUTTON */}
                 <div className="  flex justify-center items-center">
@@ -173,7 +225,7 @@ const Login = () => {
                     className="py- px-3 bg-[#262424] text-white h-[40px] w-[130px] border-white rounded-[20px]
                     hover:bg-[#2c2c2c]"
                   >
-                    {isLoading ? (
+                    {loginLoading ? (
                       <div
                         style={{
                           display: "flex",
@@ -206,7 +258,21 @@ const Login = () => {
       </div>
     </>
   );
-  return content;
-};
 
+  return (
+    //sign in page or resend verification email
+    <>
+      {showResendVerification ? (
+        <div>
+          <p>Email not verified. Check your email for verification link.</p>
+          <button onClick={handleResendVerification}>
+            Resend Verification Email
+          </button>
+        </div>
+      ) : (
+        content
+      )}
+    </>
+  );
+};
 export default Login;

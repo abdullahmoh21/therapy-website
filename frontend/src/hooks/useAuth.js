@@ -1,29 +1,31 @@
-import { useSelector } from 'react-redux'
-import { selectCurrentToken } from "../features/auth/authSlice"
-import jwtDecode from 'jwt-decode'
+import { useState, useEffect } from 'react';
+import { useSelector } from 'react-redux';
+import { selectCurrentToken } from "../features/auth/authSlice";
+import { jwtDecode } from 'jwt-decode';
+import { ROLES } from '../config/roles';
 
 const useAuth = () => {
-    const token = useSelector(selectCurrentToken)
-    let isAdmin = false
-    let status = "User"
-    let email = ''
-    let role = 1111
+    const token = useSelector(selectCurrentToken);
+    const [loading, setLoading] = useState(false);
+    const [isAdmin, setIsAdmin] = useState(false);
+    const [email, setEmail] = useState('');
+    const [role, setRole] = useState(1111);
 
-    if (token) {
-        const decoded = jwtDecode(token) // decode the token
+    useEffect(() => {
+        if (token) {
+            setLoading(true); // set loading to true when the token is present
+            const decoded = jwtDecode(token); // decode the token
 
-        if(decoded?.userInfo?.email && decoded?.userInfo?.role) {
-            email = decoded.userInfo.email
-            role = decoded.userInfo.role
-
-            isAdmin = (role === 2121)
-            if (isAdmin) status = "Admin"
+            if(decoded?.userInfo?.email && decoded?.userInfo?.role) {
+                setEmail(decoded.userInfo.email);
+                setRole(decoded.userInfo.role);
+                setIsAdmin(decoded.userInfo.role === ROLES.Admin);
+            }
         }
+        setLoading(false); // set loading to false once the token has been decoded
+    }, [token]);
 
-        // console.log(`useAuth: ${email} ${role} ${status} ${isAdmin}`)
-        return { email, role, status,  isAdmin }
-    }else{
-        return { email: '', role: 1111,  isAdmin, status }
-    }
+    return { email, role, isAdmin, loading };
 }
-export default useAuth
+
+export default useAuth;
