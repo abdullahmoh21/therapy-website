@@ -13,7 +13,11 @@ export const usersApiSlice = apiSlice.injectEndpoints({
         getAllUsers: builder.query({
             query: () => '/users',
             validateStatus: (response, result) => {
-                return response.status === 200 && !result.isError
+                //if no response from server, throw an error
+                if (response.status === undefined) {
+                    throw new Error("No response from server");
+                }
+                return response.status === 200 && !result.isError;
             },
             transformResponse: responseData => {
                 const loadedUsers = responseData.map(user => {
@@ -36,7 +40,10 @@ export const usersApiSlice = apiSlice.injectEndpoints({
         getMyUser: builder.query({
             query: () => '/users/me',
             validateStatus: (response, result) => {
-                return response.status === 200 && !result.isError
+                if (response.status === undefined) { 
+                    throw new Error("No response from server");
+                }
+                return response.status === 200 && !result.isError;
             },
             transformResponse: (responseData) => {
                 const MyUser = { ...responseData, id: responseData._id };
@@ -50,18 +57,6 @@ export const usersApiSlice = apiSlice.injectEndpoints({
                 } else return []
             }
         }),
-        resendEmailVerification: builder.mutation({
-            query: () => 'users/verifyemail',
-            validateStatus: (response, result) => {
-                return response.status === 200 && !result.isError
-            },
-        }),
-        verifyEmail: builder.mutation({
-            query: (token) => `users/verifyemail/${token}`,
-            validateStatus: (response, result) => {
-                return response.status === 200 && !result.isError
-            },
-        }),
         updateMyUser: builder.mutation({
             query: initialUserData => ({
                 url: '/users/me',
@@ -70,6 +65,60 @@ export const usersApiSlice = apiSlice.injectEndpoints({
                     ...initialUserData,
                 }
             }),
+            validateStatus: (response, result) => {
+                if (response.status === undefined) {
+                    throw new Error("No response from server");
+                }
+                return response.status === 200 && !result.isError;
+            },
+        }),
+        resendEmailVerification: builder.mutation({
+            query: (body) => ({
+                url: 'users/resendEmailVerification',
+                method: 'POST',
+                body
+            }),
+            validateStatus: (response, result) => {
+                if (response.status === undefined) {
+                    throw new Error("No response from server");
+                }
+                return response.status === 200 && !result.isError;
+            },
+        }),
+        verifyEmail: builder.mutation({
+            query: (token) => `users/verifyEmail?token=${token}`,
+            validateStatus: (response, result) => {
+                if (response.status === undefined) {
+                    throw new Error("No response from server");
+                }
+                return response.status === 200 && !result.isError;
+            },
+        }),
+        forgotPassword: builder.mutation({
+            query: (email) => ({
+                url: '/users/forgotPassword',
+                method: 'POST',
+                body: { email }
+            }),
+            validateStatus: (response, result) => {
+                if (response.status === undefined) {
+                    throw new Error("No response from server");
+                }
+                return response.status === 200 && !result.isError;
+            },
+        }),
+        resetPassword: builder.mutation({
+            query: (request) => ({
+                url: `/users/resetPassword?token=${request.token}`,
+                method: 'POST',
+                body: { password: request.password, confirmPassword: request.confirmPassword }
+            }),
+            validateStatus: (response, result) => {
+                if (response.status === undefined) {
+                    throw new Error("No response from server");
+                }
+                return response.status === 200 && !result.isError;
+            },
         }),
         deleteUser: builder.mutation({
             query: (email) => ({
@@ -77,6 +126,12 @@ export const usersApiSlice = apiSlice.injectEndpoints({
                 method: 'DELETE',
                 body: { email}
             }),
+            validateStatus: (response, result) => {
+                if (response.status === undefined) {
+                    throw new Error("No response from server");
+                }
+                return response.status === 200 && !result.isError;
+            },
             invalidatesTags: (result, error, arg) => [
                 { type: 'User', id: arg.email }
             ]
@@ -88,13 +143,33 @@ export const {
     useGetAllUsersQuery,
     useDeleteUserMutation,
     useGetMyUserQuery,
+    useUpdateMyUserMutation,
     useResendEmailVerificationMutation,
     useVerifyEmailMutation,
-    useUpdateMyUserMutation
+    useForgotPasswordMutation,
+    useResetPasswordMutation
 } = usersApiSlice
 
-export const selectMyUser = usersApiSlice.endpoints.getMyUser.select()
+const selectRawUser = (state) => usersApiSlice.endpoints.getMyUser.select()(state);
 
+export const selectMyUser = createSelector( //return a memoized selector
+    [selectRawUser],
+    (rawUser) => {
+      if (!rawUser?.data) return null;
+  
+      const entities = rawUser.data.entities;
+      const fetchedUser = entities && entities[Object.keys(entities)[0]];
+  
+      if (!fetchedUser) return null;
+  
+      const dob = new Date(fetchedUser.DOB);
+      const formattedDob = `${dob.getFullYear()}-${(dob.getMonth() + 1)
+        .toString()
+        .padStart(2, "0")}-${dob.getDate().toString().padStart(2, "0")}`;
+  
+      return { ...fetchedUser, DOB: formattedDob };
+    }
+  );
 // returns the query result object
 export const selectUsersResult = usersApiSlice.endpoints.getAllUsers.select()
 

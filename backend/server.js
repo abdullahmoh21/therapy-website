@@ -6,9 +6,11 @@ const path = require('path');
 const {logger} = require('./middleware/logEvents'); 
 const errorHandler  = require('./middleware/errorHandler');
 const credentials = require('./middleware/credentials');
-const verifyJWT = require('./middleware/verifyJWT');
 const mongoose = require('mongoose');
-const connectDB = require('./config/dbConfig');
+const connectDB = require('./utils/connectDB');
+const connectCalendly = require('./utils/connectCalendly');
+const cron = require('node-cron');
+const { deleteOldBookings } = require('./controllers/bookingController');
 
 const cors = require('cors');
 const corsOptions = require('./config/corsOptions');
@@ -33,6 +35,7 @@ app.use(cors(corsOptions));
 //----------------- ENDPOINTS------------------//
 app.use('/auth', require('./endpoints/authEndpoints'));
 app.use('/users', require('./endpoints/userEndpoints'));
+app.use('/bookings', require('./endpoints/bookingEndpoints'));
 // ---------------------------------------------//
 
 
@@ -47,10 +50,35 @@ app.get('*', (req, res) => {
 // Error handler
 app.use(errorHandler); 
 
-//only listen when connection to database is open
-mongoose.connection.on('open', () => {
-  console.log('Mongoose connected');
-  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// Schedule the task to run once a day at midnight (00:00)
+cron.schedule('0 0 * * *', () => {
+  console.log('Running a daily task to delete old or cancelled bookings');
+  deleteOldBookings();
+});
+
+// Only listen when the connection to the database is open and the webhook is live
+mongoose.connection.on('open', async () => {
+  try {
+    const webhookLive = await connectCalendly(); 
+    if (webhookLive) {
+      console.log('Mongoose connected and webhook is live');
+      server = app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+    } else {
+      console.error('Webhook is not live. Server startup aborted.');
+    }
+  } catch (error) {
+    console.error('Failed to connect Calendly or check webhook status:', error);
+  }
+});
+
+// Graceful shutdown
+process.on('SIGINT', () => {
+  console.log('Received SIGINT. Shutting down gracefully.');
+  server.close(() => {
+    console.log('Server shut down.');
+    // Ensure the process exits after the server is closed
+    process.exit(0);
+  });
 });
 
 mongoose.connection.on('error', (err) => {

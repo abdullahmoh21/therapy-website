@@ -1,5 +1,6 @@
 //CRUD operations for user
 const User = require('../models/User');
+const Booking = require('../models/Booking');
 const asyncHandler = require('express-async-handler');  //middleware to handle exceptions
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
@@ -15,7 +16,7 @@ const transporter = nodemailer.createTransport({
     port: 465,
     auth: {
       user: 'resend',
-      pass: process.env.RESEND_EMAIL_SECRET,
+      pass: process.env.RESEND_API_KEY,
     },
 });
 
@@ -38,39 +39,56 @@ const getAllUsers_ADMIN = asyncHandler( async (req, res) => {
 const deleteUser_ADMIN = asyncHandler( async (req, res) => {
     if (req.role !== ROLES_LIST.Admin) return res.sendStatus(401);
     const { email } = req.body;
-    const users = await User.deleteOne({ email: email }).exec();
-    if (!users) return res.status(204).json({ 'message': 'No users found' });
+
+    const user = await User.findOne({ email: email }).lean().exec();
+    if (!user) return res.status(204).json({ 'message': 'No user found' });
+
+    const bookings = await Booking.deleteMany({ userId: user._id}).exec();
+    const deletedUser = await User.deleteOne({ email: email }).exec();
     
-    res.json(users).status(200).json({ 'message': 'User' +user+ 'deleted' });
+    res.status(200).json({ 'message': `User: ${user.email} deleted successfully` });
 })
 
 //@desc Resend email verification
-//@param {Object} req with valid email
-//@route GET /users/verifyEmail
+//@param {Object} req with valid email or token
+//@route GET /users/resendEmailVerification
 //@access Public
-const resendEmailVerification =  asyncHandler( async (req, res) => {
+const resendEvLink =  asyncHandler( async (req, res) => {
+    const { token } = req.body;
     const { email } = req.body;
-    const user = await User.findOne({ email });
-    if (!user) {return res.status(400).send('No user found with that email ');}
-    if (user.emailVerified.data.state) {return res.status(400).send('Email already verified');}
 
-    const token = crypto.randomBytes(20).toString('hex');
-    const verificationHash = crypto.createHash('sha256').update(token).digest('hex');
+    if(!token && !email) return res.status(400).json({'message':'Invalid request'});
+    
+    console.log(`in resendEvLink: ${token} \t ${email}`)
+    
+    let user;
+    if (token) {
+        const hashedToken = crypto.createHash('sha256').update(token).digest('hex');    //hash the token to compare with db
+        user = await User.findOne({ 'emailVerified.data.hash' : hashedToken });
+    } else {
+        user = await User.findOne({ email });
+    }
+
+    if (!user) {return res.status(400).json({'message' : 'No user found '});}
+    if (user.emailVerified.data.state) {return res.status(400).json({'message' : 'Email already verified'});}
+
+    const newToken = crypto.randomBytes(20).toString('hex');
+    const verificationHash = crypto.createHash('sha256').update(newToken).digest('hex');
 
     //overwrite existing verification data
-    emailVerified.data.hash = verificationHash;
-    emailVerified.data.expiresIn = Date.now() + 3600000; // 1 hour
+    user.emailVerified.data.hash = verificationHash;
+    user.emailVerified.data.expiresIn = Date.now() + 3600000; // 1 hour
     user.markModified('emailVerified.data');    //subdocument changes need to be marked modified
     await user.save();
 
-    const link = `http://localhost:3500/users/verifyEmail/${token}`   //production: change to domain and https
+    const link = `http://localhost:5173/verifyEmail?token=${newToken}`   //production: change to domain and https
 
     const mailOptions = {
         from: 'verification@fatimanaqvi.com',
-        to: email,             //production: ensure actual this field is always actual email
+        to: 'delivered@resend.dev',             //production: change to: 'email'
         subject: 'Welcome to my Clinic',
         text: 
-       `Dear ${fullName}, 
+       `Dear ${user.name}, 
 
         Click on this link to activate your account: ${link}
         This link expires in One hour.
@@ -86,41 +104,46 @@ const resendEmailVerification =  asyncHandler( async (req, res) => {
             res.status(500).send('Error sending email');
         } else {
             console.log('Email sent: ' + info.response);
-            res.status(200).json({ 'success': `New user ${email} created! Email Verification link sent to your email` });
+            res.status(200).json({ 'success': `Verification link sent to ${user.email}` });
         }
     });
 
 })
 
-//@desc Verify a new user
-//@param {Object} req with valid token
-//@route GET /users/verifyEmail/:token
+//@desc Verify a new users email 
+//@param valid token in query
+//@route GET /users/verifyEmail?token=tokenData
 //@access Public
 const verifyEmail = asyncHandler( async (req, res) => {
-    const { token } = req.params;
+    const { token } = req.query;
 
     if(!token) return res.status(400).send('Invalid request');
 
-    //find user with same verification hash and expiry time greater than now
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');    //hash the token to compare with db
-
+    
+    //find user with same verification hash and expiry time greater than now
     console.log(hashedToken);  //debugging
 
-    const user =  await User.findOne( { "emailVerified.data.hash": hashedToken } );
+    const user =  await User.findOne( { 
+        "emailVerified.data.hash": hashedToken,
+        "emailVerified.data.expiresIn": { $gt: Date.now() } //not expired
+    } );
 
-    console.log(user);  //debugging
 
     if (!user) {
+        console.log("Invalid or expired verification token")
         return res.status(400).send('Invalid or expired verification token');
     }
     
+    console.log("Email verified!!")
     user.emailVerified.data.state = true;   //set email verified to true
-    user.emailVerified.data.hash = '';     //TODO: fix, not deleting hash for now
+    user.emailVerified.data.hash = '';     
     user.emailVerified.data.expiresIn = undefined;
-    user.markModified('emailVerified.data');    //subdocument changes need to be marked modified
 
+    user.markModified('emailVerified.data');    //subdocument changes need to be marked modified
     await user.save();
-    res.status(200).send('Email Verified!');
+
+    res.status(200).json({'message':'Email Verified!'});
 });
 
 //@desc send forgot password email
@@ -134,7 +157,7 @@ const forgotPassword =  asyncHandler( async (req, res) => {
     user = await User.findOne({ email });
 
     if (!user) {
-        return res.status(400).send('No user found with that email ');
+        return res.status(400).json({'message':'No user found with that email'});
     }
 
     const resetToken = crypto.randomBytes(20).toString('hex');
@@ -145,12 +168,12 @@ const forgotPassword =  asyncHandler( async (req, res) => {
    user = await user.save();
 
 
-    const link = `http://localhost:3500/forgotPassword/${resetToken}`;  //production: change to domain
+    const link = `http://localhost:5173/resetPassword?token=${resetToken}`;  //production: change to domain
     console.log(link);
 
     const mailOptions = {
-        from: 'notifications@fatimanaqvi.com',
-        to: user.email,             //production: ensure actual email field is used not email
+        from: 'reset@fatimanaqvi.com',
+        to:'delivered@resend.dev',             //production: ensure actual email field is used not email
         subject: 'Password Reset',
         text: `Click on this link to reset your password: ${link}`
     };
@@ -158,24 +181,23 @@ const forgotPassword =  asyncHandler( async (req, res) => {
     transporter.sendMail(mailOptions, function(error, info){
         if (error) {
             console.log(error);
-            res.status(500).send('Error sending email');
+            res.status(500).json({'message':'Error sending email'});
         } else {
             console.log('Email sent: ' + info.response);
-            res.status(200).send('Reset password link sent to your email');
+            res.status(200).json({'message':'Reset password link sent to your email'});
         }
     });
 })
 
 //@desc reset password
-//@param {Object} req with valid token and password
-//@route POST /users/forgotPassword/:token
+//@param {Object} req body with valid password and token in query params
+//@route POST /users/resetPassword?token=tokenString
 //@access Public
 const resetPassword = async (req, res) => {
-    const { token } = req.params;
+    const { token } = req.query;
     const { password } = req.body;
-
     
-    if(!token || !password) return res.status(400).send('Invalid request');
+    console.log(`in resetpassword. token: ${token}`);  //debugging
     
     //find user with reset token
     let user;
@@ -185,7 +207,7 @@ const resetPassword = async (req, res) => {
     user = await User.findOne({ resetPasswordTokenHash: hashedToken, resetPasswordExp: { $gt: currentDate } });
 
     if (!user) {
-        return res.status(400).send('Invalid or expired reset token');
+        return res.status(400).json({'message':'Invalid or expired token'});
     }
 
     user.password = await bcrypt.hash(password, 10);
@@ -193,12 +215,12 @@ const resetPassword = async (req, res) => {
     user.resetPasswordExp = undefined;
     await user.save();
 
-    res.status(200).send('Password reset successful');
+    res.status(200).json({'message':'Password reset successfully!'});
 };
 
 //@desc get users own data
 //@route GET /users/me
-//@access Public
+//@access Private
 const getMyData=  asyncHandler( async (req, res) => {
     const{ email } = req; //from verifyJWT
     const user = await User.findOne({ "email": email }).select('-password -refreshTokenExp -refreshTokenHash -emailVerified').lean();
@@ -210,7 +232,7 @@ const getMyData=  asyncHandler( async (req, res) => {
 //@desc Update users own data
 //@param {Object} req with valid new data
 //@route PATCH /users/me
-//@access Public
+//@access Private
 const updateMyUser = asyncHandler( async (req, res) => {
     const { email } = req;   //from verifyJWT
     const newData = req.body;
@@ -218,7 +240,7 @@ const updateMyUser = asyncHandler( async (req, res) => {
     // whitelist of fields that can be updated
     const allowedUpdates = ['name', 'phone', 'DOB'];
 
-   // filter out any fields that are not allowed 
+   // filter out any fields that are not allowed to be edited
     const updates = Object.keys(newData)
        .filter(key => allowedUpdates.includes(key))
        .reduce((obj, key) => {
@@ -230,7 +252,7 @@ const updateMyUser = asyncHandler( async (req, res) => {
         { email: email }, // find a document with this email
         updates, // filtered data to update
         { new: true, runValidators: true } // options: return updated one, run all schema validators again
-    );
+    ).select('-password -refreshTokenExp -refreshTokenHash -emailVerified');
 
     if (!updatedUser) {
         return res.status(404).json({ message: 'User not found' });
@@ -246,7 +268,7 @@ module.exports = {
     getMyData,
     updateMyUser,
     verifyEmail,
-    resendEmailVerification,
+    resendEvLink,
     forgotPassword,
     resetPassword
 }

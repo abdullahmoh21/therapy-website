@@ -3,8 +3,8 @@ const router = express.Router()
 const authController = require('../controllers/authController')
 const loginLimiter = require('../middleware/loginLimiter')
 const expressJoiValidation = require('express-joi-validation').createValidator({});
-const { loginSchema } = require('../validation/usersValidation');
-const { userSchema } = require('../validation/usersValidation');
+const { loginSchema } = require('../utils/validationSchemas');
+const { userSchema } = require('../utils/validationSchemas');
 
 
 router.route('/')

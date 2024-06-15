@@ -15,7 +15,7 @@ const transporter = nodemailer.createTransport({
     port: 465,
     auth: {
       user: 'resend',
-      pass: process.env.RESEND_EMAIL_SECRET,
+      pass: process.env.RESEND_API_KEY,
     },
 });
 
@@ -24,10 +24,11 @@ const transporter = nodemailer.createTransport({
 // @route POST /auth
 // @access Public
 const login = asyncHandler( async (req, res) => {
-    //TODO: Validation check sending number as pwd crashes server
 
     const { email, password } = req.body;
+
     if (!email || !password) return res.status(400).json({ 'message': 'Username and password are required.' });
+
     const foundUser = await User.findOne({ email: email });
     if (!foundUser) return res.status(401).json({ message: 'Unauthorized' }); //Unauthorized 
 
@@ -35,7 +36,6 @@ const login = asyncHandler( async (req, res) => {
     // evaluate password 
     const match = await bcrypt.compare(password, foundUser.password);
     if (match) {
-
         const role = foundUser.role;
 
         //check if email is verified
@@ -105,7 +105,7 @@ const register = asyncHandler( async (req, res) => {
 
 
     const userResult = await User.create({ 
-        "email": email,
+        "email": email,    
         "name": name,
         "password": hashedPassword,
         "DOB": DOB,
@@ -124,22 +124,25 @@ const register = asyncHandler( async (req, res) => {
         "eventEndTime": eventEndTime,
         "eventType": eventType,
         "paymentAmmount": 0, //free
+        "paymentStatus": "NA",
+        "paymentCurrency": "NA"
     });
 
     if (!bookingResult){ 
         //delete user if booking creation fails
         await User.deleteOne({_id: userResult._id}).exec();
-        return res.sendStatus(500).json({ 'message': 'Error creating Booking. Registration aborted' });
         console.log(`Booking creation failed. User deleted.`)
+        return res.sendStatus(500).json({ 'message': 'Error creating Booking. Registration aborted' });
     }
 
 
     // email verification link with unhashed token
-    const link = `http://localhost:3500/users/verifyEmail/${token}`   //production: change to domain and https
+    const link = `http://localhost:3200/verifyEmail?token=${token}`   //production: change to domain and https
 
+    console.log(`token: ${token}`)
     const mailOptions = {
         from: 'verification@fatimanaqvi.com',
-        to: email,             //production: ensure actual this field is always actual email
+        to: 'delivered@resend.dev',              //production: change to email
         subject: 'Welcome to my Clinic',
         text: 
        `Dear ${name}, 

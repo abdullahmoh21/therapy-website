@@ -56,16 +56,13 @@ const Login = () => {
   const handleUserInput = (e) => setEmail(e.target.value);
   const handlePwdInput = (e) => setPassword(e.target.value);
 
-  const [login, { isLoading: loginLoading, error: loginError }] =
-    useLoginMutation();
+  const [login, { isLoading: loginLoading }] = useLoginMutation();
 
   const [
     resendEmailVerification,
     {
       //EV = Email Verification
-      isSuccess: resendEVSuccess,
-      error: resendEVError,
-      isLoading: resendEVIsLoading,
+      isLoading: sendingEV,
     },
   ] = useResendEmailVerificationMutation();
 
@@ -116,7 +113,6 @@ const Login = () => {
         err.data?.message ===
           "Email not verified. Check your email for verification link"
       ) {
-        Msg = "Email not verified. Check your email for verification link";
         setShowResendVerification(true);
       } else if (err.status === 401 || err.status === 400) {
         Msg = "Invalid Email or Password"; // Unauthorized
@@ -127,7 +123,7 @@ const Login = () => {
         //or JSON object with a message property
         Msg = err.data?.message;
       } else {
-        Msg = "An error occurred. Please try again later.";
+        Msg = "Error Connecting to Server. Please datry again later.";
       }
       toast.error(Msg);
     }
@@ -135,13 +131,23 @@ const Login = () => {
 
   const handleResendVerification = async () => {
     try {
-      await resendEmailVerification();
-    } catch (err) {}
+      await resendEmailVerification({ email: email });
+      toast.success("Verification email sent successfully!");
+    } catch (err) {
+      if (err.status === 400) {
+        toast.error("No user found with this email.");
+      } else if (err.status === 500) {
+        toast.error("Failed to send verification email.");
+      } else {
+        toast.error("Could not connect. ");
+      }
+    }
   };
 
-  const verificationContent = (
+  const verificationPage = (
     <>
       <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+        <ToastContainer />
         <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-xl shadow-md">
           <div>
             <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
@@ -156,7 +162,19 @@ const Login = () => {
               onClick={handleResendVerification}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
-              Resend Verification Email
+              {sendingEV ? (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                  }}
+                >
+                  <div className="spinner"></div>
+                </div>
+              ) : (
+                "Resend Verification Link"
+              )}
             </button>
           </div>
         </div>
@@ -164,7 +182,7 @@ const Login = () => {
     </>
   );
 
-  const content = (
+  const signinPage = (
     <>
       <div className="flex h-screen">
         {/* LEFT SECTION */}
@@ -212,7 +230,7 @@ const Login = () => {
                     />
                   </div>
                   <div className="w-full">
-                    <Link to="/" className="w-full">
+                    <Link to="/forgotPassword" className="w-full">
                       <p className="text-right text-[#c45e3e] text-sm">
                         Forgot Password?
                       </p>
@@ -241,7 +259,7 @@ const Login = () => {
                   </button>
                 </div>
               </form>
-
+              {/* NEW CLIENT */}
               <Link to="/bookasession" className="w-full ">
                 <p className="text-right pt-[20px] text-sm flex justify-center items-center ">
                   <span className="text-[#262424] whitespace-pre">
@@ -260,19 +278,8 @@ const Login = () => {
   );
 
   return (
-    //sign in page or resend verification email
-    <>
-      {showResendVerification ? (
-        <div>
-          <p>Email not verified. Check your email for verification link.</p>
-          <button onClick={handleResendVerification}>
-            Resend Verification Email
-          </button>
-        </div>
-      ) : (
-        content
-      )}
-    </>
+    //sign in page or email verification page
+    <>{showResendVerification ? verificationPage : signinPage}</>
   );
 };
 export default Login;

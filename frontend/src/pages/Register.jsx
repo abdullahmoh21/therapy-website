@@ -4,8 +4,8 @@ import Joi from "joi";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useRegisterMutation } from "../features/auth/authApiSlice";
-import { useNavigate } from "react-router-dom";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
+import { useLocation } from "react-router-dom";
 
 //Data validation
 const validPhone = Joi.string().custom((value, helpers) => {
@@ -123,8 +123,7 @@ const Register = () => {
     },
   ] = useRegisterMutation();
 
-  const navigate = useNavigate();
-  const urlParams = new URLSearchParams(window.location.search);
+  const urlParams = new URLSearchParams(location.search);
   const name = urlParams.get("invitee_full_name");
   const email = urlParams.get("invitee_email");
   const phone = urlParams.get("answer_1");

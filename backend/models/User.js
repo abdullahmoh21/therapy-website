@@ -42,6 +42,9 @@ const userSchema = new Schema(
         DOB: {
             type: Date,
         },
+        utmContent: {
+            type: String,
+        },
         refreshTokenHash: {
             type: String,
         },

@@ -35,3 +35,51 @@
 20240522	17:57:24	ec4b2c2a-b606-4a0b-9499-04d6af2fbd56	Error: Cannot set headers after they are sent to the client
 20240522	18:03:58	c6c7a86e-367f-43dd-8385-42c61a32e534	Error: Cannot set headers after they are sent to the client
 20240523	05:25:52	b56204df-ad83-44e2-8a30-eaa127be7ed7	TypeError: Assignment to constant variable.
+20240524	13:06:50	ebb78ff9-b6d1-437a-9b09-f472e5c02e0e	ReferenceError: user is not defined
+20240524	13:49:37	51e38b7c-3a6d-43e4-b86d-472c197326a7	ReferenceError: Booking is not defined
+20240524	13:49:42	e2d61684-62bc-4d13-af5d-82ed0b9de168	ReferenceError: Booking is not defined
+20240524	13:50:34	0c565bb1-9ead-478e-8a1e-79f7a63baacf	Error: Cannot set headers after they are sent to the client
+20240524	17:44:57	343b5b66-3ea2-493f-83f2-e67adb9bbef3	MongoServerSelectionError: C03A2DED01000000:error:0A000438:SSL routines:ssl3_read_bytes:tlsv1 alert internal error:ssl/record/rec_layer_s3.c:907:SSL alert number 80
+
+20240524	17:45:17	dc81a6c4-eb24-4898-b1ba-5979e6b70ce6	MongoServerSelectionError: C03A2DED01000000:error:0A000438:SSL routines:ssl3_read_bytes:tlsv1 alert internal error:ssl/record/rec_layer_s3.c:907:SSL alert number 80
+
+20240524	18:00:55	1cc8a85f-0552-4e4b-8ba0-5999f03e9519	MongoServerSelectionError: C03A2DED01000000:error:0A000438:SSL routines:ssl3_read_bytes:tlsv1 alert internal error:ssl/record/rec_layer_s3.c:907:SSL alert number 80
+
+20240524	18:01:25	40bb88ad-04e6-4495-8527-d1d06f4f2c02	MongoServerSelectionError: C03A2DED01000000:error:0A000438:SSL routines:ssl3_read_bytes:tlsv1 alert internal error:ssl/record/rec_layer_s3.c:907:SSL alert number 80
+
+20240524	18:13:33	4464d0ad-3b77-48af-a094-fb29239f30a7	MongoServerSelectionError: C03A2DED01000000:error:0A000438:SSL routines:ssl3_read_bytes:tlsv1 alert internal error:ssl/record/rec_layer_s3.c:907:SSL alert number 80
+
+20240524	18:14:03	d7ab4b0c-df24-4f93-a88b-d7aaf58c1fb2	MongoServerSelectionError: C03A2DED01000000:error:0A000438:SSL routines:ssl3_read_bytes:tlsv1 alert internal error:ssl/record/rec_layer_s3.c:907:SSL alert number 80
+
+20240524	18:14:14	2d0f5915-114f-4c25-8e03-28972d615cdf	MongoServerSelectionError: C03A2DED01000000:error:0A000438:SSL routines:ssl3_read_bytes:tlsv1 alert internal error:ssl/record/rec_layer_s3.c:907:SSL alert number 80
+
+20240524	18:14:34	b87d70a1-5dd9-4aaa-8032-b6b5bcd2e80d	MongoServerSelectionError: C03A2DED01000000:error:0A000438:SSL routines:ssl3_read_bytes:tlsv1 alert internal error:ssl/record/rec_layer_s3.c:907:SSL alert number 80
+
+20240524	18:18:00	a2371f21-1490-4a0f-92b2-31814cd75c55	MongoServerSelectionError: C03A2DED01000000:error:0A000438:SSL routines:ssl3_read_bytes:tlsv1 alert internal error:ssl/record/rec_layer_s3.c:907:SSL alert number 80
+
+20240524	18:18:03	41640632-22ef-4775-8509-93bb270ed9e8	MongoServerSelectionError: C03A2DED01000000:error:0A000438:SSL routines:ssl3_read_bytes:tlsv1 alert internal error:ssl/record/rec_layer_s3.c:907:SSL alert number 80
+
+20240524	18:18:05	1592ac3a-c0a8-48a2-a0d5-5f8739b6b611	MongoServerSelectionError: C03A2DED01000000:error:0A000438:SSL routines:ssl3_read_bytes:tlsv1 alert internal error:ssl/record/rec_layer_s3.c:907:SSL alert number 80
+
+20240524	18:18:05	88454265-e25c-4693-b851-5eb9a965511c	MongoServerSelectionError: C03A2DED01000000:error:0A000438:SSL routines:ssl3_read_bytes:tlsv1 alert internal error:ssl/record/rec_layer_s3.c:907:SSL alert number 80
+
+20240528	11:20:20	abac37a2-3f67-4686-87a8-b35f07a621a9	SyntaxError: Unexpected token 'a', "abdullahmo"... is not valid JSON
+20240528	11:20:26	8da4d4b4-fc48-4624-8fcf-111d2b4f2c75	SyntaxError: Unexpected token 'a', "abdullahmo"... is not valid JSON
+20240528	13:47:09	2928ba16-130a-4d26-8b50-c229db4718a7	Error: ENOENT: no such file or directory, stat '/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/frontend/dist/index.html'
+20240531	07:15:54	98e6ce4b-a2ab-433a-a823-99882887dcf3	Error: ENOENT: no such file or directory, stat '/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/frontend/dist/index.html'
+20240531	07:20:10	a7d7a4a4-ae04-4122-8273-37a832beb9f7	Error: ENOENT: no such file or directory, stat '/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/frontend/dist/index.html'
+20240531	07:21:43	e24d6b3f-51f4-456e-8587-76747c46c40f	Error: ENOENT: no such file or directory, stat '/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/frontend/dist/index.html'
+20240531	07:22:10	62a76b83-63a5-4c9d-b838-a8c5b5470c48	Error: ENOENT: no such file or directory, stat '/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/frontend/dist/index.html'
+20240531	07:22:11	53de8098-3448-4bb0-b701-5f2907e071ea	Error: ENOENT: no such file or directory, stat '/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/frontend/dist/index.html'
+20240531	07:29:44	91756900-87c9-423e-a382-85c240765d5c	ReferenceError: User is not defined
+20240531	07:32:39	27ddcf92-fba9-486f-86b3-f83a9789d30a	TypeError: Booking.findMany is not a function
+20240531	07:33:47	6f85c7c2-04e0-4b83-89d4-94887759c219	ReferenceError: booking is not defined
+20240531	07:40:03	b92fa223-6728-4d07-8703-bbdf506810aa	ReferenceError: bookings is not defined
+20240531	07:41:06	a55359ae-3465-42fa-b524-074268ccc0f6	ReferenceError: bookings is not defined
+20240610	12:35:14	63defbd0-d55b-46a8-8d0d-f15fe69f12ef	Error: Cannot set headers after they are sent to the client
+20240612	15:23:00	a2ca0e40-76cd-4b84-bcb5-20235c333bdb	Error: Not allowed by CORS
+20240613	07:46:20	dcb98f6f-a55d-452a-a0ec-72c50c98608e	TypeError: Cannot destructure property 'invitee' of 'payload' as it is undefined.
+20240613	08:04:42	3205b965-232d-4661-8a3a-436f8fad9226	Error: ENOENT: no such file or directory, stat '/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/frontend/dist/index.html'
+20240614	09:58:06	45e27def-e1e6-43ce-8028-f47f4fdfabf1	TypeError: crypto.randomBytes is not a function
+20240614	17:34:18	2744d26e-dcaa-45a6-87be-6e48dbb0fe73	Error: ENOENT: no such file or directory, stat '/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/frontend/dist/index.html'
+20240614	17:34:18	135e7182-a491-429d-ac06-5fcb34ec9b40	Error: ENOENT: no such file or directory, stat '/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/frontend/dist/index.html'
