@@ -8,10 +8,13 @@ const Layout = () => {
   const location = useLocation();
   return (
     <>
-      {/* Renders the header&footer on all pages but the signin page and dasborad */}
+      {/* Renders the header&footer on all pages but these */}
       {location.pathname !== "/signin" &&
         location.pathname !== "/dash" &&
         location.pathname !== "/register" &&
+        location.pathname !== "/verifyEmail" &&
+        location.pathname !== "/forgotPassword" &&
+        location.pathname !== "/resetPassword" &&
         location.pathname !== "/admin" && <Header />}
       <main>
         <Routers />
@@ -19,6 +22,9 @@ const Layout = () => {
       {location.pathname !== "/signin" &&
         location.pathname !== "/dash" &&
         location.pathname !== "/register" &&
+        location.pathname !== "/verifyEmail" &&
+        location.pathname !== "/forgotPassword" &&
+        location.pathname !== "/resetPassword" &&
         location.pathname !== "/admin" && <Footer />}
     </>
   );

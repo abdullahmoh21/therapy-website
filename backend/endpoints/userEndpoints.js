@@ -5,16 +5,20 @@ const verifyJWT = require('../middleware/verifyJWT');
 const expressJoiValidation = require('express-joi-validation').createValidator({})
 
 // Import validation schemas
-const { userSchema, updateMyUser, emailSchema, resetPasswordSchema, tokenSchema } = require('../validation/usersValidation');
+const { updateMyUser, emailSchema, passwordSchema, tokenOrEmailSchema, tokenSchema } = require('../utils/validationSchemas');
 
 //open routes
 router.route(`/resendEmailVerification`)
-    .get(expressJoiValidation.body(emailSchema), userController.resendEmailVerification)
-router.route('/verifyEmail/:token')
-    .get(expressJoiValidation.params(tokenSchema), userController.verifyEmail)            
+    .post(expressJoiValidation.body(tokenOrEmailSchema), userController.resendEvLink)
+
+router.route('/verifyEmail')//?token=tokenString
+    .get(expressJoiValidation.query(tokenSchema), userController.verifyEmail)            
     
-router.route('/forgotPassword/:token')           
-    .post(expressJoiValidation.params(resetPasswordSchema), userController.resetPassword)  
+router.route('/resetPassword')//?token=tokenString            
+    .post(
+        expressJoiValidation.body(passwordSchema),  //password is in the body
+        expressJoiValidation.query(tokenSchema),   //token is in the URL
+        userController.resetPassword)  
 
 router.route('/forgotPassword')                  
     .post(expressJoiValidation.body(emailSchema), userController.forgotPassword)                 

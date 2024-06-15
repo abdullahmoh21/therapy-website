@@ -1,26 +1,35 @@
 import {
-    createSelector,
     createEntityAdapter
 } from "@reduxjs/toolkit";
 import { apiSlice } from "../../app/api/apiSlice"
 
-const bookingsAdapter = createEntityAdapter({})
+const bookingsAdapter = createEntityAdapter({
+    selectId: (booking) => booking._id
+})
 
 const initialState = bookingsAdapter.getInitialState()
 
 export const bookingsApiSlice = apiSlice.injectEndpoints({
     endpoints: builder => ({
-        getBookings: builder.query({
+        getAllBookings: builder.query({
             query: () => '/bookings',
             validateStatus: (response, result) => {
-                return response.status === 200 && !result.isError
+                //if no response from server, throw an error
+                if (response.status === undefined) {
+                    throw new Error("No response from server");
+                }
+                return response.status === 200 && !result.isError;
             },
             transformResponse: responseData => {
-                const loadedBookings = responseData.map(booking => {
-                    booking.id = booking._id
-                    return booking
-                });
-                return bookingsAdapter.setAll(initialState, loadedBookings)
+                if (responseData) {
+                    const loadedBookings = responseData.map(booking => {
+                        return booking;
+                    });
+                    const temp = bookingsAdapter.setAll(initialState, loadedBookings);
+                    return temp;
+                } else {
+                    return initialState;
+                }
             },
             providesTags: (result, error, arg) => {
                 if (result?.ids) {
@@ -31,63 +40,65 @@ export const bookingsApiSlice = apiSlice.injectEndpoints({
                 } else return [{ type: 'Booking', id: 'LIST' }]
             }
         }),
-        addNewBooking: builder.mutation({
-            query: initialBookingData => ({
-                url: '/bookings',
-                method: 'POST',
-                body: {
-                    ...initialBookingData,
+        getMyBookings: builder.query({
+            query: () => '/bookings',
+            validateStatus: (response, result) => {
+                if (response.status === undefined) { 
+                    return fasle
                 }
-            }),
-            invalidatesTags: [
-                { type: 'Booking', id: "LIST" }
-            ]
+                return response.status === 200 && !result.isError;
+
+            },
+            transformResponse: (responseData) => {
+                if (responseData) {
+                    return bookingsAdapter.setAll(initialState, responseData);
+                } else {
+                    return initialState;
+                }
+            },
+            providesTags: (result, error, arg) => {
+                if (result?.id) {
+                    return [
+                    { type: 'Booking', id: result.id }
+                    ]
+                } else return []
+            }
         }),
-        updateBooking: builder.mutation({
-            query: initialBookingData => ({
-                url: '/bookings',
-                method: 'PATCH',
-                body: {
-                    ...initialBookingData,
+        newBookingLink : builder.query({
+            query: () => '/bookings/calendly',
+            validateStatus: (response, result) => {
+                if (response.status === undefined) { 
+                    return false;
                 }
-            }),
-            invalidatesTags: (result, error, arg) => [
-                { type: 'Booking', id: arg.id }
-            ]
+                return response.status === 200 && !result.isError;
+            },
+            transformResponse: (response, meta, arg) => {
+                // Assuming the response is { link: "http://example.com" }
+                return response.link; // Directly return the link for ease of use
+            },
         }),
         deleteBooking: builder.mutation({
-            query: ({ id }) => ({
+            query: (email) => ({
                 url: `/bookings`,
                 method: 'DELETE',
-                body: { id }
+                body: { email}
             }),
+            validateStatus: (response, result) => {
+                if (response.status === undefined) {
+                    throw new Error("No response from server");
+                }
+                return response.status === 200 && !result.isError;
+            },
             invalidatesTags: (result, error, arg) => [
-                { type: 'Booking', id: arg.id }
+                { type: 'Booking', id: arg.email }
             ]
         }),
     }),
 })
 
 export const {
-    useGetBookingsQuery,
-    useAddNewBookingMutation,
-    useUpdateBookingMutation,
+    useGetAllBookingsQuery,
     useDeleteBookingMutation,
+    useGetMyBookingsQuery,
+    useNewBookingLinkQuery
 } = bookingsApiSlice
-
-// returns the query result object
-export const selectBookingsResult = bookingsApiSlice.endpoints.getBookings.select()
-
-// creates memoized selector
-const selectBookingsData = createSelector(
-    selectBookingsResult,
-    bookingsResult => bookingsResult.data // normalized state object with ids & entities
-)
-
-//getSelectors creates these selectors and we rename them with aliases using destructuring
-export const {
-    selectAll: selectAllBookings,
-    selectById: selectBookingById,
-    selectIds: selectBookingIds
-    // Pass in a selector that returns the bookings slice of state
-} = bookingsAdapter.getSelectors(state => selectBookingsData(state) ?? initialState)

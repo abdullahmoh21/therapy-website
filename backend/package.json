@@ -24,6 +24,7 @@
     "libphonenumber-js": "^1.11.1",
     "mongoose": "^8.3.3",
     "mongoose-sequence": "^6.0.1",
+    "node-cron": "^3.0.3",
     "nodemailer": "^6.9.13",
     "uuid": "^8.3.2"
   },
