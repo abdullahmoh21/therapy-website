@@ -1,0 +1,62 @@
+2024-06-24 16:41:53 [error]: ValidationError: Booking validation failed: rescheduleURL: Path `rescheduleURL` is required., cancelURL: Path `cancelURL` is required., eventTypeURI: Path `eventTypeURI` is required., scheduledEventURI: Path `scheduledEventURI` is required., eventName: Path `eventName` is required.
+2024-06-24 21:23:19 [error]: Error: Cannot set headers after they are sent to the client
+2024-06-24 21:41:33 [error]: TypeError: TemporaryBooking.findByIdAndDelete(...).exec(...).lean is not a function
+2024-06-24 21:43:21 [error]: TypeError: TemporaryBooking.deleteMany(...).exec(...).lean is not a function
+2024-06-26 00:06:38 [error]: ReferenceError: ACCESS_TOKEN_EXPIRY is not defined
+2024-06-26 00:10:03 [error]: ReferenceError: ACCESS_TOKEN_EXPIRY is not defined
+2024-06-26 00:30:05 [error]: ReferenceError: ACCESS_TOKEN_EXPIRY is not defined
+2024-06-26 00:32:22 [error]: ReferenceError: ACCESS_TOKEN_EXPIRY is not defined
+2024-06-26 00:33:26 [error]: ReferenceError: ACCESS_TOKEN_EXPIRY is not defined
+2024-06-26 02:01:15 [error]: Error: Not allowed by CORS
+2024-06-26 02:01:15 [error]: Error: Not allowed by CORS
+2024-06-26 02:01:48 [error]: Error: Not allowed by CORS
+2024-06-26 02:01:48 [error]: Error: Not allowed by CORS
+2024-06-26 02:18:00 [error]: Error: Not allowed by CORS
+2024-06-26 02:18:00 [error]: Error: Not allowed by CORS
+2024-06-26 02:42:38 [error]: SyntaxError: Unexpected token 'a', ..."acker": track_7d990a"... is not valid JSON
+2024-06-26 02:45:32 [error]: Error getting payment status: TypeError: Cannot read properties of undefined (reading 'isJSON')
+2024-06-26 20:47:28 [error]: Error processing refund request: ReferenceError: handlebars is not defined
+2024-06-26 20:49:20 [error]: Error processing refund request: Error: You must pass a string or Handlebars AST to Handlebars.compile. You passed [object Promise]
+2024-06-26 20:53:20 [error]: Error processing refund request: Error: ENOENT: no such file or directory, open './emailTemplates/refundRequestTemplate.hbs'
+2024-06-26 20:55:25 [error]: Error processing refund request: Error: ENOENT: no such file or directory, open './emailTemplates/refundRequestTemplate.hbs'
+2024-06-26 21:01:26 [error]: Error processing refund request: Error: You must pass a string or Handlebars AST to Handlebars.compile. You passed undefined
+2024-06-26 21:03:34 [error]: Error processing refund request: Error: You must pass a string or Handlebars AST to Handlebars.compile. You passed undefined
+2024-06-26 21:04:40 [error]: Error processing refund request: ReferenceError: Payment is not defined
+2024-06-26 21:06:58 [error]: Error processing refund request: Error: User not found for booking 224
+2024-06-26 21:12:27 [error]: Error processing refund request: Error: User not found for booking 224
+2024-06-27 05:41:46 [error]: ValidationError: Payment validation failed: linkGeneratedDate: Path `linkGeneratedDate` is required.
+2024-06-27 05:41:56 [error]: ValidationError: Payment validation failed: linkGeneratedDate: Path `linkGeneratedDate` is required.
+2024-06-27 06:06:15 [error]: ValidationError: Payment validation failed: linkGeneratedDate: Path `linkGeneratedDate` is required.
+2024-06-27 06:33:50 [error]: MongoServerError: E11000 duplicate key error collection: FatimaDB.payments index: transactionReferenceNumber_1 dup key: { transactionReferenceNumber: null }
+2024-06-27 06:38:23 [error]: MongoServerError: E11000 duplicate key error collection: FatimaDB.payments index: transactionReferenceNumber_1 dup key: { transactionReferenceNumber: null }
+2024-06-27 11:48:50 [error]: TypeError: Cannot read properties of undefined (reading 'toString')
+2024-06-27 14:54:50 [error]: Too Many Login Requests: Too many login attempts from this IP, please try again after a 60 second pause	POST	/	http://localhost:5173
+2024-06-27 14:55:05 [error]: Too Many Login Requests: Too many login attempts from this IP, please try again after a 60 second pause	POST	/	http://localhost:5173
+2024-06-27 14:56:47 [error]: Too Many Login Requests: Too many login attempts from this IP, please try again after a 60 second pause	POST	/	http://localhost:5173
+2024-06-27 14:56:48 [error]: Too Many Login Requests: Too many login attempts from this IP, please try again after a 60 second pause	POST	/	http://localhost:5173
+2024-06-27 15:00:02 [error]: Too Many Login Requests: Too many login attempts from this IP, please try again after a 60 second pause	POST	/	http://localhost:5173
+2024-06-27 15:00:15 [error]: Too Many Login Requests: Too many login attempts from this IP, please try again after a 60 second pause	POST	/	http://localhost:5173
+2024-06-27 15:00:15 [error]: Too Many Login Requests: Too many login attempts from this IP, please try again after a 60 second pause	POST	/	http://localhost:5173
+2024-06-27 23:32:56 [error]: [RATE LIMIT] Too Many Requests: ::1	POST	/	undefined
+2024-06-27 23:32:56 [error]: RangeError: Invalid status code: undefined
+2024-06-27 23:38:18 [error]: [RATE LIMIT] Too Many Requests: ::1	POST	/	undefined
+2024-06-27 23:38:50 [error]: [RATE LIMIT] Too Many Requests: ::1	POST	/auth/	undefined
+2024-06-27 23:40:44 [error]: [RATE LIMIT] Too Many Requests: ::1	POST	/	undefined
+2024-06-28 00:14:03 [error]: [RATE LIMIT] Too Many Requests: ::1	POST	/	undefined
+2024-06-28 02:12:24 [error]: ReferenceError: ENCRYPTION_KEY is not defined
+2024-06-28 02:35:01 [error]: TypeError: Invalid initialization vector
+2024-06-28 16:17:29 [error]: [RATE LIMIT] Too Many Requests: ::1	GET	/bookings/calendly	http://localhost:5173
+2024-06-28 20:01:52 [error]: Registration error: TOKEN_ENCRYPTION_KEY is not defined
+2024-06-28 20:15:44 [error]: TypeError: Cannot read properties of undefined (reading 'state')
+2024-06-28 20:17:17 [error]: TypeError: Cannot read properties of undefined (reading 'state')
+2024-06-28 20:33:28 [error]: ReferenceError: hashedToken is not defined
+2024-06-28 20:33:50 [error]: ReferenceError: hashedToken is not defined
+2024-06-29 01:19:35 [error]: [ERROR] An error occurred connecting to calendly:
+2024-06-29 01:22:22 [error]: [ERROR] An error occurred connecting to calendly:
+2024-06-29 01:22:29 [error]: [ERROR] An error occurred connecting to calendly:
+2024-06-29 01:24:03 [error]: [ERROR] An error occurred connecting to calendly:
+2024-06-29 01:57:21 [error]: Error: Cannot set headers after they are sent to the client
+2024-06-29 01:58:36 [error]: Error: Cannot set headers after they are sent to the client
+2024-06-29 02:06:11 [error]: JWT verification error: TokenExpiredError: jwt expired
+2024-06-29 02:06:48 [error]: JWT verification error: JsonWebTokenError: jwt malformed
+2024-06-29 02:11:21 [error]: JWT verification error: JsonWebTokenError: jwt malformed

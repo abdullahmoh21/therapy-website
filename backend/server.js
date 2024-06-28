@@ -2,13 +2,19 @@ require('dotenv').config();
 const express = require('express');
 const app = express(); 
 const path = require('path');
-
-const {logger} = require('./middleware/logEvents'); 
+const fs = require('fs');
+const https = require('https'); 
+const mongoose = require('mongoose');
+const helmet = require('helmet'); // Security middleware
+const requestLogger = require('./middleware/requestLogger'); 
 const errorHandler  = require('./middleware/errorHandler');
 const credentials = require('./middleware/credentials');
-const mongoose = require('mongoose');
+const requireHttps = require('./middleware/requireHttps');
+const compression = require('compression');
 const connectDB = require('./utils/connectDB');
 const connectCalendly = require('./utils/connectCalendly');
+const conditionalRateLimiter = require('./middleware/rateLimits/fifteenRequestPerMin');
+const checkBlocked = require('./middleware/rateLimits/checkBlocked');
 const cron = require('node-cron');
 const { deleteOldBookings } = require('./controllers/bookingController');
 
@@ -18,14 +24,29 @@ const corsOptions = require('./config/corsOptions');
 const cookieParser = require('cookie-parser');
 const PORT = process.env.PORT || 3200;
 
+// SSL/TLS certificate options
+const sslOptions = {
+  key: fs.readFileSync(path.join(__dirname, '/config/key.pem')), 
+  cert: fs.readFileSync(path.join(__dirname, './config/cert.pem')) 
+};
+
 connectDB();
+app.use(helmet.hsts({ //HTTP Strict Transport Security (HSTS)
+  maxAge: 15552000, 
+  includeSubDomains: true, 
+  preload: true
+}));
 
 
 //----------------- MIDDLEWARE ------------------//
-app.use(express.json());  //middleware for  JSON payloads requests
-app.use(express.urlencoded({ extended: true }));   //middleware for urlencoded  requests 
-app.use(cookieParser());  //middleware for cookies requests 
-app.use(logger);
+app.use(checkBlocked); // exit if ip is blocked
+app.use(conditionalRateLimiter);  // Rate limit certain endpoints 
+app.use(requireHttps);
+app.use(compression());
+app.use(express.json());  
+app.use(express.urlencoded({ extended: true }));  
+app.use(cookieParser());  
+app.use(requestLogger);
 app.use(credentials)
 app.use(cors(corsOptions)); 
 // ----------------------------------------------//
@@ -36,6 +57,7 @@ app.use(cors(corsOptions));
 app.use('/auth', require('./endpoints/authEndpoints'));
 app.use('/users', require('./endpoints/userEndpoints'));
 app.use('/bookings', require('./endpoints/bookingEndpoints'));
+app.use('/payments', require('./endpoints/paymentEndpoints'));
 // ---------------------------------------------//
 
 
@@ -62,7 +84,10 @@ mongoose.connection.on('open', async () => {
     const webhookLive = await connectCalendly(); 
     if (webhookLive) {
       console.log('Mongoose connected and webhook is live');
-      server = app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+      // Create HTTPS server
+      https.createServer(sslOptions, app).listen(PORT, () => {
+        console.log(`Server running on port ${PORT} with HTTPS`);
+      });
     } else {
       console.error('Webhook is not live. Server startup aborted.');
     }
@@ -83,5 +108,5 @@ process.on('SIGINT', () => {
 
 mongoose.connection.on('error', (err) => {
   console.log(err)
-  logEvents(`${err.no}: ${err.code}\t${err.syscall}\t${err.hostname}`, 'mongoErrLog.txt')
+  logger.error(`${err.no}: ${err.code}\t${err.syscall}\t${err.hostname}`, 'mongoErrLog.txt')
 })

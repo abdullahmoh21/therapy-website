@@ -92,7 +92,7 @@ const ResetPassword = () => {
       await resetPassword({ token, password, confirmPassword }).unwrap();
       toast.success("Password reset successful!");
       setTimeout(() => {
-        navigate("/login");
+        navigate("/signin");
       }, 2000); // Delay of 2 seconds
     } catch (error) {
       console.log(error);

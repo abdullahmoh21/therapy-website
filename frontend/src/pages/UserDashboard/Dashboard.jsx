@@ -41,20 +41,35 @@ const Dashboard = () => {
 
   const renderTab = () => {
     if (isLoading) {
-      return <div>Loading...</div>;
+      return <div className="pt-5">Loading...</div>;
     }
     switch (activeTab) {
       case "editProfile":
-        return <EditProfile onUserUpdate={handleUserUpdate} />;
+        return (
+          <div className="pt-5">
+            <EditProfile onUserUpdate={handleUserUpdate} />
+          </div>
+        );
       case "myBookings":
-        return <MyBookings />;
+        return (
+          <div className="pt-11">
+            <MyBookings />
+          </div>
+        );
       case "Billing":
-        return <Billing />;
+        return (
+          <div className="pt-5">
+            <Billing />
+          </div>
+        );
       default:
-        return <MyBookings />;
+        return (
+          <div className="pt-5">
+            <MyBookings />
+          </div>
+        );
     }
   };
-
   return (
     <div className="dashboard flex flex-col md:flex-row relative">
       <div className="navbar md:h-full w-full md:w-1/4 p-4 flex md:flex-col">
@@ -79,7 +94,7 @@ const Dashboard = () => {
       </div>
       <div className="tab-content w-full md:w-3/4 p-4">{renderTab()}</div>
       <button
-        className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 absolute top-0 right-0 m-4" // Position the logout button at the top right
+        className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 absolute top-0 right-0 mt-2 mr-4" // Position the logout button at the top right
         type="button"
         onClick={handleLogout}
         disabled={isLoggingOut}

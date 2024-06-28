@@ -1,0 +1,49 @@
+
+Backend:
+  ☐ OPTIMIZE REQUEST TIMES (in *200-800* ms range) @critical
+    ☐ Implement caching using redis @high  
+    ✔ auth routes @done(24-06-26 02:28)
+    ☐ user routes
+    ☐ booking routes
+    ☐ payment routes
+  ✔ Implement https @critical @done(24-06-26 01:40)
+  ✔ Implement Refund logic @critical @done(24-06-27 08:10)
+  ✔ Add JOI validation to payment and booking routes @high @done(24-06-27 08:10)
+  ✔ Rate limit forgotPwd, EmailVerify, and all other requests @high @done(24-06-28 00:25)
+  ✔ Test sending handlebar emails using the queue @low @done(24-06-28 15:40)
+  ☐ Add a queue for non essential db tasks? @high
+  ✔ Make sure redundant requests are accounted for. i.e., updateuser endpoint called with no changes... @low @done(24-06-26 02:28)
+  ☐ Double cookie method or other for CSRF attacks @debeatable
+  ☐ Ask our friend for other security implementations I need @debeatable
+
+Frontend:
+  ☐ Mobile View @critical
+  ☐ HomePaage: Book Now button redirect to Calendly page or /booknow page describing process @high
+  ☐ If user is signed in, change signin button on navbar to a dash button @low
+  ☐ Client Dashboard:
+    ☐ Add refund popup with reason input, and respose display @critical
+    ☐ Add event type session or consultation to booking table @high
+    ☐ Ensure no payment button for consultations @high
+    ☐ Add toast error messages on Mybookings tab @high
+    ☐ Add pulsing loading state to tables @low
+    ☐ Logout behavior with no connection @low
+    ☐ Resource Tab?? @debeatable
+  ☐ Admin Dashboard: 
+    ☐ Edit default therapy price and other enviormnet variables @critical
+    ☐ Table for all users with search and sort @high
+    ☐ Table for all bookings with search and sort @high
+    ☐ Table for all payments with search and sort @high
+    ☐ Account deletion popup confirmation @high
+    ☐ Add pulsing loading state to tables @low
+    ☐ Add Logout button @low
+    ☐ Payment status and other metrics in a react-table table. Charts? @debeatable
+  ☐ Add a 404 page @low
+  ☐ Services: 
+    ☐ Make a Contact Form underneath the FAQ section @low
+    ☐ Add a Google Maps API to show the location of the clinic @low
+  ☐ Signup: 
+    ☐ Disable email input @high
+    ☐ Redirect to login page after successful signup @high
+  ☐ Forgot Password:
+    ☐ Fix toast errors. currently giving success message on 500 as well @high
+Archive: 

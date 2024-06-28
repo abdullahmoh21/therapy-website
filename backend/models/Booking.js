@@ -8,6 +8,13 @@ const bookingSchema = new Schema(
         userId: {
             type: mongoose.Schema.Types.ObjectId,
             required: true,
+            ref: 'User',   
+            index: true,
+        },
+        paymentId:{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Payments',
+            index: true,
         },
         eventStartTime: {
             type: Date,
@@ -23,47 +30,23 @@ const bookingSchema = new Schema(
         },
         scheduledEventURI: {
             type: String,
-            required: true,
         },
         eventTypeURI: {
             type: String,
-            required: true,
         },
         cancelURL: {
             type: String,
-            required: true,
         },
         rescheduleURL: {
             type: String,
-            required: true,
         },
         status: {
             type: String,
             required: true,
             default: function() {
                 // Check if eventEndTime is in the past
-                return isPast(this.eventEndTime) ? 'completed' : 'active';
+                return isPast(this.eventEndTime) ? 'Completed' : 'Active';
             },
-        },
-        paymentStatus: {
-            type: String,
-            required: function() {
-                // Required if paymentAmount is not 0
-                return this.paymentAmount !== 0;
-            },
-            default: 'Pending',
-        },
-        paymentAmount: {
-            type: Number,
-            required: true,
-        },
-        paymentCurrency: {
-            type: String,
-            required: function() {
-                // Required if paymentAmount is not 0
-                return this.paymentAmount !== 0;
-            },
-            default: 'PKR',
         },
     }
 );
@@ -79,6 +62,7 @@ bookingSchema.plugin(autoIncrement, {
     inc_field: 'bookingId',
     id: 'booking_id',
     start_seq: 208, 
+    unique: true,
 });
 
 module.exports = mongoose.model('Booking', bookingSchema);
