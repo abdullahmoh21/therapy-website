@@ -1,5 +1,5 @@
 const Joi = require('joi');
-const ROLES_LIST = require('../config/roles_list');
+const ROLES_LIST = require('../../config/roles_list');
 const phonevalidator = require("libphonenumber-js");
 
 const validPhone = Joi.string().custom((value, helpers) => {

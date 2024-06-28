@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+        .email-container {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .email-header {
+            background-color: #007bff;
+            color: #ffffff;
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid #0056b3;
+        }
+        .email-body {
+            padding: 20px;
+            line-height: 1.5;
+        }
+        .email-footer {
+            background-color: #f8f9fa;
+            text-align: center;
+            padding: 10px;
+            font-size: 0.8em;
+            border-top: 1px solid #ddd;
+        }
+        a {
+            display: inline-block;
+            background-color: #007bff;
+            color: #ffffff;
+            padding: 10px 20px;
+            margin: 10px 0;
+            border-radius: 5px;
+            text-decoration: none;
+        }
+        a:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="email-header">
+            <h1>Welcome to Our Clinic</h1>
+        </div>
+        <div class="email-body">
+            <p>Dear {{name}},</p>
+            <p>We're excited to have you on board. To get started, please activate your account by clicking the link below:</p>
+            <p><a href="{{link}}" target="_blank">Activate Account</a></p>
+            <p>This link will expire in one hour. If you did not make this request, please ignore this message.</p>
+        </div>
+        <div class="email-footer">
+            Regards,<br>
+            The Clinic Team<br>
+            <a href="https://www.fatimanaqvi.com">www.fatimanaqvi.com</a>
+        </div>
+    </div>
+</body>
+</html>

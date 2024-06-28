@@ -1,15 +1,20 @@
 const React = require('react')
 const crypto = require('crypto')
+const logger = require('../logs/logger')
 const asyncHandler = require('express-async-handler')
 const axios = require('axios')
+const { myQueue } = require('../utils/myQueue')
 const User = require('../models/User')
 const Booking = require('../models/Booking')
+const Payment = require('../models/Payment')
+const TemporaryBooking = require('../models/TemporaryBooking')
 
 const handleCalendlyWebhook = asyncHandler(async (req, res) => {
     const { event, payload } = req.body;
-    const {
-        cancel_url,
+    const { //destructure payload
+        cancel_url, 
         reschedule_url,
+        email,
         tracking: { utm_content: receivedUtmContent },
         scheduled_event: {
             start_time,
@@ -20,10 +25,37 @@ const handleCalendlyWebhook = asyncHandler(async (req, res) => {
         }
     } = payload;
 
-    // Ignore consultation events. That is used for new users and is handled in /auth/register
-    if (eventName === '15 Minute Consultation') return res.status(200).end();
+    // NEW USER route
+    // since users books a consultation BEFORE an account is created there is no utm_content to link a user to a booking
+    // so instead, we save the booking in a temporary collection and link it to the user when they create an account
+    if (eventName === '15 Minute Consultation'){
+        logger.info(`New booking for consultation: ${email}`);
+        if (event === "invitee.created") {
+            const tempBooking = await TemporaryBooking.create({
+                email,
+                cancelURL: cancel_url,
+                rescheduleURL: reschedule_url,
+                eventStartTime: start_time,
+                eventEndTime: end_time,
+                eventName,
+                scheduledEventURI: eventURI,
+                eventTypeURI
+            })
+            if(!tempBooking) {
+                logger.error(`Error creating temporary booking for consultation: ${email}`);
+                return res.status(500).end();
+            }
+            return res.status(200).end();
+        }else if (event === "invitee.canceled") {
+            await TemporaryBooking.deleteOne({ scheduledEventURI }).exec().lean();
+            return res.status(200).end();
+        }
+    }
 
+    // EXISTING USER route
+    // if the event is not a consultation, we search by utm_content
     try {
+        logger.debug(`Handling Calendly webhook for event: ${event}`)
         if (event === "invitee.created") {
             // Check if a booking already exists for this eventURI to ensure idempotency
             const existingBooking = await Booking.findOne({ scheduledEventURI: eventURI }).exec();
@@ -57,21 +89,34 @@ const handleCalendlyWebhook = asyncHandler(async (req, res) => {
                 scheduledEventURI: eventURI,
                 eventTypeURI,
                 cancelURL: cancel_url,
-                paymentAmount: process.env.SESSION_PRICE,
+                amount: process.env.SESSION_PRICE,
                 rescheduleURL: reschedule_url
             });
-
             await booking.save();
-            console.log(`Booking created: ${booking}`);
+            logger.info(`Booking created`);
+            const payment = new Payment({
+                userId: user._id,
+                bookingId: booking._id,
+                amount: process.env.SESSION_PRICE,
+                paymentCurrency: 'PKR',
+                status: 'Pending'
+            });
+            await payment.save();
+            logger.info(`Payment created`);
             return res.status(200).end();
         } 
         else if (event === "invitee.canceled") {
+            console.log(`Event cancelled: ${eventURI}`)
+
             const booking = await Booking.deleteOne({ scheduledEventURI: eventURI }).exec();
+            console.log(`delete count: ${booking.deletedCount}`)
+            
             if (booking.deletedCount === 0) {
                 console.log(`No booking found to delete for eventURI: ${eventURI}`);
             } else {
                 console.log(`Booking deleted`);
             }
+
             return res.status(200).end();
         }
     } catch (error) {
@@ -106,7 +151,7 @@ const getNewBookingLink = asyncHandler(async (req, res) => {
 
 //@desc returns all bookings of a user
 //@param {Object} req with valid email
-//@route GET /bookings/me
+//@route GET /bookings
 //@access Private
 const getMyBookings = asyncHandler( async (req, res) => {
     const{ email } = req; //from verifyJWT
@@ -118,22 +163,54 @@ const getMyBookings = asyncHandler( async (req, res) => {
     const bookings = await Booking.find({ 
         userId: user._id, 
         eventEndTime: { $gt: currentTimestamp } 
-    }).lean().exec();
+    }).select('-userId -__v -createdAt -updatedAt -scheduledEventURI -eventTypeURI -rescheduleURL').lean().exec();
+
     if (bookings?.length === 0) return res.status(204).end();
 
+    // To each booking doc, add certain payment details and status
+    const bookingsWithPaymentDetails = await Promise.all(bookings.map(async (booking) => {
+        // Skip creating a Payment for "15 Minute Consultation" events, as they are free
+        if (booking.eventName === "15 Minute Consultation") {
+            return booking; // Return the booking as is, without payment details
+        }
 
-// only add links if event is more than 24 hours away
-const TWENTY_FOUR_HOURS_IN_MS = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+        const paymentDetails = await Payment.findOne({ bookingId: booking._id }).lean().exec();//find bookings payment doc
+        if (!paymentDetails) { // if none found, create a new payment doc
+            const payment = new Payment({
+                userId: user._id,
+                bookingId: booking._id,
+                amount: process.env.SESSION_PRICE,
+                currency: 'PKR',
+                transactionStatus: 'Pending'
+                // transaction refrence will be added when payment is initiated
+            });
+            await payment.save();
+            return {
+                ...booking,
+                amount: payment.amount, 
+                currency: payment.currency, 
+                transactionStatus: payment.transactionStatus 
+            };
+        }
 
-bookings.forEach(booking => {
-    const timeUntilEvent = new Date(booking.eventStartTime).getTime() - currentTimestamp;
-    booking.rescheduleURL = (timeUntilEvent > TWENTY_FOUR_HOURS_IN_MS) ? booking.rescheduleURL : null;
-    booking.cancelURL = (timeUntilEvent > TWENTY_FOUR_HOURS_IN_MS) ? booking.cancelURL : null;
-});
+        const { amount, transactionStatus, currency , _id} = paymentDetails;
+        return {
+            ...booking,
+            amount,
+            currency,
+            transactionStatus,
+            paymentId: _id
+        };
+    }));
 
 
-    console.log(`booking data sent: ${JSON.stringify(bookings, null, 2)}`);
-    res.json(bookings);
+    const TWENTY_FOUR_HOURS_IN_MS = 24 * 60 * 60 * 1000; 
+    bookingsWithPaymentDetails.forEach(booking => { // add cancelURL only if event is more than 24 hours away
+        const timeUntilEvent = new Date(booking.eventStartTime).getTime() - currentTimestamp;
+        booking.cancelURL = (timeUntilEvent > TWENTY_FOUR_HOURS_IN_MS) ? booking.cancelURL : null;
+    });
+
+    res.json(bookingsWithPaymentDetails);
 })
 
 //@desc returns all bookings 

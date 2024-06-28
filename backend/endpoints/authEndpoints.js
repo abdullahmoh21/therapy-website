@@ -1,15 +1,14 @@
 const express = require('express')
 const router = express.Router()
 const authController = require('../controllers/authController')
-const loginLimiter = require('../middleware/loginLimiter')
 const expressJoiValidation = require('express-joi-validation').createValidator({});
-const { loginSchema } = require('../utils/validationSchemas');
-const { userSchema } = require('../utils/validationSchemas');
+const { loginSchema } = require('../utils/validation/userValidationSchemas');
+const { userSchema } = require('../utils/validation/userValidationSchemas');
 
 
 router.route('/')
-    //loginLimiter to prevent brute force 
-    .post(expressJoiValidation.body(loginSchema),loginLimiter, authController.login) 
+    .post(expressJoiValidation.body(loginSchema), authController.login) 
+
 router.route('/refresh')
     .get(authController.refresh)              
 

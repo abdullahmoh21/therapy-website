@@ -8,21 +8,19 @@ const userSchema = new Schema(
             required: true,
             unique: true,
             trim: true,
+            index: true,
         },
         emailVerified: {
-            data:{
-                state:{
-                    type:Boolean,
-                    default:false
-                },
-                hash:{
-                    type:String,
-
-                },
-                expiresIn:{
-                    type:Date,
-                },
-            }
+            state:{
+                type:Boolean,
+                default:false
+            },
+            encryptedToken:{
+                type:String,
+            },
+            expiresIn:{
+                type:Date,
+            },
         },
         password: {
             type: String,
@@ -51,7 +49,7 @@ const userSchema = new Schema(
         refreshTokenExp: {
             type: Date,
         },
-        resetPasswordTokenHash: {
+        resetPasswordEncryptedToken: {
             type: String,
         },
         resetPasswordExp: {

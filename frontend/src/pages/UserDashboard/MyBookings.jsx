@@ -3,37 +3,57 @@ import {
   useGetMyBookingsQuery,
   useNewBookingLinkQuery,
 } from "../../features/bookings/bookingApiSlice";
+import { useGetPaymentLinkMutation } from "../../features/payments/paymentApiSlice";
 import noBookingIcon from "../../assets/images/noBooking.png";
 
 const MyBookings = () => {
   console.log(`MyBookings component rendered`);
-  // Fetch bookings
-  const {
-    data,
-    isLoading,
-    isSuccess: bookingsLoaded,
-    refetch,
-  } = useGetMyBookingsQuery(); // Fetch user bookings
   const [bookings, setBookings] = useState([]);
 
   const {
-    data: link,
-    error,
-    isLoading: gettingLink,
+    // Fetch bookings
+    data: bookingData,
+    isLoading,
+    isSuccess: bookingsLoaded,
+  } = useGetMyBookingsQuery(); // Fetch user bookings
+
+  const {
+    // Fetch new booking link
+    data: Bookinglink,
+    error: BookingLinkError, //handle
+    isLoading: gettingBookingLink,
   } = useNewBookingLinkQuery();
 
+  const [
+    triggerGetPaymentLink,
+    { isLoading: gettingPaymentLink, error: getPaymentLinkError },
+  ] = useGetPaymentLinkMutation();
+
   useEffect(() => {
-    if (data && Array.isArray(data.ids)) {
-      setBookings(Object.values(data.entities));
+    // extract bookings from data when available
+    if (bookingData && Array.isArray(bookingData.ids)) {
+      setBookings(Object.values(bookingData.entities));
     }
-  }, [data]);
+  }, [bookingData]);
 
-  // TODO: add calendly booking linkrefetch onClick
+  const redirectToPayment = async (bookingId) => {
+    console.log(`Fetching payment link for bookingId: ${bookingId}`);
+    try {
+      const response = await triggerGetPaymentLink({ bookingId }).unwrap();
+      if (response.url) {
+        console.log("Payment link:", response.url);
+        window.location.href = response.url; // Redirect user to the payment link
+      } else {
+        //ADD TOAST HERE
+        console.error("Failed to fetch payment link: No URL found");
+      }
+    } catch (error) {
+      console.error("Failed to fetch payment link:", error);
+      // Handle errors, e.g., network issues, server errors
+    }
+  };
 
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
-
+  // No booking found page
   if (bookingsLoaded && bookings.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-screen">
@@ -48,11 +68,11 @@ const MyBookings = () => {
         <div className="text-center mt-4">
           <button
             className={`bg-blue-500 text-white px-4 py-2 rounded ${
-              gettingLink
+              gettingBookingLink
                 ? "opacity-50 cursor-not-allowed"
                 : "hover:bg-blue-700"
             }`}
-            disabled={gettingLink}
+            disabled={gettingBookingLink}
             onClick={() => {
               if (link) {
                 window.location.href = link;
@@ -66,78 +86,101 @@ const MyBookings = () => {
     );
   }
 
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
   return (
-    <div className="space-y-4">
-      {/* Create the follwing div for each booking */}
-      {bookings.map((booking, index) => {
-        // Calculate duration
-        const startTime = new Date(booking.eventStartTime);
-        const endTime = new Date(booking.eventEndTime);
-        const type = booking.eventType;
-        const duration = (endTime - startTime) / 60000; // Duration in minutes
+    <>
+      <div className="space-y-4">
+        {bookings.map((booking, index) => {
+          const startTime = new Date(booking.eventStartTime);
+          const endTime = new Date(booking.eventEndTime);
+          const duration = (endTime - startTime) / 60000; // Duration in minutes
 
-        // Format date and time
-        const options = {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        };
-        const formattedStartTime = startTime.toLocaleDateString(
-          undefined,
-          options
-        );
+          const options = {
+            hour: "2-digit",
+            minute: "2-digit",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          };
+          const formattedStartTime = startTime.toLocaleDateString(
+            undefined,
+            options
+          );
 
-        return (
-          <div key={index} className="border p-4 rounded shadow">
-            <h2 className="text-xl font-bold mb-2">{type}</h2>
-            <p className="mb-1">
-              <span className="font-semibold">Duration:</span> {duration}{" "}
-              minutes
-            </p>
-            <p className="mb-1">
-              <span className="font-semibold">Start Time:</span>{" "}
-              {formattedStartTime}
-            </p>
-            <p className="mb-1">
-              <span className="font-semibold">Amount:</span>
-              {booking.paymentAmmount === 0
-                ? " Free"
-                : ` ${booking.paymentAmmount} ${booking.paymentCurrency}`}
-            </p>
-            <p className="mb-1">
-              <span className="font-semibold">Status:</span>{" "}
-              {booking.paymentStatus === "NA"
-                ? "Confirmed"
-                : booking.paymentStatus}
-            </p>
-            {booking.paymentStatus === "pending" && (
-              <button className="mt-2 bg-blue-500 text-white px-4 py-2 rounded">
-                Pay Online
-              </button>
-            )}
-          </div>
-        );
-      })}
-      {/* Add this button inside your return statement, adjust placement as needed */}
-      <div className="text-center mt-4">
-        <button
-          className={`bg-blue-500 text-white px-4 py-2 rounded ${
-            gettingLink ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-700"
-          }`}
-          disabled={gettingLink}
-          onClick={() => {
-            if (link) {
-              window.location.href = link;
-            }
-          }}
-        >
-          Book a Session
-        </button>
+          return (
+            <div key={index} className="border p-4 rounded shadow space-y-4">
+              <div>
+                <h2 className="text-xl font-bold">{`Booking number: ${booking.bookingId} `}</h2>
+                <p>{`Scheduled for ${formattedStartTime} (${duration} minutes)`}</p>
+                <p>{`Amount: ${
+                  booking.paymentAmount === 0
+                    ? "Free"
+                    : `${booking.amount} ${booking.currency}`
+                }`}</p>
+                <p>{`Payment Status: ${
+                  booking.transactionStatus === "NA"
+                    ? "Paid"
+                    : booking.transactionStatus
+                }`}</p>
+              </div>
+
+              {booking.transactionStatus === "Pending" && (
+                <div className="flex space-x-2">
+                  <button
+                    className={`bg-blue-500 text-white px-4 py-2 rounded ${
+                      gettingPaymentLink
+                        ? "opacity-50 cursor-not-allowed"
+                        : "hover:bg-blue-700"
+                    }`}
+                    onClick={() => redirectToPayment(booking._id)}
+                    disabled={gettingPaymentLink}
+                  >
+                    Pay Online
+                  </button>
+                </div>
+              )}
+              {booking.cancelURL && (
+                <a
+                  href={booking.cancelURL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <button className="bg-red-500 text-white px-4 py-2 rounded">
+                    Cancel
+                  </button>
+                </a>
+              )}
+            </div>
+          );
+        })}
+
+        {/* NEW BOOKING HEADER */}
+        <div className="text-center mt-4 mb-4">
+          <h2 className="text-2xl font-semibold mb-3">
+            Ready for your next session?
+          </h2>
+          <p className="mb-4">Book now and let us help u</p>
+          <button
+            className={`inline-block bg-blue-500 text-white font-bold px-6 py-3 rounded-lg transition-colors duration-300 ${
+              gettingBookingLink
+                ? "opacity-50 cursor-not-allowed"
+                : "hover:bg-blue-700"
+            }`}
+            disabled={gettingBookingLink}
+            onClick={() => {
+              if (Bookinglink) {
+                window.location.href = Bookinglink;
+              }
+            }}
+          >
+            Book a Session
+          </button>
+        </div>
       </div>
-    </div>
+    </>
   );
 };
-
 export default MyBookings;

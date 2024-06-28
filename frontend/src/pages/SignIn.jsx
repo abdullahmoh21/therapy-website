@@ -15,11 +15,6 @@ import { ROLES } from "../config/roles";
 import { selectCurrentUserRole } from "../features/auth/authSlice";
 
 {
-  /* TODO:
-  - FIX PAGE OVERFLOWING
-  - forgot password link
-  - Add error message for wrong credentials... etc
-*/
 }
 
 const schema = Joi.object({
