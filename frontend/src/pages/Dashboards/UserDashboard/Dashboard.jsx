@@ -3,8 +3,8 @@ import MyBookings from "./MyBookings";
 import Billing from "./Billing";
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useGetMyUserQuery } from "../../features/users/usersApiSlice";
-import { useLogoutMutation } from "../../features/auth/authApiSlice";
+import { useGetMyUserQuery } from "../../../features/users/usersApiSlice";
+import { useLogoutMutation } from "../../../features/auth/authApiSlice";
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("myBookings"); // Set MyBookings as the default tab

@@ -9,6 +9,7 @@ const Payment = require('../models/Payment')
 const Booking = require('../models/Booking')
 const logger = require('../logs/logger');
 const { myQueue } = require('../utils/myQueue');
+const { invalidateCache } = require('../middleware/redisCaching');
 
 const safepay = new Safepay({
     environment: 'sandbox',
@@ -77,76 +78,63 @@ const handleSafepayWebhook = asyncHandler(async (req, res) => {
             return res.sendStatus(400); // Bad Request
     }
 
-    // Save the updated payment document
     await payment.save();
+    // Invalidate the cache for the user's bookings since the payment status has changed
+    invalidateCache(`bookings:${payment.userId}`);
     console.log(`Payment document updated for tracker: ${tracker}/n ${JSON.stringify(payment, null, 2)}`);
 
     return res.sendStatus(200);
 });
 
-//@desc performs handshake with APG and creates a new payment, returning a redirection URL
+//@desc creates and returns a payment link
 //@param valid user jwt token and payment details
 //@route POST /payments
 //@access Private
 const createPayment = asyncHandler(async (req, res) => {
     const { bookingId } = req.body;
-    const uid = new ShortUniqueId({ length: 5 });      //initialize id generator
+    if (!bookingId) return res.sendStatus(400); // Bad Request
 
-    if(!bookingId) return res.sendStatus(400); // Bad Request
-  
-    // Find the corresponding Payment document
-    const payment = await Payment.findOne({ bookingId }).exec();
-    if (!payment) {return res.sendStatus(404)} // Not Found
-
+    // Initialize id generator
+    const uid = new ShortUniqueId({ length: 5 });
     const transactionReferenceNumber = `T-${uid.rnd()}`;
 
-    console.log(`Attempting to create payment for booking: ${bookingId} with transactionReferenceNumber: ${transactionReferenceNumber}`)
-    console.log(`Booking price: ${payment.amount} ${payment.currency}`)
-    let token
     try {
-       //using destructuring to get token from response at global scope
-        ({ token } = await safepay.payments.create({
+        // Find the corresponding Payment document
+        const payment = await Payment.findOne({ bookingId }).exec();
+        if (!payment) return res.sendStatus(404); // Not Found
+
+        // Create payment and generate URL in parallel if possible
+        const createPaymentPromise = safepay.payments.create({
             amount: payment.amount,
             currency: payment.currency,
-        }));    
+        });
 
-        console.log(`Payment created with token: ${token}`);
-    } catch (error) {
-        console.error(`Error creating payment: ${error.response ? JSON.stringify(error.response.data) : JSON.stringify(error)}`);
-        return res.sendStatus(500);
-    }
-    
-    let url;
-    try {
-        // generate redirection url
-        url = safepay.checkout.create({
+        const [{ token }] = await Promise.all([createPaymentPromise]);
+
+        const url = safepay.checkout.create({
             token,
             orderId: transactionReferenceNumber,
-            cancelUrl: 'https://cattle-tender-mosquito.ngrok-free.app/dash',    //production: change to actual url
+            cancelUrl: 'https://cattle-tender-mosquito.ngrok-free.app/dash',
             redirectUrl: 'https://cattle-tender-mosquito.ngrok-free.app/dash',
             webhooks: true
         });
 
-        console.log(`Payment URL: ${url}`)
-    } catch (error) {
-        console.error(`Error creating payment url: ${error}`);
-        return res.sendStatus(500);
-    }
+        if (!url) {
+            return res.sendStatus(500).json({ 'message': 'Error: no url found' });
+        }
 
-    if (url) {  
-        payment.tracker= token,
-        payment.transactionReferenceNumber= transactionReferenceNumber,
-        payment.linkGeneratedDate= new Date();
+        // Update payment document
+        payment.tracker = token;
+        payment.transactionReferenceNumber = transactionReferenceNumber;
+        payment.linkGeneratedDate = new Date();
         await payment.save();
 
-        console.log(`Payment doc updated: ${payment}`)
         return res.status(200).json({ url });
-    }else{
-        return res.sendStatus(500).json({ 'message': 'Error: no url found' });
+    } catch (error) {
+        console.error(`Error in createPayment: ${error.response ? JSON.stringify(error.response.data) : JSON.stringify(error)}`);
+        return res.sendStatus(500);
     }
-
 });
-
 
 //@desc returns all payments of a user in past 30 days
 //@param valid user jwt token
@@ -157,12 +145,8 @@ const getMyPayments = asyncHandler( async (req, res) => {
     const user = await User.findOne({ "email": email }).lean().exec();
     if (!user) return res.status(404).json({ 'message': 'User not found' });
 
-    //find payments in past 30 days
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const payments = await Payment.find({ 
-        userId: user._id, 
-        createdAt: { $gt: thirtyDaysAgo } 
+        userId: user._id
     }).lean().exec();
     if (payments?.length === 0) return res.status(204).end();
 
@@ -243,25 +227,7 @@ const getAllPayments = asyncHandler( async (req, res) => {
     console.log(`Admin booking data sent: ${JSON.stringify(payments, null, 2)}`);
     res.json(payments);
 
-    myQueue.add({})
 })
-
-
-//@desc cleans up old payments
-//@access local use only
-const deleteOldPayments = async () => {
-    try {
-        const thirtyDaysAgo = new Date(new Date().setDate(new Date().getDate() - 30));
-        const result = await Payment.deleteMany({
-            createdAt: { $lt: thirtyDaysAgo },
-            status: 'Completed'
-        }).exec();
-
-        console.log(`Deleted ${result.deletedCount} completed payments older than 30 days.`);
-    } catch (error) {
-        console.error(`Error deleting completed payments older than 30 days: ${error}`);
-    }
-};
 
 
 
@@ -270,6 +236,5 @@ module.exports = {
     createPayment,
     getMyPayments,
     getAllPayments,
-    refundRequest,
-    deleteOldPayments
+    refundRequest
 }

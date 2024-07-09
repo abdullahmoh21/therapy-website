@@ -1,15 +1,15 @@
 import { useState, useEffect, useRef } from "react";
-import { useUpdateMyUserMutation } from "../../features/users/usersApiSlice";
-import { useLogoutMutation } from "../../features/auth/authApiSlice";
+import { useUpdateMyUserMutation } from "../../../features/users/usersApiSlice";
+import { useLogoutMutation } from "../../../features/auth/authApiSlice";
 import { useNavigate } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import Joi from "joi";
 import phonevalidator from "libphonenumber-js";
 import { PhoneInput } from "react-international-phone";
 import "react-international-phone/style.css";
 import { useSelector } from "react-redux";
-import { selectMyUser } from "../../features/users/usersApiSlice";
+import { selectMyUser } from "../../../features/users/usersApiSlice";
+import Joi from "joi";
 
 const validPhone = Joi.string().custom((value, helpers) => {
   if (!phonevalidator(value)?.isValid()) {

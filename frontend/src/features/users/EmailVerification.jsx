@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import {
   useVerifyEmailMutation,
   useResendEmailVerificationMutation,
-} from "../features/users/usersApiSlice";
+} from "./usersApiSlice";
 import Joi from "joi";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";

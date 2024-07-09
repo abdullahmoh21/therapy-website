@@ -1,2 +1,6 @@
 .env
 TODO
+keydb.conf
+cert.pem
+key.pem
+roles_list.js

@@ -2,9 +2,9 @@ import React, { useEffect, useState } from "react";
 import {
   useGetMyBookingsQuery,
   useNewBookingLinkQuery,
-} from "../../features/bookings/bookingApiSlice";
-import { useGetPaymentLinkMutation } from "../../features/payments/paymentApiSlice";
-import noBookingIcon from "../../assets/images/noBooking.png";
+} from "../../../features/bookings/bookingApiSlice";
+import { useGetPaymentLinkMutation } from "../../../features/payments/paymentApiSlice";
+import noBookingIcon from "../../../assets/images/noBooking.png";
 
 const MyBookings = () => {
   console.log(`MyBookings component rendered`);
@@ -74,8 +74,8 @@ const MyBookings = () => {
             }`}
             disabled={gettingBookingLink}
             onClick={() => {
-              if (link) {
-                window.location.href = link;
+              if (Bookinglink) {
+                window.location.href = Bookinglink;
               }
             }}
           >

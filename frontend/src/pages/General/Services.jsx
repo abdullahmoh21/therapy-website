@@ -1,6 +1,6 @@
 import React from "react";
 import Faq from "react-faq-component";
-import service_hero from "../assets/images/services_hero.png";
+import service_hero from "../../assets/images/services_hero.png";
 
 // FAQ Data
 const data = {

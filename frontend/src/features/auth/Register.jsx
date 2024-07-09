@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import Joi from "joi";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { useRegisterMutation } from "../features/auth/authApiSlice";
+import { useRegisterMutation } from "./authApiSlice";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 import { useLocation } from "react-router-dom";
 

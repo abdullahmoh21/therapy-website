@@ -1,18 +1,18 @@
 import { Link } from "react-router-dom";
-import logo from "../assets/images/logo.png";
+import logo from "/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/frontend/src/assets/images/logo.png";
 // import LoadingPage from "./LoadingPage";
 import { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { setCredentials } from "../features/auth/authSlice";
+import { setCredentials } from "./authSlice";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Joi from "joi";
-import { useLoginMutation } from "../features/auth/authApiSlice";
-import { useResendEmailVerificationMutation } from "../features/users/usersApiSlice";
-import usePersist from "../hooks/usePersist";
-import { ROLES } from "../config/roles";
-import { selectCurrentUserRole } from "../features/auth/authSlice";
+import { useLoginMutation } from "./authApiSlice";
+import { useResendEmailVerificationMutation } from "../users/usersApiSlice";
+import usePersist from "../../hooks/usePersist";
+import { ROLES } from "../../config/roles";
+import { selectCurrentUserRole } from "./authSlice";
 
 {
 }
@@ -111,6 +111,9 @@ const Login = () => {
         setShowResendVerification(true);
       } else if (err.status === 401 || err.status === 400) {
         Msg = "Invalid Email or Password"; // Unauthorized
+      } else if (err.status === 429) {
+        Msg =
+          "This IP has been bocked because of too many requests. Please try again later.";
       } else if (err.data && typeof err.data === "string") {
         // Check if err.data is a string, and if so, set it as the error message
         Msg = err.data;

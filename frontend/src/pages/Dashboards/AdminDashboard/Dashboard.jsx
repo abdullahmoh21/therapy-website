@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import {
   useGetAllUsersQuery,
   useDeleteUserMutation,
-} from "../features/users/usersApiSlice";
+} from "../../../features/users/usersApiSlice";
 
 const AdminDashboard = () => {
   const { data: usersData, isLoading, isError } = useGetAllUsersQuery();

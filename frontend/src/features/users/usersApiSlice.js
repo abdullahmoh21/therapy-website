@@ -38,7 +38,7 @@ export const usersApiSlice = apiSlice.injectEndpoints({
             }
         }),
         getMyUser: builder.query({
-            query: () => '/users/me',
+            query: () => '/users',
             validateStatus: (response, result) => {
                 if (response.status === undefined) { 
                     throw new Error("No response from server");
@@ -59,7 +59,7 @@ export const usersApiSlice = apiSlice.injectEndpoints({
         }),
         updateMyUser: builder.mutation({
             query: initialUserData => ({
-                url: '/users/me',
+                url: '/users',
                 method: 'PATCH',
                 body: {
                     ...initialUserData,

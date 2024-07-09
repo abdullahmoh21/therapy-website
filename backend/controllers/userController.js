@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const ROLES_LIST = require('../config/roles_list');
 const { logger } = require('../utils/emailTransporter');
+const { invalidateCache } = require('../middleware/redisCaching');
 const TOKEN_ENCRYPTION_KEY = process.env.TOKEN_ENCRYPTION_KEY;
 const TOKEN_ENCRYPTION_IV = process.env.TOKEN_ENCRYPTION_IV;
 
@@ -54,25 +55,30 @@ const getAllUsers_ADMIN = asyncHandler( async (req, res) => {
     if (req.role !== ROLES_LIST.Admin) return res.sendStatus(401);
     const users = await User.find({}).select('-password').lean(); 
     if (!users) return res.status(400).json({ 'message': 'No users found' });
-    res.json(users);
+    res.status(200).json(users);
 })
 
 //@desc Delete a user
 //@param {Object} req with valid role and email
 //@route DELETE /users
 //@access Private
-const deleteUser_ADMIN = asyncHandler( async (req, res) => {
+const deleteUser_ADMIN = asyncHandler(async (req, res) => {
     if (req.role !== ROLES_LIST.Admin) return res.sendStatus(401);
-    const { email } = req.body;
+    const { userId } = req.body;
 
-    const user = await User.findOne({ email: email }).lean().exec();
-    if (!user) return res.status(204).json({ 'message': 'No user found' });
-
-    const bookings = await Booking.deleteMany({ userId: user._id}).exec();
-    const deletedUser = await User.deleteOne({ email: email }).exec();
-    
-    res.status(200).json({ 'message': `User: ${user.email} deleted successfully` });
-})
+    try {
+        const [bookings, payments, user] = await Promise.all([
+            Bookings.deleteMany({userId}),
+            Payments.deleteMany({userId}),
+            User.deleteOne({_id: userId})
+        ]);
+        logger.debug(`User deletion count: ${user.deletedCount}\nBooking deleted count: ${bookings.deletedCount}\nPayment deleted count: ${payments.deletedCount}`);
+        res.sendStatus(201);
+    } catch (error) {
+        logger.error(`Error deleting user: ${error}`);
+        res.sendStatus(500).json({'message':'Error deleting user'});
+    }
+});
 
 //@desc Resend email verification
 //@param {Object} req with valid email or token
@@ -235,6 +241,7 @@ const getMyData=  asyncHandler( async (req, res) => {
     res.json(user);
 });
 
+
 //@desc Update users own data
 //@param {Object} req with valid new data
 //@route PATCH /users/me
@@ -253,19 +260,18 @@ const updateMyUser = asyncHandler( async (req, res) => {
            obj[key] = newData[key];
            return obj;
        }, {});
-
+    
     const updatedUser = await User.findOneAndUpdate(
         { email: email }, // find a document with this email
         updates, // filtered data to update
         { new: true, runValidators: true } // options: return updated one, run all schema validators again
-    ).select('-password -refreshTokenExp -refreshTokenHash -emailVerified');
+    ).select('_id email phone role DOB name');
 
-    if (!updatedUser) {
-        return res.status(404).json({ message: 'User not found' });
-    }
-    console.log(`User Updated!  ${updatedUser}`);
-    return res.json(updatedUser);
+    if (!updatedUser) {return res.status(404).json({ message: 'User not found' });}
 
+    logger.success(`User Updated! Invalidating User cache`)
+    invalidateCache(`user:${updatedUser._id}`)
+    return res.status(201).json(updatedUser);
 })
 
 module.exports = {
