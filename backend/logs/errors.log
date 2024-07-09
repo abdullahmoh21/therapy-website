@@ -60,3 +60,12 @@
 2024-06-29 02:06:11 [error]: JWT verification error: TokenExpiredError: jwt expired
 2024-06-29 02:06:48 [error]: JWT verification error: JsonWebTokenError: jwt malformed
 2024-06-29 02:11:21 [error]: JWT verification error: JsonWebTokenError: jwt malformed
+2024-06-29 13:01:34 [error]: Failed to add compressed data to cache for key=bookingLink:6654175fed1bae65dd643d0b ERR syntax error
+2024-06-29 13:01:58 [error]: Failed to add compressed data to cache for key=bookingLink:6654175fed1bae65dd643d0b ERR syntax error
+2024-06-29 13:31:09 [error]: ReferenceError: user is not defined
+2024-07-08 23:01:51 [error]: Error retrieving or decompressing cache for key=user:6654175fed1bae65dd643d0b The "callback" argument must be of type function. Received undefined
+2024-07-08 23:01:51 [error]: Error retrieving or decompressing cache for key=bookingLink:6654175fed1bae65dd643d0b The "callback" argument must be of type function. Received undefined
+2024-07-08 23:03:51 [error]: Error retrieving or decompressing cache for key=user:6654175fed1bae65dd643d0b The "callback" argument must be of type function. Received undefined
+2024-07-08 23:03:55 [error]: Error retrieving or decompressing cache for key=bookingLink:6654175fed1bae65dd643d0b The "callback" argument must be of type function. Received undefined
+2024-07-08 23:26:22 [error]: [RATE LIMIT] Too Many Requests: ::1	POST	/auth	http://localhost:5173
+2024-07-08 23:33:51 [error]: Error handling Calendly webhook: ValidationError: bookingId: Path `bookingId` is required.

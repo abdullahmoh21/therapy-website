@@ -43,20 +43,14 @@ const bookingSchema = new Schema(
         status: {
             type: String,
             required: true,
-            default: function() {
-                // Check if eventEndTime is in the past
-                return isPast(this.eventEndTime) ? 'Completed' : 'Active';
-            },
+            enum: ['Active', 'Completed'],
+            default: 'Active',
         },
+    },
+    {
+        timestamps: true,
     }
 );
-bookingSchema.pre('save', function(next) {
-    // Automatically set status to 'completed' if eventEndTime is in the past
-    if (isPast(this.eventEndTime)) {
-        this.status = 'completed';
-    }
-    next();
-});
 
 bookingSchema.plugin(autoIncrement, {
     inc_field: 'bookingId',

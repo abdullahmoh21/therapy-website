@@ -1,23 +1,33 @@
 
 Backend:
   ☐ OPTIMIZE REQUEST TIMES (in *200-800* ms range) @critical
-    ☐ Implement caching using redis @high  
-    ✔ auth routes @done(24-06-26 02:28)
-    ☐ user routes
-    ☐ booking routes
-    ☐ payment routes
-  ✔ Implement https @critical @done(24-06-26 01:40)
+    ✔ Figure out redis replacement @high @done(24-07-08 04:08)
+    ✔ Implement cache invalidation on data updates and deletes @high @done(24-07-09 00:43)
+    ☐ preemtively cache data that is likely to be requested @high
+    ✔ ensure if cache is full, queue keys are not evicted. two instances most likely, memeory allocation? @done(24-07-09 12:41)
+    ✘ Implement caching using redis @high @cancelled(24-07-03 00:41)
+    ✘ implement a maxmemory-policy for redis @high @cancelled(24-07-03 00:41)
+  ☐ Security implementations:
+    ✔ rate limiting on all routes @low @done(24-07-03 11:43)
+    ☐ Double cookie method or other for CSRF attacks @low 
+    ☐ mongo injection prevention @low
+    ☐ xss prevention @low
+    ☐ ensure only relevant data is sent to the client. why am i sending roles list? @high
+  ☐ Implement http/2 @optional
+  ☐ fine tune rate Limit settings @low
+  ☐ Fine tune cache TTL (same as refresh token?) @low
+  ☐ Add Admin Stats like total bookings,revenue and users. updates regularly @later
+  ✔ Implement https @critical @done(24-06-26 01:40)  
   ✔ Implement Refund logic @critical @done(24-06-27 08:10)
   ✔ Add JOI validation to payment and booking routes @high @done(24-06-27 08:10)
   ✔ Rate limit forgotPwd, EmailVerify, and all other requests @high @done(24-06-28 00:25)
   ✔ Test sending handlebar emails using the queue @low @done(24-06-28 15:40)
-  ☐ Add a queue for non essential db tasks? @high
+  ✔ Add a queue for non essential db tasks? @high @done(24-06-29 11:37)
   ✔ Make sure redundant requests are accounted for. i.e., updateuser endpoint called with no changes... @low @done(24-06-26 02:28)
-  ☐ Double cookie method or other for CSRF attacks @debeatable
-  ☐ Ask our friend for other security implementations I need @debeatable
 
 Frontend:
   ☐ Mobile View @critical
+  ☐ Refactor to a SPA with figma design @critical
   ☐ HomePaage: Book Now button redirect to Calendly page or /booknow page describing process @high
   ☐ If user is signed in, change signin button on navbar to a dash button @low
   ☐ Client Dashboard:
@@ -30,6 +40,7 @@ Frontend:
     ☐ Resource Tab?? @debeatable
   ☐ Admin Dashboard: 
     ☐ Edit default therapy price and other enviormnet variables @critical
+    ☐ Edit the delete endpoint to send userId instead of email.
     ☐ Table for all users with search and sort @high
     ☐ Table for all bookings with search and sort @high
     ☐ Table for all payments with search and sort @high
@@ -46,4 +57,5 @@ Frontend:
     ☐ Redirect to login page after successful signup @high
   ☐ Forgot Password:
     ☐ Fix toast errors. currently giving success message on 500 as well @high
-Archive: 
+
+  

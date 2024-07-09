@@ -7,15 +7,17 @@ const customLevels = {
     error: 0,
     warn: 1,
     info: 2,
-    http: 3, // Custom log level for HTTP requests
-    debug: 4,
+    debug: 3,
+    success: 4, 
+    http: 5,    // for HTTP requests
   },
   colors: {
     error: 'red',
     warn: 'yellow',
-    info: 'green',
-    http: 'magenta', // Color for HTTP log level
+    info: 'magenta',
     debug: 'blue',
+    success: 'green',
+    http: 'cyan', // Added color for 'http' level
   },
 };
 
@@ -51,20 +53,15 @@ const logger = winston.createLogger({
     httpLogFormat // Apply the custom HTTP log format
   ),
   transports: [
-    // Console transport with custom format
 
-  new winston.transports.Console({
-    level: 'debug',
-    format: winston.format.combine(
-      winston.format.colorize(),
-      winston.format((info) => {
-        if (info.message.includes('http')) {
-          return false; // Ignore log messages that include 'http'
-        }
-        return info;
-      })(),
-    )
-  }),
+    // Console transport with custom format
+    new winston.transports.Console({
+      level: 'success',
+      format: winston.format.combine(
+        winston.format.colorize(),
+      )
+    }),
+
     // Separate Request log file transport for 'http' level with custom format
     new winston.transports.File({ 
       filename: 'logs/requests.log', 

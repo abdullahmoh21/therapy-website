@@ -1,5 +1,11 @@
 const Redis = require('ioredis');
 
-const redisClient = new Redis(); // Default connects to 127.0.0.1:6379
+process.env.DEBUG = 'ioredis:*';
+const redisClient = new Redis({
+  port: 6379,          
+  host: '127.0.0.1',   
+  password: process.env.KEYDB_PASSWORD, 
+  db: 0, // Default DB index
+});
 
 module.exports = redisClient;

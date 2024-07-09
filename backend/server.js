@@ -15,12 +15,11 @@ const connectDB = require('./utils/connectDB');
 const connectCalendly = require('./utils/connectCalendly');
 const conditionalRateLimiter = require('./middleware/rateLimits/fifteenRequestPerMin');
 const checkBlocked = require('./middleware/rateLimits/checkBlocked');
+const { deleteOldBookingsAndPayments } = require('./controllers/bookingController');
 const cron = require('node-cron');
-const { deleteOldBookings } = require('./controllers/bookingController');
-
+const logger = require('./logs/logger');
 const cors = require('cors');
 const corsOptions = require('./config/corsOptions');
-
 const cookieParser = require('cookie-parser');
 const PORT = process.env.PORT || 3200;
 
@@ -31,11 +30,29 @@ const sslOptions = {
 };
 
 connectDB();
-app.use(helmet.hsts({ //HTTP Strict Transport Security (HSTS)
+
+// Security Headers
+app.use(helmet.hsts({ // HTTP Strict Transport Security (HSTS)
   maxAge: 15552000, 
   includeSubDomains: true, 
   preload: true
 }));
+
+app.use(
+  helmet.contentSecurityPolicy({ // CSP configuration ere
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "https://www.google-analytics.com"],
+      styleSrc: ["'self'", "https:", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "https://www.google-analytics.com"],
+      fontSrc: ["'self'", "https:", "data:"],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: [],
+    },
+    reportOnly: false,
+  })
+);
 
 
 //----------------- MIDDLEWARE ------------------//
@@ -43,8 +60,8 @@ app.use(checkBlocked); // exit if ip is blocked
 app.use(conditionalRateLimiter);  // Rate limit certain endpoints 
 app.use(requireHttps);
 app.use(compression());
-app.use(express.json());  
-app.use(express.urlencoded({ extended: true }));  
+app.use(express.json({ limit: '10kb' }));  
+app.use(express.urlencoded({ extended: true, limit: '10kb' }));  
 app.use(cookieParser());  
 app.use(requestLogger);
 app.use(credentials)
@@ -72,20 +89,19 @@ app.get('*', (req, res) => {
 // Error handler
 app.use(errorHandler); 
 
-// Schedule the task to run once a day at midnight (00:00)
-cron.schedule('0 0 * * *', () => {
-  console.log('Running a daily task to delete old or cancelled bookings');
-  deleteOldBookings();
+// Will run every Sunday at 3:30 AM
+cron.schedule('30 3 * * 0', () => {
+  deleteOldBookingsAndPayments();
 });
 
-// Only listen when the connection to the database is open and the webhook is live
-mongoose.connection.on('open', async () => {
+let server;
+mongoose.connection.on('open', async () => { // Only listens if db is open and the webhook is live
   try {
     const webhookLive = await connectCalendly(); 
     if (webhookLive) {
       console.log('Mongoose connected and webhook is live');
       // Create HTTPS server
-      https.createServer(sslOptions, app).listen(PORT, () => {
+      server = https.createServer(sslOptions, app).listen(PORT, () => {
         console.log(`Server running on port ${PORT} with HTTPS`);
       });
     } else {
@@ -98,12 +114,16 @@ mongoose.connection.on('open', async () => {
 
 // Graceful shutdown
 process.on('SIGINT', () => {
-  console.log('Received SIGINT. Shutting down gracefully.');
-  server.close(() => {
-    console.log('Server shut down.');
-    // Ensure the process exits after the server is closed
+  if (server) {
+    server.close(() => {
+      logger.info('Received SIGINT. Shutting down gracefully.');
+      // Ensure the process exits after the server is closed
+      process.exit(0);
+    });
+  } else {
+    logger.info('Server not running.');
     process.exit(0);
-  });
+  }
 });
 
 mongoose.connection.on('error', (err) => {

@@ -10,8 +10,9 @@ const TemporaryBooking = require('../models/TemporaryBooking');
 
 
 const connection = {
-    host: 'localhost',
+    host: '127.0.0.1',
     port: 6379,
+    password: process.env.KEYDB_PASSWORD
 }
 const myQueue = new Queue('myQueue', {
     connection,
@@ -40,6 +41,7 @@ const queueProcessor = new Worker('myQueue', async (job) => {
 }, { connection });
 
 // failed job handler
+// TODO: test job failure handling
 queueProcessor.on('failed', async (job, err) => {
     const type = (job.name === 'deleteDocuments') ? 'DATABASE' : 'EMAIL';
     // Log the error
@@ -72,8 +74,33 @@ queueProcessor.on('failed', async (job, err) => {
 
 const deleteDocuments = async (job) => {
     const { documentIds, model } = job.data;
-    logger.info(`Deleting documents from ${model} with IDs: ${documentIds}`);
 
+    let modelInstance;
+    switch (model) {
+        case 'User':
+            modelInstance = User;
+            break;
+        case 'Booking':
+            modelInstance = Booking;
+            break;
+        case 'Payment':
+            modelInstance = Payment;
+            break;
+        case 'TemporaryBooking':
+            modelInstance = TemporaryBooking;
+            break;
+        default:
+            logger.error(`Unknown model: ${model}`);
+            return;
+    }
+
+    try {
+        //deletes all documents with the given IDs
+        await modelInstance.deleteMany({ _id: { $in: documentIds } });
+        logger.info(`Successfully deleted documents from ${model} with IDs: ${documentIds}`);
+    } catch (error) {
+        logger.error(`Error deleting documents from ${model}: ${error}`);
+    }
 }
 
 const loadEmailTemplate =  async (name) =>  {
