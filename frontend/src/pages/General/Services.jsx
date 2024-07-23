@@ -1,177 +1,128 @@
 import React from "react";
-import Faq from "react-faq-component";
-import service_hero from "../../assets/images/services_hero.png";
-
-// FAQ Data
-const data = {
-  title: "",
-  rows: [
-    {
-      title: "    How do I book an appointment?",
-      content: `If you are a new client, simply navigate to our booking page and select your preferred date, and time slot. Follow the prompts to complete the booking process. For existing clients, log in to your account to book a new appointment. `,
-    },
-    {
-      title: "    What payment methods do you accept for appointment bookings?",
-      content: `We accept all major credit and debit cards for appointment bookings. You can securely enter your payment information during the booking process. Payment by Cash and Bank transfer are also available. A 10% discount is available for Online payments.`,
-    },
-    {
-      title:
-        "    Do I need to pay for my appointment upfront or after the session?",
-      content: `We require payment upfront to confirm your appointment. This helps us ensure that our therapists' time is respected and allows for seamless scheduling.`,
-    },
-    {
-      title: "    What happens if I miss my appointment?",
-      content: `If you miss your appointment without canceling in advance, you may be subject to our cancellation policy, which could include a fee. Please contact us directly for more information.`,
-    },
-    {
-      title: "    Can I get a refund if I need to cancel my appointment?",
-      content: `Our refund policy depends on the timing of your cancellation. If you cancel within 24 hours of your appointment, you may be eligible for a refund.`,
-    },
-    {
-      title: "    How long does an appointment typically last?",
-      content:
-        "Appointment durations may vary depending on the type of therapy session and individual needs. Generally, sessions last between 45 minutes to an hour. However, some specialized sessions or assessments may require longer durations.",
-    },
-  ],
-};
-// FAQ Styles
-const styles = {
-  bgColor: "transparent",
-  titleTextColor: "#c45e3e",
-  rowTitleColor: "#c45e3e",
-  rowContentColor: "#68554f",
-  rowTitleTextSize: "22px",
-  rowContentTextSize: "19px",
-  rowContentPaddingRight: "30px",
-  rowContentPaddingLeft: "30px",
-  arrowColor: "#68554f",
-};
-// FAQ Config
-const config = {
-  animate: true,
-  // tabFocus: true
-};
+import service_hero from "../../assets/images/servicesImage.png";
 
 const Services = () => {
   return (
     <>
-      {/* ------ Hero Section ------- */}
-      <section className="2xl:h-[800px] w-full home-bg">
+      {/* ------ Heading------- */}
+      <section className="w-full main-bg pt-[40px]">
         <div className="flex justify-center items-center">
-          <div className="container flex flex-row justify-center w-full">
-            {/* ----- Hero Text ------- */}
-            <div className="flex items-center">
-              <div className="flex flex-col lg:flex-row gap-[90px] items-center justify-between">
-                <div>
-                  <div className="lg:w-[570px] ml-[40px]">
-                    <h1 className="text-[61.52px] leading-[46px] font-semibold text-[#c45e3e] mr-[200px] w-full">
-                      Psychotherapy
-                    </h1>
-                    <h2 className="text-[22.8px] leading-[46px] text-[#c45e3e] mr-[200px] w-full pb-3">
-                      For Individuals, Couples, and Adolescents
-                    </h2>
-                  </div>
-                </div>
-              </div>
-            </div>
-            {/* ----- Hero Image ------- */}
-            <div className="flex items-center">
-              <img
-                src={service_hero}
-                height={808}
-                width={520}
-                alt="Fatima Mohsin Picture"
-              />
-            </div>
+          <h1 className="orelega-one  text-[40px] md:text-[61.52px] leading-[46px] text-[#BD704C] text-center w-full">
+            Services
+          </h1>
+        </div>
+      </section>
+
+      {/* ------ Services Break Down ------- */}
+      <section className="main-bg w-full flex flex-col items-center pt-[40px] space-y-10">
+        {/* INDIVIDUAL THERAPY */}
+        <div className=" flex flex-col md:flex-row justify-center px-[20px] md:px-[100px] space-y-[20px] md:space-y-0 md:space-x-[20px] w-full max-w-6xl">
+          <div className="Service flex-1 max-w-[400px] text-center md:text-left">
+            <h1 className="orelega-one text-[38px] md:text-[32px] leading-[32px] md:leading-[46px] text-[#5C4E36]">
+              Individual
+            </h1>
+            <h1 className="orelega-one text-[38px] md:text-[32px] leading-[32px] md:leading-[46px] text-[#5C4E36]">
+              Psychotherapy
+            </h1>
+            <p className="hidden md:block text-[32px] md:text-[16px] text-[#5C4E36]">
+              ONLINE & IN PERSON
+            </p>
+            <p className="text-[32px] md:text-[16px] text-[#5C4E36]">
+              Per Session Rate: 8000 pkr, 60 MINUTES
+            </p>
+          </div>
+
+          <div className="Service-description flex-1 max-w-[600px] flex items-center">
+            <p className="text-[18px] md:text-[16px] text-[#393224] text-justify">
+              Individual psychotherapy is a one-on-one session between the
+              therapist and the client, focusing on personal issues and mental
+              health concerns. It aims to help clients understand their
+              emotions, develop coping strategies, and work through challenges
+              such as anxiety, depression, or trauma.
+            </p>
+          </div>
+        </div>
+        {/* ADOLESCENT THERAPY */}
+        <div className="flex flex-col md:flex-row justify-center px-[20px] md:px-[100px] space-y-[20px] md:space-y-0 md:space-x-[20px] w-full max-w-6xl">
+          <div className="Service flex-1 max-w-[400px] text-center md:text-left">
+            <h1 className="text-[32px] md:text-[32px] leading-[32px] md:leading-[46px] font-bold text-[#5C4E36]">
+              Adolescent
+            </h1>
+            <h1 className="text-[32px] md:text-[32px] leading-[32px] md:leading-[46px] font-bold text-[#5C4E36]">
+              Psychotherapy
+            </h1>
+            <p className="hidden md:block text-[14px] md:text-[16px] text-[#5C4E36]">
+              ONLINE & IN PERSON
+            </p>
+            <p className="text-[32px] md:text-[16px] text-[#5C4E36]">
+              Per Session Rate: 8000 pkr, 60 MINUTES
+            </p>
+          </div>
+
+          <div className="Service-description flex-1 max-w-[600px] flex items-center">
+            <p className="text-[18px] md:text-[16px] text-[#393224] text-justify">
+              Adolescent psychotherapy provides a supportive environment for
+              teenagers to explore their thoughts and feelings, addressing
+              issues unique to their developmental stage. This type of therapy
+              helps adolescents navigate challenges like peer pressure, academic
+              stress, and identity formation, fostering emotional resilience and
+              healthy coping mechanisms.
+            </p>
+          </div>
+        </div>
+        {/* COUPLES THERAPY */}
+        <div className="flex flex-col md:flex-row justify-center px-[20px] md:px-[100px] space-y-[20px] md:space-y-0 md:space-x-[20px] w-full max-w-6xl">
+          <div className="Service flex-1 max-w-[400px] text-center md:text-left">
+            <h1 className="text-[32px] md:text-[32px] leading-[32px] md:leading-[46px] font-bold text-[#5C4E36]">
+              Couples
+            </h1>
+            <h1 className="text-[32px] md:text-[32px] leading-[32px] md:leading-[46px] font-bold text-[#5C4E36]">
+              Psychotherapy
+            </h1>
+            <p className="hidden md:block text-[14px] md:text-[16px] text-[#5C4E36]">
+              ONLINE & IN PERSON
+            </p>
+            <p className="text-[32px] md:text-[16px] text-[#5C4E36]">
+              Per Session Rate: 8000 pkr, 60 MINUTES
+            </p>
+          </div>
+
+          <div className="Service-description flex-1 max-w-[600px] flex items-center">
+            <p className="text-[18px] md:text-[16px] text-[#393224] text-justify">
+              Couples psychotherapy is designed to help partners improve their
+              relationship dynamics and resolve conflicts. Through guided
+              sessions, couples learn effective communication skills, understand
+              each other's perspectives, and work towards rebuilding trust and
+              intimacy.
+            </p>
           </div>
         </div>
       </section>
 
-      {/* ------ Service Description (Orange Section) ------- */}
-      <section className="bg-[#c45e3e] h-[663px] w-full flex items-center">
-        <div className="flex flex-col items-center space-y-10 w-full">
-          {/* INDIVIDUAL THERAPY */}
-          <div className="flex flex-row justify-center pl-[100px] pr-[100px]">
-            <div className="Service pr-[150px]">
-              <h1 className="text-[32px] leading-[46px] font-bold text-white">
-                Individual{" "}
-              </h1>
-              <h1 className="text-[32px] leading-[46px] font-bold text-white">
-                Psychotherapy{" "}
-              </h1>
-              <p className="text-[14px] text-white">ONLINE & IN PERSON </p>
-              <p className="text-[14px] text-white">
-                Per Session Rate: 5000 pkr, 60 MINUTES
-              </p>
-            </div>
-
-            <div className="Service-description w-[300px]">
-              <p className="text-[16px] text-white">
-                Lorem Ipsum is simply dummy text of the printing and typesetting
-                industry. Lorem Ipsum has been the industry's standard dummy
-                text ever since the 1500s.
-              </p>
-            </div>
+      {/* ------ Services Image ------- */}
+      <section className="relative main-bg pt-[40px] md:pt-[100px]">
+        <div className="flex flex-col lg:flex-row justify-end">
+          <div className="flex flex-col justify-center pr-4 lg:pr-[5px] lg:w-1/2 text-center lg:text-right">
+            <h1 className=" orelega-one text-3xl lg:text-[50px] leading-[1.25] lg:leading-[80px] pb-4 pr-[10px] lg:pb-[90px] text-[#BD704C]">
+              Guiding you towards <br />
+              a more fulfilling <br />
+              future.
+            </h1>
           </div>
-          {/* ADOLESCENT THERAPY */}
-          <div className="flex flex-row justify-center pl-[100px] pr-[100px] ">
-            <div className="Service pr-[150px]">
-              <h1 className="text-[32px] leading-[46px] font-bold text-white">
-                Adolescent{" "}
-              </h1>
-              <h1 className="text-[32px] leading-[46px] font-bold text-white">
-                Psychotherapy{" "}
-              </h1>
-              <p className="text-[14px] text-white">ONLINE & IN PERSON </p>
-              <p className="text-[14px] text-white">
-                Per Session Rate: 5000 pkr, 60 MINUTES
-              </p>
-            </div>
-
-            <div className="Service-description w-[300px]">
-              <p className="text-[16px] text-white">
-                Lorem Ipsum is simply dummy text of the printing and typesetting
-                industry. Lorem Ipsum has been the industry's standard dummy
-                text ever since the 1500s.
-              </p>
-            </div>
-          </div>
-          {/* COUPLES THERAPY */}
-          <div className="flex flex-row justify-center pl-[100px] pr-[100px] ">
-            <div className="Service  pr-[150px]">
-              <h1 className="text-[32px] leading-[46px] font-bold text-white">
-                Couples{" "}
-              </h1>
-              <h1 className="text-[32px] leading-[46px] font-bold text-white">
-                Psychotherapy{" "}
-              </h1>
-              <p className="text-[14px] text-white">ONLINE & IN PERSON </p>
-              <p className="text-[14px] text-white">
-                Per Session Rate: 5000 pkr, 60 MINUTES
-              </p>
-            </div>
-
-            <div className="Service-description w-[300px]">
-              <p className="text-[16px] text-white">
-                Lorem Ipsum is simply dummy text of the printing and typesetting
-                industry. Lorem Ipsum has been the industry's standard dummy
-                text ever since the 1500s.
-              </p>
-            </div>
-          </div>
+          <img
+            src={service_hero}
+            alt="Service Image"
+            className="w-full lg:w-1/2 object-cover z-50 shadow-md"
+          />
         </div>
-      </section>
-      {/* FAQ Section */}
-      <section className="home-bg min-h-[663px]">
-        <h1 className="text-[32px] leading-[46px] font-bold text-center text-[#c45e3e]">
-          Frequently Asked Questions{" "}
-        </h1>
-
-        <div>
-          <Faq data={data} styles={styles} config={config} />
+        {/* Colored lines (only visible on lg screens) */}
+        <div className="hidden lg:block absolute bottom-0 left-0 w-full">
+          <div className="bg-[#E09E7A] h-20"></div>
+          <div className="bg-[#E27A82] h-5"></div>
         </div>
       </section>
     </>
   );
 };
+
 export default Services;

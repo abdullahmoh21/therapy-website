@@ -1,26 +1,15 @@
-const myQueue = require('../utils/myQueue');
+const { myQueue, sendVerificationEmail, sendResetPasswordEmail } = require('../utils/myQueue');
 const User = require('../models/User');
-const Booking = require('../models/Booking');
 const asyncHandler = require('express-async-handler');  //middleware to handle exceptions
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
-const nodemailer = require('nodemailer');
 const ROLES_LIST = require('../config/roles_list');
-const { logger } = require('../utils/emailTransporter');
+const logger  = require('../logs/logger');
 const { invalidateCache } = require('../middleware/redisCaching');
 const TOKEN_ENCRYPTION_KEY = process.env.TOKEN_ENCRYPTION_KEY;
 const TOKEN_ENCRYPTION_IV = process.env.TOKEN_ENCRYPTION_IV;
 
-// RESEND EMAIL API configuration
-const transporter = nodemailer.createTransport({
-    host: 'smtp.resend.com',
-    secure: true,
-    port: 465,
-    auth: {
-      user: 'resend',
-      pass: process.env.RESEND_API_KEY,
-    },
-});
+
 //Encrypt & decrypt for tokens
 function encrypt(text) {
     let cipher = crypto.createCipheriv(
@@ -34,51 +23,22 @@ function encrypt(text) {
 }
 
 function decrypt(text) {
-    let encryptedText = Buffer.from(text, 'hex');
-    let decipher = crypto.createDecipheriv(
-        'aes-256-cbc', 
-        Buffer.from(TOKEN_ENCRYPTION_KEY, 'hex'), // Convert hex string to binary data
-        Buffer.from(TOKEN_ENCRYPTION_IV, 'hex')   // Convert hex string to binary data
-    );
-    let decrypted = decipher.update(encryptedText);
-    decrypted = Buffer.concat([decrypted, decipher.final()]);
-    return decrypted.toString();
+    logger.info(`Decrypting token: ${text}`)
+    try{    
+        let encryptedText = Buffer.from(text, 'hex');
+        let decipher = crypto.createDecipheriv(
+            'aes-256-cbc', 
+            Buffer.from(TOKEN_ENCRYPTION_KEY, 'hex'), // Convert hex string to binary data
+            Buffer.from(TOKEN_ENCRYPTION_IV, 'hex')   // Convert hex string to binary data
+        );
+        let decrypted = decipher.update(encryptedText);
+        decrypted = Buffer.concat([decrypted, decipher.final()]);
+        return decrypted.toString();
+    }catch (err){
+        logger.error(`Error decrypting token: ${err}`);
+    }
 }
 
-
-
-//@desc Get all users
-//@param {Object} req with valid role
-//@route GET /users
-//@access Private
-const getAllUsers_ADMIN = asyncHandler( async (req, res) => {
-    if (req.role !== ROLES_LIST.Admin) return res.sendStatus(401);
-    const users = await User.find({}).select('-password').lean(); 
-    if (!users) return res.status(400).json({ 'message': 'No users found' });
-    res.status(200).json(users);
-})
-
-//@desc Delete a user
-//@param {Object} req with valid role and email
-//@route DELETE /users
-//@access Private
-const deleteUser_ADMIN = asyncHandler(async (req, res) => {
-    if (req.role !== ROLES_LIST.Admin) return res.sendStatus(401);
-    const { userId } = req.body;
-
-    try {
-        const [bookings, payments, user] = await Promise.all([
-            Bookings.deleteMany({userId}),
-            Payments.deleteMany({userId}),
-            User.deleteOne({_id: userId})
-        ]);
-        logger.debug(`User deletion count: ${user.deletedCount}\nBooking deleted count: ${bookings.deletedCount}\nPayment deleted count: ${payments.deletedCount}`);
-        res.sendStatus(201);
-    } catch (error) {
-        logger.error(`Error deleting user: ${error}`);
-        res.sendStatus(500).json({'message':'Error deleting user'});
-    }
-});
 
 //@desc Resend email verification
 //@param {Object} req with valid email or token
@@ -125,7 +85,12 @@ const resendEvLink = asyncHandler(async (req, res) => {
     };
 
     // Add job to email queue
-    await myQueue.add('verifyEmail', emailJobData);
+    try{
+        await myQueue.add('verifyEmail', emailJobData);
+    }catch(err){
+        logger.error(`Error adding job to queue. continuing manually: ${err.message}`);
+        await sendVerificationEmail(emailJobData)
+    }
 
     return res.status(200).json({ 'message': 'Verification email sent' });
 });
@@ -165,40 +130,64 @@ const verifyEmail = asyncHandler( async (req, res) => {
 //@param {Object} req with valid email
 //@route POST /users/forgotPassword
 //@access Public
-const forgotPassword =  asyncHandler( async (req, res) => {
+const forgotPassword = asyncHandler(async (req, res) => {
     const { email } = req.body;
-
+    logger.info(`In forgotPassword API. Email: ${email}`);
+    logger.debug(sendResetPasswordEmail);
     let user;
     user = await User.findOne({ email });
+    logger.info(`result: ${JSON.stringify(user, null, 2)}`);
 
     if (!user) {
-        return res.status(400).json({'message':'No user found with that email'});
+        return res.status(400).json({ 'message': 'No user found with that email' });
     }
 
-    //try to reuse token, if not valid or expired, generate new token
+    // Try to reuse token, if not valid or expired, generate new token
     let resetToken;
-    if(user.resetPasswordEncryptedToken && user.resetPasswordExp > Date.now()){
-        resetToken = decrypt(user.resetPasswordTokenHash);
-    }else{
+    if (user.resetPasswordEncryptedToken && user.resetPasswordExp > Date.now()) {
+        logger.info(`Existing token found. Encrypted token: ${user.resetPasswordEncryptedToken}`);
+        resetToken = decrypt(user.resetPasswordEncryptedToken);
+    } else {
         resetToken = crypto.randomBytes(20).toString('hex');
         user.resetPasswordEncryptedToken = encrypt(resetToken);
         user.resetPasswordExp = Date.now() + 3600000; // 1 hour
         user = await user.save();
-        logger.info(`Reset token generated for ${user.email}: ${resetToken} /n encrypted: ${user.resetPasswordTokenHash}`);
+        logger.info(`Reset token generated for ${user.email}: ${resetToken} /n encrypted: ${user.resetPasswordEncryptedToken}`);
     }
-
 
     const link = `http://localhost:5173/resetPassword?token=${resetToken}`;  //production: change to domain
 
-
-    const emailJobData = {
+    let emailJobData = {
         name: user.name,
         recipient: user.email,
         link: link
+    };
+    
+    try {
+        logger.debug(`Attempting to add resetPassword job to queue`)
+        const response = await myQueue.add('resetPassword', emailJobData);
+    } catch (err) {
+        logger.error(`Error adding resetPassword job to queue. continuing manually: ${err}`);
+        emailJobData = {    //mock job created to pass to function
+            data: {
+                name: user.name,
+                recipient: user.email,
+                link: link
+            },
+            name: 'resetPassword'
+        };
+        
+        try {
+            logger.debug(`Attempting to send reset password email manually`)
+            await sendResetPasswordEmail(emailJobData); // Ensure this function call is correct
+        } catch (emailError) {
+            logger.error(`Error sending reset password email manually: ${emailError}`);
+            return res.status(500).json({ 'message': 'Internal Server Error' });
+        }
     }
-    await myQueue.add('resetPassword', emailJobData);
-    return res.status(200).json({'message':'Reset password link added to email queue'});
-})
+
+    return res.status(200).json({ 'message': 'Reset password link added to email queue' });
+});
 
 
 //@desc reset password
@@ -275,8 +264,6 @@ const updateMyUser = asyncHandler( async (req, res) => {
 })
 
 module.exports = {
-    getAllUsers_ADMIN,
-    deleteUser_ADMIN,
     getMyData,
     updateMyUser,
     verifyEmail,

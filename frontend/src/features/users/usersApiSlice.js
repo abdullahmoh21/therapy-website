@@ -11,7 +11,7 @@ const initialState = usersAdapter.getInitialState()
 export const usersApiSlice = apiSlice.injectEndpoints({
     endpoints: builder => ({
         getAllUsers: builder.query({
-            query: () => '/users',
+            query: () => '/users/admin',
             validateStatus: (response, result) => {
                 //if no response from server, throw an error
                 if (response.status === undefined) {
@@ -36,6 +36,22 @@ export const usersApiSlice = apiSlice.injectEndpoints({
                     ]
                 } else return [{ type: 'User', id: 'LIST' }]
             }
+        }),
+        deleteUser: builder.mutation({
+            query: (email) => ({
+                url: `/users/admin`,
+                method: 'DELETE',
+                body: { email}
+            }),
+            validateStatus: (response, result) => {
+                if (response.status === undefined) {
+                    throw new Error("No response from server");
+                }
+                return response.status === 200 && !result.isError;
+            },
+            invalidatesTags: (result, error, arg) => [
+                { type: 'User', id: arg.email }
+            ]
         }),
         getMyUser: builder.query({
             query: () => '/users',
@@ -119,22 +135,6 @@ export const usersApiSlice = apiSlice.injectEndpoints({
                 }
                 return response.status === 200 && !result.isError;
             },
-        }),
-        deleteUser: builder.mutation({
-            query: (email) => ({
-                url: `/users`,
-                method: 'DELETE',
-                body: { email}
-            }),
-            validateStatus: (response, result) => {
-                if (response.status === undefined) {
-                    throw new Error("No response from server");
-                }
-                return response.status === 200 && !result.isError;
-            },
-            invalidatesTags: (result, error, arg) => [
-                { type: 'User', id: arg.email }
-            ]
         }),
     }),
 })

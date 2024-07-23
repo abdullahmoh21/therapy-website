@@ -6,7 +6,8 @@ const TemporaryBooking = require('../models/TemporaryBooking');
 const asyncHandler = require('express-async-handler');
 const crypto = require('crypto');
 const logger = require('../logs/logger');
-const myQueue = require('../utils/myQueue');
+const {myQueue, deleteDocuments, sendVerificationEmail} = require('../utils/myQueue');
+const { getFromCache } = require('../middleware/redisCaching');
 
 // Cache environment variables to avoid repeated access
 const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET;
@@ -130,7 +131,7 @@ const register = async (req, res) => {
         const verificationToken = crypto.randomBytes(20).toString('hex');
         const userResult = await createUser({ email, password, name, DOB, phone, verificationToken });
         await handleTemporaryBookings(email, userResult._id);
-        await sendVerificationEmail(email, name, verificationToken);
+        await sendEmail(email, name, verificationToken);
 
         return res.status(201).json({ message: 'User created successfully. Check your email for verification link' });
     } catch (error) {
@@ -170,7 +171,15 @@ const createUser = async ({ email, password, name, DOB, phone, verificationToken
 };
 // Links users consultation to their account. deletes the temporary booking
 const handleTemporaryBookings = async (email, userId) => {
-    const tempBookings = await TemporaryBooking.find({ email }).lean().exec();
+    let tempBooking;
+    tempBooking = await getFromCache(`tempBooking:${email}`);
+
+    if(!tempBookings) { //if not in cache, get from db
+        tempBookings = await TemporaryBooking.find({ email }).lean().exec();
+    } else{
+        logger.success(`Retrieved temporary bookings from cache for user: ${email}`)
+    }
+
     if (tempBookings.length > 0) {
         const bookingPromises = tempBookings.map(tempBooking => {
             const { email, createdAt, ...bookingData } = tempBooking; // Correctly destructure inside the map function
@@ -180,15 +189,30 @@ const handleTemporaryBookings = async (email, userId) => {
 
         const TemporaryBookingsToDelete = tempBookings.map(tempBooking => tempBooking._id);
         const jobData = { documentIds: TemporaryBookingsToDelete, model: 'TemporaryBooking' };
-        await myQueue.add('deleteDocuments', jobData);
+
+        //Attempt to add deleteDocuments job to queue. If fails, delete manually
+        try{
+            await myQueue.add('deleteDocuments', jobData);
+        } catch (err) {
+            logger.error(`Error adding deleteDocuments job to queue. continuing manuallt: ${err.message}`)
+            await deleteDocuments(jobData)
+        }
+
     } else {
         logger.error(`No temporary bookings found for user: ${email}`);
     }
 };
-const sendVerificationEmail = async (email, name,token) => {
+const sendEmail = async (email, name,token) => {
     const link = `http://localhost:3200/verifyEmail?token=${token}`; //production: change to domain
     const emailJobData = { recipient: email, name, link };
-    await myQueue.add('verifyEmail', emailJobData);
+
+    //Attempt to add deleteDocuments job to queue. If fails, delete manually
+    try{
+        await myQueue.add('verifyEmail', emailJobData);
+        }catch (err) {
+        logger.error(`Error adding verifyEmail job to queue. continuing manually: ${err.message}`)
+        await sendVerificationEmail(emailJobData)
+    }
     logger.info(`Added verification email to queue: ${email}`);
 };
 
@@ -200,8 +224,6 @@ const sendVerificationEmail = async (email, name,token) => {
 // @access Public - clear cookie if exists
 const logout = asyncHandler( async (req, res) => {
     //delete Access Token on client side
-
-    console.log(`in logout`)
     const cookies = req.cookies;
     if(!cookies?.jwt) return res.sendStatus(204) //no content
 
@@ -221,8 +243,7 @@ const logout = asyncHandler( async (req, res) => {
     //delete refresh token in db
     foundUser.refreshTokenHash = '';
     foundUser.refreshTokenExp = 0;
-    const result = await foundUser.save();
-    console.log("result from logout: ", result);
+    await foundUser.save();
     
     res.clearCookie('jwt', {httpOnly: true, sameSite: 'None', secure: true}); //ADD secure: true in production
     res.sendStatus(204); //no content

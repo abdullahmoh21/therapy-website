@@ -9,23 +9,11 @@ const Layout = () => {
   return (
     <>
       {/* Renders the header&footer on all pages but these */}
-      {location.pathname !== "/signin" &&
-        location.pathname !== "/dash" &&
-        location.pathname !== "/register" &&
-        location.pathname !== "/verifyEmail" &&
-        location.pathname !== "/forgotPassword" &&
-        location.pathname !== "/resetPassword" &&
-        location.pathname !== "/admin" && <Header />}
+      {location.pathname === "/" && <Header />}
       <main>
         <Routers />
       </main>
-      {location.pathname !== "/signin" &&
-        location.pathname !== "/dash" &&
-        location.pathname !== "/register" &&
-        location.pathname !== "/verifyEmail" &&
-        location.pathname !== "/forgotPassword" &&
-        location.pathname !== "/resetPassword" &&
-        location.pathname !== "/admin" && <Footer />}
+      {location.pathname === "/" && <Footer />}
     </>
   );
 };

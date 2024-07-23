@@ -44,18 +44,9 @@ const JoiSchema = Joi.object({
 const EditProfile = ({ onUserUpdate }) => {
   const [updateUser, { isLoading: isUpdating, isSuccess: isUpdateSuccess }] = //add updateuser spinner
     useUpdateMyUserMutation();
-  const [logout, { isLoading: isLoggingOut }] = useLogoutMutation();
   const userData = useSelector(selectMyUser); //fetch user data from store
-  const navigate = useNavigate();
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-      navigate("/");
-    } catch (error) {
-      console.error("Failed to log out: ", error);
-    }
-  };
+  let maxDate = new Date(new Date().setFullYear(new Date().getFullYear() - 11));
 
   const [initialUser, setUser] = useState({
     name: "",
@@ -138,9 +129,9 @@ const EditProfile = ({ onUserUpdate }) => {
     }
   };
   return (
-    <form className="p-6 bg-white rounded shadow-md" onSubmit={handleSubmit}>
+    <form className="p-6 bg-white rounded" onSubmit={handleSubmit}>
       <ToastContainer />
-      <h2 className="text-2xl font-bold mb-6">Edit User</h2>
+      <h2 className="text-2xl font-bold mb-6">Edit your details</h2>
       <div className="space-y-4">
         <div>
           <label className="block text-sm font-medium" htmlFor="name">
@@ -164,7 +155,12 @@ const EditProfile = ({ onUserUpdate }) => {
             defaultCountry="PK"
             value={phone}
             onChange={onPhoneChanged}
-            className="mt-1 p-2 w-full border rounded"
+            autoComplete="off"
+            className="mt-1 p-2 w-full border rounded lp-ignore"
+            style={{
+              "--react-international-phone-border-color": "transparent",
+              "--react-international-phone-font-size": "16px",
+            }}
           />
         </div>
         <div>

@@ -15,8 +15,4 @@ router.route('/')
     .get(redisCaching(), bookingController.getMyBookings)                       //get users active bookings
     
 
-router.route('/admin')
-    .get(bookingController.getAllBookings)                                       //get all active bookings
-
-
 module.exports = router

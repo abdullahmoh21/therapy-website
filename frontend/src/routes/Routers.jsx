@@ -11,8 +11,8 @@ import ForgotPassword from "../features/users/ForgotPassword";
 import ResetPassword from "../features/users/ResetPassword";
 import EmailVerification from "../features/users/EmailVerification";
 import Register from "../features/auth/Register";
-import Dashboard from "../pages/Dashboards/UserDashboard/Dashboard";
-import AdminDashboard from "../pages/Dashboards/AdminDashboard/Dashboard";
+import Dashboard from "../pages/Dashboards/UserDashboard/DashboardNav";
+import AdminDashboard from "../pages/Dashboards/AdminDashboard/AdminDashNav";
 import NotFound from "../pages/404";
 
 const Routers = () => {

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+        .email-container {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .email-header {
+            background-color: #EB8E5F;
+            color: #ffffff;
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid #d48d6a;
+        }
+        .email-body {
+            padding: 20px;
+            line-height: 1.5;
+        }
+        .email-footer {
+            background-color: #EB8E5F;
+            color: #ffffff;
+            text-align: center;
+            padding: 10px;
+            font-size: 0.8em;
+            border-top: 1px solid #d48d6a;
+        }
+        a {
+            color: #EB8E5F;
+            text-decoration: none;
+        }
+        a:hover {
+            color: #d48d6a;
+            text-decoration: underline;
+        }
+        .button-link {
+            display: block;
+            width: fit-content;
+            margin: 10px auto;
+            background-color: #EB8E5F;
+            color: #ffffff;
+            padding: 10px 20px;
+            border-radius: 5px;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+        }
+        .button-link:hover {
+            background-color: #d48d6a;
+            color: #ffffff;
+        }
+        .refund-details {
+            background-color: #ffcccb;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="email-header">
+            <h1>Fatima's Therapy Services</h1>
+        </div>
+        <div class="email-body">
+            <p>Dear Admin,</p>
+            <p>{{name}} has submitted a refund request. The cancellation policy requires cancellations to be made within a specific time frame, and this user has adhered to the policy's conditions. Here are the details of the request:</p>
+            <ol>
+                <li><strong>User Email:</strong> {{userEmail}}</li>
+                <li><strong>Booking ID:</strong> {{bookingId}}</li>
+                <li><strong>Event Date and Time:</strong> {{eventDate}} at {{eventTime}}</li>
+                <li><strong>Cancelled within policy period?</strong> {{cancelledWithinPolicyPeriod}}</li>
+                <li><strong>Payment Amount:</strong> {{paymentAmount}} PKR</li>
+                <li><strong>Payment Status:</strong> {{paymentStatus}} on {{paymentCompleted}}</li>
+                <li><strong>Transaction Reference Number:</strong> {{transactionReferenceNumber}}</li>
+            </ol>
+            <div class="refund-details">
+                <p>
+                    Please follow these steps to review the payment and process the refund:
+                </p>
+                <ol>
+                    <li>Decide whether to approve or reject the refund request (most likely should)</li>
+                    <li>Click the button below to review the payment on Safepay's website (Search by order ID).</li>
+                    <li>If you approve the refund request, press the refund button on the Safepay payment details page.</li>
+                    <li>If you reject the refund request, please contact the user directly to resolve the issue.</li>
+                    <li>[ATTENTION] Ensure that the transaction reference number matches the details provided.</li>
+                </ol>
+            </div>
+            <a href="{{refundLink}}" class="button-link">Review Payment</a>
+            <p>If you have any questions or need further information, please contact us directly.</p>
+        </div>
+        <div class="email-footer">
+            Regards,<br>
+            The Finance Team<br>
+            <a href="https://www.fatimanaqvi.com">www.fatimanaqvi.com</a>
+        </div>
+    </div>
+</body>
+</html>

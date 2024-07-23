@@ -1,4 +1,5 @@
 const { isPast } = require('date-fns');
+const { ca } = require('date-fns/locale');
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 const autoIncrement = require('mongoose-sequence')(mongoose);
@@ -43,9 +44,21 @@ const bookingSchema = new Schema(
         status: {
             type: String,
             required: true,
-            enum: ['Active', 'Completed'],
+            enum: ['Active', 'Completed','Cancelled'],
             default: 'Active',
         },
+        cancellation:{
+            reason:{
+                type: String,
+            },
+            date:{
+                type: Date,
+            },
+            cancelledBy:{
+                type: String,
+                enum: ['User', 'Admin'],
+            },
+        }
     },
     {
         timestamps: true,

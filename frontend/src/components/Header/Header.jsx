@@ -1,19 +1,21 @@
 import { useRef, useEffect, useState } from "react";
 import logo from "../../assets/images/logo.png";
-import { NavLink, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { BiMenu } from "react-icons/bi";
 import { useSelector } from "react-redux";
 import { selectCurrentToken } from "../../features/auth/authSlice";
+import ContactMe from "../../pages/General/ContactMe";
+import { createPortal } from "react-dom";
 
 const NavLinks = [
-  { path: "/services", display: "Services" },
-  { path: "/about", display: "About Me" },
+  { path: "#services", display: "Services" },
+  { path: "#about", display: "About Me" },
+  { path: "#faq", display: "FAQ" },
 ];
-
-// Make all child divs fit into parent divs (currently child divs are overflowing parent divs invisibly)
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isPopupOpen, setIsPopupOpen] = useState(false);
   const headerRef = useRef(null);
   const menuRef = useRef(null);
 
@@ -37,60 +39,81 @@ const Header = () => {
     };
   }, []);
 
-  const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen);
+    document.body.style.overflow = isMenuOpen ? "auto" : "hidden";
+  };
+
+  const togglePopup = () => {
+    setIsPopupOpen(!isPopupOpen);
+  };
 
   return (
     <header
-      className="header flex items-center bg-white home-bg"
+      className="flex items-center bg-[#FFEDE8] py-1 border-b-[1px] border-gray-800"
       ref={headerRef}
     >
-      <div className="container">
-        {/* Desktop navigation */}
-        <div className="hidden md:flex items-center justify-between">
-          <div className="flex items-center h-full">
-            <Link to="/" className="mr-8">
-              <img src={logo} alt="logo" height={45} width={100} />
-            </Link>
-            <div className="navigation">
-              <ul className="flex items-center gap-[5px]">
-                {NavLinks.map((link, index) => (
-                  <li key={index}>
-                    <NavLink
-                      to={link.path}
-                      className="text-textColor text-[16px] leading-7 font-[500] py-2 px-3 border-white rounded-md h-[35px] hover:bg-[#e2e2e2]"
-                    >
-                      {link.display}
-                    </NavLink>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
+      <div className="container mx-auto flex justify-between items-center relative">
+        {/* Logo */}
+        <div className="hidden flex-shrink-0 md:flex">
+          <Link to="/#home" className="flex items-center">
+            <img src={logo} alt="logo" className="h-20 w-auto object-contain" />
+          </Link>
+        </div>
 
-          <div className="flex items-center gap-4 ">
-            {/* sign in button */}
-            {/* <Link to='/signin' className='py-2 px-3 bg-black text-white text-[15px] h-[35px] w-[80px]
-                            flex items-center justify-center border-white rounded-[20px] hover:bg-[#2c2c2c]'>Sign In</Link > */}
-            {token ? (
-              // If token exists, show dashboard icon or link
-              <Link to="/dashboard">Dashboard</Link>
-            ) : (
-              // If no token, show sign in button
-              <Link to="/signin">Sign In</Link>
-            )}
-          </div>
+        {/* Desktop navigation */}
+        <nav className="hidden md:flex items-center justify-center flex-1">
+          <ul className="flex items-center gap-8">
+            {NavLinks.map((link, index) => (
+              <li key={index}>
+                <a
+                  href={link.path}
+                  className="text-[#313131] text-[16px] leading-7 bg-[#DF9E7A] font-[500] py-2 px-4 border-[#000000] rounded-full"
+                >
+                  {link.display}
+                </a>
+              </li>
+            ))}
+            <li>
+              <button
+                onClick={togglePopup}
+                className="text-[#313131] text-[16px] leading-7 bg-[#DF9E7A] font-[500] py-2 px-4 border-[#000000] rounded-full"
+              >
+                Contact Me
+              </button>
+            </li>
+          </ul>
+        </nav>
+
+        {/* Sign in / Dashboard button (hidden on mobile) */}
+        <div className="flex-shrink-0 hidden md:block">
+          {token ? (
+            <Link
+              to="/dash"
+              className="text-[#313131] text-[16px] leading-7 bg-[#DF9E7A] font-[500] py-2 px-4 border-[#000000] rounded-full"
+            >
+              Dashboard
+            </Link>
+          ) : (
+            <Link
+              to="/signin"
+              className="text-[#313131] text-[16px] leading-7 bg-[#DF9E7A] font-[500] py-2 px-4 border-[#000000] rounded-full"
+            >
+              Sign In
+            </Link>
+          )}
         </div>
 
         {/* Mobile view */}
         <div className="flex items-center justify-between w-full md:hidden">
           <span style={{ opacity: 0 }}></span>
           <div>
-            <Link
-              to="/"
-              className="flex items-center"
-              style={{ margin: "auto" }}
-            >
-              <img src={logo} alt="logo" className="mr-2" />
+            <Link to="/" className="flex items-center">
+              <img
+                src={logo}
+                alt="logo"
+                className="h-20 w-auto object-contain"
+              />
             </Link>
           </div>
           <span onClick={toggleMenu} style={{ zIndex: 999 }}>
@@ -101,44 +124,74 @@ const Header = () => {
         {/* Dropdown menu */}
         {isMenuOpen && (
           <div
-            className="absolute shadow-lg border-gray-200 w-full h-full left-0 opacity-100"
+            className="fixed top-0 left-0 w-full h-full bg-white shadow-lg border-gray-200 md:hidden transform transition-transform duration-1000 ease-in-out"
             ref={menuRef}
+            style={{
+              backdropFilter: "blur(10px)",
+              backgroundColor: "rgba(255, 255, 255, 0.9)",
+              zIndex: 998,
+            }}
           >
-            <ul>
+            <ul className="flex flex-col items-start p-4">
               {NavLinks.map((link, index) => (
-                <li key={index}>
-                  <NavLink
-                    to={link.path}
-                    className="block text-gray-800 hover:text-primaryColor"
+                <li key={index} className="w-full">
+                  <a
+                    href={link.path}
+                    className="block w-full text-gray-800 py-2 px-4 hover:bg-[#e2e2e2] bg-transparent"
                     onClick={toggleMenu}
                   >
                     {link.display}
-                  </NavLink>
+                  </a>
                 </li>
               ))}
+              <li className="w-full">
+                <button
+                  onClick={togglePopup}
+                  className="block w-full text-gray-800 py-2 px-4 hover:bg-[#e2e2e2] bg-transparent"
+                >
+                  Contact Me
+                </button>
+              </li>
             </ul>
-            <div className="bottomButtons w-full">
-              <Link
-                to="/login"
-                className="py-2 px-6 text-irisBlueColor border-[2px] border-irisBlueColor font-[600] h-[35px] w-full
-                            flex items-center justify-center rounded-md mb-2.5 mx-4"
-                onClick={toggleMenu}
-              >
-                SIGN IN
-              </Link>
-
-              <Link
-                to="/signup"
-                className="bg-primaryColor py-2 px-6 text-white font-[600] h-[35px] w-full
-                            flex items-center justify-center rounded-md mb-2.5 mx-4"
-                onClick={toggleMenu}
-              >
-                SIGN UP{" "}
-              </Link>
+            <div className="w-full p-4">
+              {token ? (
+                <Link
+                  to="/dash"
+                  className="block text-[#313131] py-2 px-6 border-[2px] border-[#000000] bg-[#DF9E7A] font-[600] rounded-full mb-2 w-full text-center"
+                  onClick={toggleMenu}
+                >
+                  Dashboard
+                </Link>
+              ) : (
+                <Link
+                  to="/signin"
+                  className="block text-[#313131] py-2 px-6 border-[2px] border-[#000000] bg-[#DF9E7A] font-[600] rounded-full mb-2 w-full text-center"
+                  onClick={toggleMenu}
+                >
+                  Sign In
+                </Link>
+              )}
             </div>
           </div>
         )}
       </div>
+
+      {/* Popup for Contact Me */}
+      {isPopupOpen &&
+        createPortal(
+          <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+            <div className="bg-white p-6 rounded-lg shadow-lg">
+              <button
+                onClick={togglePopup}
+                className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+              >
+                &times;
+              </button>
+              <ContactMe />
+            </div>
+          </div>,
+          document.body
+        )}
     </header>
   );
 };

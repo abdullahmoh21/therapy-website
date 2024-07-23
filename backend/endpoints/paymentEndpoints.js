@@ -17,8 +17,5 @@ router.route('/')
 router.route('/refund')
     .post(paymentController.refundRequest)          //request a refund
 
-router.route('/admin')
-    .get(paymentController.getAllPayments)          //get all paymnets
-
 
 module.exports = router

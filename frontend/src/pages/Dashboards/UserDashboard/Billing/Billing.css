@@ -1,0 +1,116 @@
+/* Ensure headers are centered properly */
+.custom-data-table .p-datatable-thead > tr > th {
+    /* background-color: #c45e3e; Header background color */
+    color: #313131; /* Header text color */
+    padding: 5px; /* Add some padding for better appearance */
+    text-align: center; /* Center the text horizontally */
+    vertical-align: middle; /* Center the text vertically */
+}
+
+/* Style the first header cell to have rounded left border */
+.custom-data-table .p-datatable-thead > tr > th:first-child {
+    border-top-left-radius: 9999px; /* Round top left corner */
+    border-bottom-left-radius: 9999px; /* Round bottom left corner */
+}
+
+/* Style the last header cell to have rounded right border */
+.custom-data-table .p-datatable-thead > tr > th:last-child {
+    border-top-right-radius: 9999px; /* Round top right corner */
+    border-bottom-right-radius: 9999px; /* Round bottom right corner */
+}
+
+/* Define a custom class for styling table cell text */
+.custom-data-table .p-datatable-tbody > tr > td {
+    font-size: 14px; /* Font size */
+    color: #313131; /* Text color */
+    text-align: center; /* Center the text horizontally */
+    vertical-align: middle; /* Center the text vertically */
+    padding: 4px; /* Reduced cell padding */
+    white-space: nowrap; /* Prevent text wrapping */
+    overflow: hidden; /* Hide overflow text */
+    text-overflow: ellipsis; /* Ellipsis for overflow text */
+}
+
+/* Flex properties for the header content */
+.custom-data-table .p-datatable-thead .p-column-header-content {
+    display: flex; /* Use flexbox for alignment */
+    align-items: center; /* Vertically center content */
+    justify-content: center; /* Horizontally center content */
+}
+
+/* Adjust spacing between title and sort icon */
+.custom-data-table .p-datatable-thead .p-column-title {
+    margin-right: 5px; /* Space between title and sort icon */
+}
+
+/* Ensure the sorting icon is centered properly */
+.custom-data-table .p-datatable-thead .p-column-header-content span[data-pc-section="sort"] {
+    display: flex; /* Flexbox for alignment */
+    align-items: center; /* Center sort icon vertically */
+    justify-content: center; /* Center sort icon horizontally */
+}
+
+/* Style for the header background */
+.custom-data-table .p-datatable-header {
+    background-color: #DF9E7C; /* Header background color */
+    color: #FFFFFF; /* Header text color */
+}
+
+/* Paginator CSS */
+.custom-data-table .p-paginator {
+    background-color: #DF9E7C; /* Paginator background color */
+    border-radius: 9999px; /* Rounded corners for the pill */
+    padding: 0 10px; /* Add padding */
+}
+
+/* Paginator buttons styling */
+.custom-data-table .p-paginator .p-paginator-pages,
+.custom-data-table .p-paginator .p-paginator-first,
+.custom-data-table .p-paginator .p-paginator-prev,
+.custom-data-table .p-paginator .p-paginator-next,
+.custom-data-table .p-paginator .p-paginator-last {
+    background-color: #DF9E7C; /* Button background color */
+    color: black; /* Button text color */
+    border-radius: 9999px; /* Rounded buttons */
+    margin: 0 2px; /* Space between buttons */
+}
+
+/* Highlighted page button color */
+.custom-data-table .p-paginator .p-paginator-pages .p-paginator-page.p-highlight {
+    background-color: #DF9E7A; /* Highlighted page button color */
+    width: 32px; /* Adjust width */
+}
+
+/* Hover effects for paginator buttons */
+.custom-data-table .p-paginator .p-paginator-page:hover,
+.custom-data-table .p-paginator .p-paginator-prev:hover,
+.custom-data-table .p-paginator .p-paginator-next:hover,
+.custom-data-table .p-paginator .p-paginator-first:hover,
+.custom-data-table .p-paginator .p-paginator-last:hover {
+    background-color: #c45e3e; /* Hover color */
+}
+
+/* Responsive styles for smaller screens */
+@media (max-width: 768px) {
+    .custom-data-table .p-datatable-tbody > tr > td {
+        padding: 4px; /* Adjust padding for smaller screens */
+        font-size: 0.75rem; /* Smaller font size */
+    }
+    .custom-data-table .p-datatable-thead > tr > th {
+        padding: 4px; /* Adjust header padding for smaller screens */
+        font-size: 0.75rem; /* Smaller font size for headers */
+    }
+    .custom-data-table .p-datatable-thead .p-column-title {
+        margin-right: 2px; /* Reduce space between title and sort icon */
+    }
+    .custom-data-table .p-datatable-thead .p-column-header-content {
+        flex-direction: column; /* Stack title and sort icon vertically */
+    }
+    .custom-data-table .p-datatable-thead .p-column-header-content span[data-pc-section="sort"] {
+        margin-top: 2px; /* Add some space above the sort icon */
+    }
+    .custom-data-table .p-datatable-header,
+    .custom-data-table .p-datatable-footer {
+        display: none; /* Hide header and footer on small screens */
+    }
+}

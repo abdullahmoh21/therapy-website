@@ -68,7 +68,20 @@ export const paymentsApiSlice = apiSlice.injectEndpoints({
             query: (bookingId) => ({
                 url: '/payments',
                 method: 'POST',
-                body: bookingId, // Assuming bookingId is the payload you want to send. Adjust accordingly.
+                body: bookingId, 
+            }),
+            validateStatus: (response, result) => {
+                if (response.status === undefined) { 
+                return false;
+                }
+                return response.status === 200 && !result.isError;
+            },
+        }),
+        sendRefundRequest: builder.mutation({
+            query: (data) => ({
+                url: '/payments/refund',
+                method: 'POST',
+                body: data, 
             }),
             validateStatus: (response, result) => {
                 if (response.status === undefined) { 
@@ -83,5 +96,6 @@ export const paymentsApiSlice = apiSlice.injectEndpoints({
 export const {
     useGetAllPaymentsQuery,
     useGetMyPaymentsQuery,
+    useSendRefundRequestMutation,
     useGetPaymentLinkMutation
 } = paymentsApiSlice

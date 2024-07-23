@@ -1,16 +1,14 @@
 const React = require('react')
 const asyncHandler = require('express-async-handler')
 const { Safepay } = require('@sfpy/node-sdk')
-const ShortUniqueId = require('short-unique-id');
 const Joi = require('joi');
-const axios = require('axios')
-const User = require('../models/User')
 const Payment = require('../models/Payment')
 const Booking = require('../models/Booking')
 const logger = require('../logs/logger');
-const { myQueue } = require('../utils/myQueue');
-const { invalidateCache } = require('../middleware/redisCaching');
+const { myQueue, sendRefundRequest, sendRefundConfirmation } = require('../utils/myQueue');
+const { invalidateCache, getFromCache } = require('../middleware/redisCaching');
 
+//production: change to main api
 const safepay = new Safepay({
     environment: 'sandbox',
     apiKey: process.env.SAFEPAY_API_KEY,
@@ -25,22 +23,26 @@ const safepay = new Safepay({
 //@access Public
 const handleSafepayWebhook = asyncHandler(async (req, res) => {
     console.log('APG Webhook received: ', req.body);
+
+    // Verify the webhook using the Safepay SDK
     const valid = await safepay.verify.webhook(req);
     if (!valid) {
         console.error('Invalid webhook received');
         return res.sendStatus(403);
     }
 
-    console.log('Valid webhook received. Processing...');
+    // Extract the webhook data
     const { data } = req.body;
     const { type, notification } = data;
 
+    // Extract the tracker token from the webhook data
     const tracker = notification?.tracker;
     if (!tracker) {
         console.error('No tracker found in webhook data');
         return res.sendStatus(400); // Bad Request
     }
 
+    // Find corresponding Payment document
     const payment = await Payment.findOne({ tracker });
     if (!payment) {
         console.error(`No payment found for tracker: ${tracker}`);
@@ -77,10 +79,25 @@ const handleSafepayWebhook = asyncHandler(async (req, res) => {
             console.error(`Unhandled webhook type: ${type}`);
             return res.sendStatus(400); // Bad Request
     }
-
     await payment.save();
+
+    //send email to user on refund
+    if(payment.transactionStatus === 'Refunded'){
+        try {
+            myQueue.add('refundConfirmation', { payment });
+        } catch (error) {
+            // Send email manually if queue fails (redis down or anything else)
+            const emailJobData = {
+                name: 'refundConfirmation',
+                data: { payment },
+            }
+            await sendRefundConfirmation({ payment });
+        }
+    }
     // Invalidate the cache for the user's bookings since the payment status has changed
     invalidateCache(`bookings:${payment.userId}`);
+    invalidateCache(`payments:${payment.userId}`);
+
     console.log(`Payment document updated for tracker: ${tracker}/n ${JSON.stringify(payment, null, 2)}`);
 
     return res.sendStatus(200);
@@ -92,11 +109,7 @@ const handleSafepayWebhook = asyncHandler(async (req, res) => {
 //@access Private
 const createPayment = asyncHandler(async (req, res) => {
     const { bookingId } = req.body;
-    if (!bookingId) return res.sendStatus(400); // Bad Request
-
-    // Initialize id generator
-    const uid = new ShortUniqueId({ length: 5 });
-    const transactionReferenceNumber = `T-${uid.rnd()}`;
+    if (!bookingId) return res.send(400).json({'message':"BookingId is required"}); // Bad Request
 
     try {
         // Find the corresponding Payment document
@@ -113,7 +126,7 @@ const createPayment = asyncHandler(async (req, res) => {
 
         const url = safepay.checkout.create({
             token,
-            orderId: transactionReferenceNumber,
+            orderId: payment.transactionReferenceNumber,
             cancelUrl: 'https://cattle-tender-mosquito.ngrok-free.app/dash',
             redirectUrl: 'https://cattle-tender-mosquito.ngrok-free.app/dash',
             webhooks: true
@@ -125,13 +138,12 @@ const createPayment = asyncHandler(async (req, res) => {
 
         // Update payment document
         payment.tracker = token;
-        payment.transactionReferenceNumber = transactionReferenceNumber;
         payment.linkGeneratedDate = new Date();
         await payment.save();
 
         return res.status(200).json({ url });
     } catch (error) {
-        console.error(`Error in createPayment: ${error.response ? JSON.stringify(error.response.data) : JSON.stringify(error)}`);
+        console.error(`Error in createPayment: ${error}`);
         return res.sendStatus(500);
     }
 });
@@ -140,35 +152,66 @@ const createPayment = asyncHandler(async (req, res) => {
 //@param valid user jwt token
 //@route GET /payments
 //@access Private
-const getMyPayments = asyncHandler( async (req, res) => {
-    const{ email } = req; //from verifyJWT
-    const user = await User.findOne({ "email": email }).lean().exec();
-    if (!user) return res.status(404).json({ 'message': 'User not found' });
+const getMyPayments = asyncHandler(async (req, res) => {
+    const { userId } = req; // from verifyJWT
 
-    const payments = await Payment.find({ 
-        userId: user._id
-    }).lean().exec();
-    if (payments?.length === 0) return res.status(204).end();
+    const [payments, bookings] = await Promise.all([
+    Payment.find({ userId }).lean().select('_id bookingId userId amount transactionReferenceNumber transactionStatus paymentCompletedDate paymentRefundedDate').exec(),
+    Booking.find({ userId }).lean('bookingId status eventStartTime cancellation').select().exec(),
+    ]);
+    
+    // Type Validation
+    if (!Array.isArray(bookings)) {
+      logger.error(`Expected bookings to be an array but received: ${typeof bookings} \nsimply sending payments`);
+      bookings = [];
+    }
+  
+    // Create a map of bookings by bookingId for quick lookup
+    const bookingMap = bookings.reduce((map, booking) => {
+      map[booking._id] = booking;
+      return map;
+    }, {});
+  
+    // Add booking details to each payment
+    const enhancedPayments = payments.map(payment => {
+      const booking = bookingMap[payment.bookingId];
+        if (booking) {
+            const result = {
+                ...payment,
+                customerBookingId: booking.bookingId,
+                bookingStatus: booking.status,
+                eventStartTime: booking.eventStartTime,
+            };
+        
+            if (booking.cancellation) {
+                result.cancellation = booking.cancellation;
+            }
+        
+            return result;
+        }
+    });
+    logger.debug(`Enhanced payments for userId: ${userId} \n ${JSON.stringify(enhancedPayments, null, 2)}`);
+    res.json(enhancedPayments);
+         
+});
 
 
-    console.log(`Payment data sent: ${JSON.stringify(payments, null, 2)}`);
-    res.json(payments);
-})
 
 const refundSchema = Joi.object({
     paymentId: Joi.string().required(),
     bookingId: Joi.string().required(),
-    reason: Joi.string().required().min(10).max(500).trim(),
 });
 
 //@desc sends a refund request to admin for approval
 //@param valid tracker token
 //@route POST /payments/refund
 //@access Private
-const refundRequest = asyncHandler( async (req, res) => {
-    const { paymentId, reason, bookingId } = req.body;
+const refundRequest = asyncHandler( async (req, res) => {               
+    const { paymentId, bookingId } = req.body;
     
-    const { error } = refundSchema.validate(req.body);
+    logger.debug(`Refund request received for paymentId: ${paymentId} and bookingId: ${bookingId}`);
+
+    const { error } = refundSchema.validate({ paymentId, bookingId });
     if (error) return res.status(400).json({ 'message': error.details[0].message });
 
     // Find the corresponding Payment and Booking documents
@@ -177,56 +220,39 @@ const refundRequest = asyncHandler( async (req, res) => {
         Booking.findOne({ _id: bookingId }).lean().exec()
     ]); 
 
-    // Check if booking's paymentId and payment's _id exist and match
-    if (!booking.paymentId || !payment._id || booking.paymentId.toString() !== payment._id.toString()) {
-        logger.debug(`Invalid or mismatched paymentId: ${booking.paymentId} and _id: ${payment._id}.`);
+    // Check if both documents exist and _id's match
+    if (!booking || !payment || !booking.paymentId || !payment._id || booking.paymentId.toString() !== payment._id.toString()) {
+        logger.debug(`Invalid or mismatched paymentId: ${booking?.paymentId} and _id: ${payment?._id}.`);
         return res.status(400).end(); // Bad Request
     }
 
-    // Check if booking's paymentId matches payment's _id
-    if (booking.paymentId.toString() !== payment._id.toString()) {
-        logger.debug(`Payment's bookingId: ${booking.paymentId} and Booking's paymentId: ${payment._id} do not match.`);
-        return res.status(400).end(); // Bad Request
+    if(payment.transactionStatus !== 'Completed'){
+        return res.status(400).json({ 'message': 'Refunds can only be processed for completed payments' });
     }
-    
-    if(payment.transactionStatus === 'Refunded') return res.status(400).json({ 'message': 'Payment already refunded' });
-    if(payment.transactionStatus === 'Partially Refunded') return res.status(400).json({ 'message': 'Payment already partially refunded' });
-    if(payment.transactionStatus !== 'Completed') return res.status(400).json({ 'message': 'Payment not completed' });
-
     
     const currentTime = new Date();
-    const twentyFourHoursBeforeBooking = new Date(booking.eventStartTime.getTime() - 24 * 60 * 60 * 1000);
-    // Check if the current time is 24 hours before the booking's start time
-    if (currentTime >= twentyFourHoursBeforeBooking) {
-        return res.status(400).json({ 'message': 'Refunds can only be processed if cancellation is made 24 hours before the booking start time' });
+    const seventyTwoHoursBeforeBooking = new Date(booking.eventStartTime.getTime() - 72 * 60 * 60 * 1000);
+    
+    // Check if the current time is 72 hours before the booking's start time
+    if (currentTime >= seventyTwoHoursBeforeBooking) {
+        return res.status(400).json({ message: 'Refunds can only be processed if cancellation is made 72 hours before the booking start time' });
     }
+    
         
     const emailJobData = { 
         // pass fetched data to email job
-        reason,
         payment: payment, 
         booking: booking,
-        recipient: process.env.ADMIN_EMAIL
+        recipient: process.env.ADMIN_EMAIL,
+        updatePaymentStatus: true,  //worker will update payment status to 'Refund Requested'
     };
-    
-    await myQueue.add('refundRequest', emailJobData);
+    try{
+        await myQueue.add('refundRequest', emailJobData);
+    } catch (error) {
+        logger.error(`Error adding refund request job to queue. Sending manually: ${error}`);
+        await sendRefundRequest(emailJobData);
+    }
     return res.status(200).json({ 'message': 'Refund request has been added to the queue ' });
-})
-
-//@desc returns all payments 
-//@param valid admin jwt token
-//@route GET /payments/admin
-//@access Private(admin)
-const getAllPayments = asyncHandler( async (req, res) => {
-    if (req?.role !== ROLES_LIST.Admin) return res.sendStatus(401);
-
-    //find all active payments
-    const payments = await Payment.find({}).lean().exec();
-
-    if (payments.length === 0) return res.status(204).end();
-    console.log(`Admin booking data sent: ${JSON.stringify(payments, null, 2)}`);
-    res.json(payments);
-
 })
 
 
@@ -235,6 +261,5 @@ module.exports = {
     handleSafepayWebhook,
     createPayment,
     getMyPayments,
-    getAllPayments,
     refundRequest
 }

@@ -7,8 +7,6 @@ const paymentSchema = new Schema(
         bookingId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Booking', 
-            required: true, 
-            index: true,
         },
         userId: {
             type: mongoose.Schema.Types.ObjectId,
@@ -41,7 +39,7 @@ const paymentSchema = new Schema(
         transactionStatus: { 
             type: String, 
             required: true,
-            enum: ['Pending', 'Completed', 'Cancelled','Partially Refunded','Refunded'],
+            enum: ['Pending', 'Completed', 'Cancelled','Refund Requested','Refunded','Partially Refunded'],
             default: 'Pending'
         },
         linkGeneratedDate: {
@@ -54,6 +52,7 @@ const paymentSchema = new Schema(
             type: Date 
         },
     },
+    { timestamps: true }
 );
 
 
