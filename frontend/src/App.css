@@ -1,4 +1,14 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,100..900;1,100..900&display=swap');
+/* Oregla One for headings and Noto Serif as defult */
+@import url('https://fonts.googleapis.com/css2?family=Orelega+One&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Orelega+One&display=swap'); 
+
+/* Add global font-family rule */
+body {
+  font-family: 'Noto Serif', serif;
+}
+.orelega-one {
+  font-family: 'Orelega One', serif;
+}
 
 * {
   margin: 0;
@@ -6,9 +16,6 @@
   box-sizing: border-box;
 }
 
-body {
-  font-family: "Noto Serif", sans-serif;
-}
 
 .sticky_header {
   position: sticky;
@@ -21,71 +28,16 @@ body {
   box-shadow: 3px 3px -8px 3px #ddd;
 }
 
-/* Mobile Navigation Styles */
-@media only screen and (max-width: 768px) {
-  .navigation {
-    height: 100%;
-    width: 15rem;
-    top: 0;
-    right: 0; 
-    z-index: 100;
-    display: none;
-  }
-  .menu {
-    width: 100%;
-    height: 100%;
-    position: absolute;
-    top: 0;
-    background: white;
-    z-index: 200;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;  
-    line-height: 15px;
-    display: none; 
-  }
-  /* This styles the dropdown menu container */
-  .absolute {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: white; /* Change this to the desired background color */
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); /* This adds a shadow to the dropdown */
-  }
 
-  /* This styles each link in the dropdown */
-  .block {
-    display: block;
-    text-align: center;
-    padding: 5px 15px;
-    text-decoration: none;
-    color: #333; /* Change this to the desired text color */
-  }
-  /* This changes the link color when the mouse hovers over it */
-  .block:hover {
-    color: #007BFF; /* Change this to the desired hover color */
-  }
-  .bottomButtons {
-    position: fixed;
-    bottom: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-  }
+.main-bg{
+  background-color: #FFEDE8;
 }
 
-.home-bg{
-  background-color: #ffffff;
-  opacity: 1;
-  background-image:  radial-gradient(#68554F 0.7000000000000001px, transparent 0.7000000000000001px), radial-gradient(#68554F 0.7000000000000001px, #ffffff 0.7000000000000001px);
-  background-size: 28px 28px;
-  background-position: 0 0,14px 14px;
+/* To ensure that when navigating via anchor tags the header is accounted for */
+section {
+  scroll-margin-top: 80px;
 }
+
 
 
 /* Services Page */
@@ -163,4 +115,7 @@ input.lp-ignore + div[data-lastpass-icon-root] {
  display: none !important;
 }
   
+html {
+  scroll-behavior: smooth;
+}
   

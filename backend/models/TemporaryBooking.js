@@ -14,7 +14,7 @@ const temporaryBookingSchema = new Schema({
     eventName: String,
     scheduledEventURI: String,
     eventTypeURI: String,
-    createdAt: { type: Date, default: Date.now, expires: '24h' } // Temporary booking expires after 2 hours
+    createdAt: { type: Date, default: Date.now, expires: '24h' } // Temporary booking expires after 24 hours
 });
 
 const TemporaryBooking = mongoose.model('TemporaryBooking', temporaryBookingSchema);

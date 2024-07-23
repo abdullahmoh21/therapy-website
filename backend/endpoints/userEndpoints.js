@@ -22,7 +22,21 @@ router.route('/resetPassword')//?token=tokenString
         userController.resetPassword)  
 
 router.route('/forgotPassword')                  
-    .post(expressJoiValidation.body(emailSchema), userController.forgotPassword)                 
+    .post(
+        (req, res, next) => {
+            console.log('Request received at /forgotPassword');
+            next();
+        },
+        expressJoiValidation.body(emailSchema), 
+        (err, req, res, next) => {
+            if (err) {
+                console.error('Validation error:', err);
+                return res.status(400).json({ error: err.message });
+            }
+            next();
+        },
+        userController.forgotPassword
+    );
 
 router.use(verifyJWT)  
 
@@ -31,11 +45,6 @@ router.use(verifyJWT)
 router.route('/')
     .get(redisCaching(), userController.getMyData)        
     .patch(expressJoiValidation.body(updateMyUser), userController.updateMyUser)   
-
-router.route('/admin')
-    .get(userController.getAllUsers_ADMIN)        
-    .delete(expressJoiValidation.body(emailSchema), userController.deleteUser_ADMIN)      
-
 
 //formats any joi error into JSON for the client
 router.use((err, req, res, next) => {

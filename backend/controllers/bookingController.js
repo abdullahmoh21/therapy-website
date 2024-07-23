@@ -8,6 +8,8 @@ const User = require('../models/User')
 const Booking = require('../models/Booking')
 const Payment = require('../models/Payment')
 const TemporaryBooking = require('../models/TemporaryBooking')
+const ShortUniqueId = require('short-unique-id');
+const uid = new ShortUniqueId({ length: 5 });  //for generating transaction reference number
 
 
 //@desc handles Calendly webhook events
@@ -30,6 +32,13 @@ const handleCalendlyWebhook = asyncHandler(async (req, res) => {
         }
     } = payload;
 
+    
+    let canceler_type, reason, created_at;
+    if (event === 'invitee.canceled') {
+        const { cancellation } = payload;
+        ({ canceler_type, reason, created_at } = cancellation);
+    }
+
     try {
         if (eventName === '15 Minute Consultation') {
             await handleConsultationEvent(event, {
@@ -37,7 +46,7 @@ const handleCalendlyWebhook = asyncHandler(async (req, res) => {
             });
         } else {
             await handleExistingUserEvent(event, {
-                receivedUserId, start_time, end_time, eventName, eventURI, eventTypeURI, cancel_url, reschedule_url
+                receivedUserId, start_time, end_time, eventName, eventURI, eventTypeURI, cancel_url, reschedule_url, canceler_type, reason, created_at
             });
         }
         
@@ -49,79 +58,96 @@ const handleCalendlyWebhook = asyncHandler(async (req, res) => {
 });
 
 // ----------------------------- Start Webhook Helper Functions ----------------------------- //
+
 async function handleConsultationEvent(event, { email, cancel_url, reschedule_url, start_time, end_time, eventName, eventURI, eventTypeURI }) {
+    // consultation events are made bofore user is created, so we need to store them in a temp booking
     if (event === "invitee.created") {
         const tempBooking = await TemporaryBooking.create({
             email, cancelURL: cancel_url, rescheduleURL: reschedule_url, eventStartTime: start_time, eventEndTime: end_time, eventName, scheduledEventURI: eventURI, eventTypeURI
         });
-        // add to cache
+        // add the temporary booking to cache, since will be needed imediately after for registration
         addToCache(`tempBooking:${email}`, tempBooking);
         logger.info(`New booking for consultation: ${email}`);
     } else if (event === "invitee.canceled") {
         await TemporaryBooking.deleteOne({ scheduledEventURI: eventURI });
         // invalidate cache
         invalidateCache(`tempBooking:${email}`);
+
         logger.info(`Consultation canceled: ${eventURI}`);
     }
 }
 
-async function handleExistingUserEvent(event, { receivedUserId, start_time, end_time, eventName, eventURI, eventTypeURI, cancel_url, reschedule_url }) {
+async function handleExistingUserEvent(event, { receivedUserId, start_time, end_time, eventName, eventURI, eventTypeURI, cancel_url, reschedule_url, canceler_type, reason,created_at }) {
     if (event === "invitee.created") {
         const [existingBooking, user] = await Promise.all([
-            Booking.findOne({ scheduledEventURI: eventURI }).lean(),
-            User.findOne({ _id: receivedUserId }).lean()
+          Booking.findOne({ scheduledEventURI: eventURI }).lean(),
+          User.findOne({ _id: receivedUserId }).lean()
         ]);
-
+      
         if (existingBooking) {
-            logger.info(`Booking already exists for eventURI: ${eventURI}. Skipping creation.`);
-            return;
+          logger.info(`Booking already exists for eventURI: ${eventURI}. Skipping creation.`);
+          return;
         }
-        
+      
         if (!user) {
-            logger.info(`No user found with utm_content: ${receivedUserId}. Deleting event.`);
-            await deleteEvent(eventURI);
-            return;
+          logger.info(`No user found with utm_content: ${receivedUserId}. Deleting event.`);
+          await deleteEvent(eventURI);
+          return;
         }
-
-        const booking = await Booking.create({
-            userId: user._id,
-            eventStartTime: start_time, 
-            eventEndTime: end_time, 
-            eventName, 
-            scheduledEventURI: eventURI, 
-            eventTypeURI, 
-            cancelURL: cancel_url, 
-            rescheduleURL: reschedule_url, 
-            amount: process.env.SESSION_PRICE
-        })
-        const paymnet = await Payment.create({
-            userId: user._id, 
-            bookingId: booking._id,
-            amount: process.env.SESSION_PRICE,
-            paymentCurrency: 'PKR',
-            status: 'Pending'
-        })
-        //invalidating cache
-        invalidateCache(`bookings:${user._id}`);
-
+      
+        const transactionReferenceNumber = `T-${uid.rnd()}`;
+        const bookingData = {
+          userId: user._id,
+          eventStartTime: start_time,
+          eventEndTime: end_time,
+          eventName,
+          scheduledEventURI: eventURI,
+          eventTypeURI,
+          cancelURL: cancel_url,
+          rescheduleURL: reschedule_url,
+          amount: process.env.SESSION_PRICE
+        };
+      
+        const paymentData = {
+          userId: user._id,
+          amount: process.env.SESSION_PRICE,
+          transactionReferenceNumber,
+          paymentCurrency: 'PKR',
+          status: 'Pending'
+        };
+        
+        // Create booking and payment
+        const [booking, payment] = await Promise.all([
+          Booking.create(bookingData),
+          Payment.create(paymentData)
+        ]);
+      
+        // Link both documents
+        booking.paymentId = payment._id;
+        payment.bookingId = booking._id;
+        await Promise.all([booking.save(), payment.save()]);
+      
+        // Invalidate cache
+        await Promise.all([
+          invalidateCache(`bookings:${user._id}`),
+          invalidateCache(`payments:${user._id}`) // since new payment is created
+        ]);
+      
         logger.info(`Booking and payment created for user: ${user.email}`);
-    } else if (event === "invitee.canceled") {
+      } else if (event === "invitee.canceled") {
         // Find the booking document to get its _id
-    const booking = await Booking.findOne({ scheduledEventURI: eventURI }).lean(); 
+        const booking = await Booking.findOne({ scheduledEventURI: eventURI }).exec();
+        if (!booking)(logger.info(`No booking found for eventURI: ${eventURI}.`));
+        if(booking.status === 'Cancelled') return;
 
-        if (booking) {
-            // Delete the booking document
-            const deleteResult = await Booking.deleteOne({ _id: booking._id });
+        booking.status = 'Cancelled';
+        booking.cancellation.reason = reason
+        booking.cancellation.cancelledBy = (canceler_type === 'user') ? 'User' : 'Admin';
+        booking.cancellation.date = new Date(created_at);
 
-            // Check if the booking was successfully deleted
-            if (deleteResult.deletedCount > 0) {
-                // Proceed to delete the related payment document
-                const paymentDeleteResult = await Payment.deleteOne({ bookingId: booking._id }).lean();
-                logger.info(`Payment related to the canceled event deleted: ${paymentDeleteResult.deletedCount}`);
-            }
-            invalidateCache(`bookings:${booking.userId}`);
-            logger.info(`Event with following URI canceled: ${eventURI}, delete count: ${deleteResult.deletedCount}`);
-        }
+        await booking.save();
+        invalidateCache(`bookings:${booking.userId}`);
+        invalidateCache(`payments:${booking.userId}`);
     }
 }
 
@@ -133,7 +159,7 @@ async function deleteEvent(eventURI) {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${process.env.CALENDLY_API_KEY}`
         },
-        data: { reason: 'This is a server generated event: No user found. Deleted event.' }
+        data: { reason: 'This is a server generated txt: No user found. Deleted event.' }
     };
     await axios.request(options);
     logger.info(`Event deleted: ${eventURI}`);
@@ -162,18 +188,36 @@ const getNewBookingLink = asyncHandler(async (req, res) => {
 //@access Private
 const getMyBookings = asyncHandler(async (req, res) => {
     const { userId } = req;
+    let bookings, payments;
 
-    // Fetch active bookings and all payments for the user in parallel
-    const [bookings, payments] = await Promise.all([
-        Booking.find({
+    // Try to fetch payments from cache
+    try {
+        payments = await getFromCache(`payments:${userId}`);        
+    } catch (error) {
+        logger.error(`Error fetching payments for user ${userId} from cache. using db instead:\n ${error}`);
+        payments = null;
+    }
+
+    // Fetch active bookings and all payments for the user in parallel IF payments are not found in cache
+    if(!payments){
+        [bookings, payments] = await Promise.all([
+            Booking.find({
+                userId,
+                status: 'Active',
+                eventEndTime: { $gt: new Date().getTime() }
+            }).select('-userId -__v -createdAt -updatedAt -scheduledEventURI -eventTypeURI -rescheduleURL').lean().exec(),
+            Payment.find({ 
+                userId,
+            }).select('transactionStatus amount paymentId currency bookingId userId').lean().exec()
+        ]);
+    }else{
+        logger.info(`Payments for user ${userId} found in cache: \n ${JSON.stringify(payments, null, 2)}\n`);
+        bookings = await Booking.find({
             userId,
             status: 'Active',
             eventEndTime: { $gt: new Date().getTime() }
-        }).select('-userId -__v -createdAt -updatedAt -scheduledEventURI -eventTypeURI -rescheduleURL').lean().exec(),
-        Payment.find({ 
-            userId,
-         }).select('transactionStatus amount paymentId currency bookingId userId').lean().exec()
-    ]);
+        }).select('-userId -__v -createdAt -updatedAt -scheduledEventURI -eventTypeURI -rescheduleURL').lean().exec();
+    }   
 
     if (bookings.length === 0) return res.status(204).end();
 
@@ -200,12 +244,6 @@ const getMyBookings = asyncHandler(async (req, res) => {
         return booking;
     });
 
-    const TWENTY_FOUR_HOURS_IN_MS = 24 * 60 * 60 * 1000;
-    bookingsWithPaymentDetails.forEach(booking => {
-        const timeUntilEvent = new Date(booking.eventStartTime).getTime() - new Date().getTime();
-        booking.cancelURL = (timeUntilEvent > TWENTY_FOUR_HOURS_IN_MS) ? booking.cancelURL : null;
-    });
-
     res.json(bookingsWithPaymentDetails);
 });
 
@@ -213,20 +251,52 @@ const getMyBookings = asyncHandler(async (req, res) => {
 //@param valid admin jwt token
 //@route GET /bookings/admin
 //@access Private(admin)
-const getAllBookings = asyncHandler( async (req, res) => {
+const getAllBookings = asyncHandler(async (req, res) => {
     if (req?.role !== ROLES_LIST.Admin) return res.sendStatus(401);
 
-    //find all active bookings
-    const currentTimestamp = new Date().getTime();
-    const bookings = await Booking.find({        
-        eventStartTime: { $gt: currentTimestamp } 
-    }).lean().exec();
+    // Get pagination parameters from the query string
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
 
+    // Validate pagination parameters
+    if (page < 1 || limit < 1 || limit > 40) {
+        return res.status(400).json({ message: 'Page and limit must be positive integers and limit should not exceed 40' });
+    }
+
+    // Calculate the number of documents to skip
+    const skip = (page - 1) * limit;
+
+    // Get the current timestamp
+    const currentTimestamp = new Date().getTime();
+
+    // Retrieve paginated bookings
+    const bookings = await Booking.find({
+        eventStartTime: { $gt: currentTimestamp }
+    })
+    .skip(skip)
+    .limit(limit)
+    .lean()
+    .exec();
+
+    // Get the total number of bookings
+    const totalBookings = await Booking.countDocuments({
+        eventStartTime: { $gt: currentTimestamp }
+    });
 
     if (bookings.length === 0) return res.status(204).end();
+
+    // Log data for debugging purposes (optional)
     console.log(`ADMIN booking data sent: ${JSON.stringify(bookings, null, 2)}`);
-    res.json(bookings);
-})
+
+    // Send paginated data along with metadata
+    res.json({
+        page,
+        limit,
+        totalBookings,
+        totalPages: Math.ceil(totalBookings / limit),
+        bookings
+    });
+});
 
 
 //@desc cleans up old bookings and their associated payments

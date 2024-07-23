@@ -13,8 +13,8 @@ const requireHttps = require('./middleware/requireHttps');
 const compression = require('compression');
 const connectDB = require('./utils/connectDB');
 const connectCalendly = require('./utils/connectCalendly');
-const conditionalRateLimiter = require('./middleware/rateLimits/fifteenRequestPerMin');
-const checkBlocked = require('./middleware/rateLimits/checkBlocked');
+const conditionalRateLimiter = require('./middleware/rateLimiting/generalRateLimit');
+const checkBlocked = require('./middleware/rateLimiting/checkBlocked');
 const { deleteOldBookingsAndPayments } = require('./controllers/bookingController');
 const cron = require('node-cron');
 const logger = require('./logs/logger');
@@ -22,6 +22,9 @@ const cors = require('cors');
 const corsOptions = require('./config/corsOptions');
 const cookieParser = require('cookie-parser');
 const PORT = process.env.PORT || 3200;
+const redisClient = require('./utils/redisClient');
+const { queueWorker } = require('./utils/myQueue');
+const { sendAdminAlert } = require('./utils/emailTransporter');
 
 // SSL/TLS certificate options
 const sslOptions = {
@@ -55,6 +58,10 @@ app.use(
 );
 
 
+// for X-Forwarded-For header
+app.set('trust proxy', 1);
+
+
 //----------------- MIDDLEWARE ------------------//
 app.use(checkBlocked); // exit if ip is blocked
 app.use(conditionalRateLimiter);  // Rate limit certain endpoints 
@@ -75,6 +82,8 @@ app.use('/auth', require('./endpoints/authEndpoints'));
 app.use('/users', require('./endpoints/userEndpoints'));
 app.use('/bookings', require('./endpoints/bookingEndpoints'));
 app.use('/payments', require('./endpoints/paymentEndpoints'));
+app.use('/admin', require('./endpoints/adminEndpoints'));
+// app.use('/email', require('./endpoints/emailEndpoints.js'));
 // ---------------------------------------------//
 
 
@@ -94,6 +103,8 @@ cron.schedule('30 3 * * 0', () => {
   deleteOldBookingsAndPayments();
 });
 
+
+//------------------ SERVER STARTUP ------------------//
 let server;
 mongoose.connection.on('open', async () => { // Only listens if db is open and the webhook is live
   try {
@@ -106,25 +117,70 @@ mongoose.connection.on('open', async () => { // Only listens if db is open and t
       });
     } else {
       console.error('Webhook is not live. Server startup aborted.');
+      sendAdminAlert('serverDown');
     }
   } catch (error) {
     console.error('Failed to connect Calendly or check webhook status:', error);
+    sendAdminAlert('serverDown');
   }
 });
 
-// Graceful shutdown
-process.on('SIGINT', () => {
-  if (server) {
-    server.close(() => {
-      logger.info('Received SIGINT. Shutting down gracefully.');
-      // Ensure the process exits after the server is closed
-      process.exit(0);
-    });
-  } else {
-    logger.info('Server not running.');
-    process.exit(0);
-  }
+//------------------ GRACEFUL SHUTDOWN ------------------//
+let isShuttingDown = false;
+
+process.on('SIGTERM', () => {
+  logger.info('SIGTERM signal received.');
+  gracefulShutdown('SIGTERM');
 });
+
+
+process.on('SIGINT', () => {
+  logger.info('SIGINT signal received.');
+  gracefulShutdown('SIGINT');
+});
+
+const gracefulShutdown = (signal) => {
+  if (isShuttingDown) {
+    logger.info(`Already shutting down due to ${signal}, ignoring additional signal.`);
+    return;
+  }
+  
+  isShuttingDown = true;
+  logger.info(`Received ${signal}, shutting down gracefully.`);
+  
+  closeQueue(signal)
+    .then(() => {
+      logger.info('BullMQ worker closed.');
+      server.close(() => {
+        logger.info('Graceful shutdown complete.');
+        process.exit(0);
+      });
+    })
+    .catch((error) => {
+      logger.error(`Error during shutdown: ${error.message}`);
+      process.exit(1);
+    });
+
+  // Force shutdown after a timeout
+  setTimeout(() => {
+    logger.error('Forcing shutdown due to timeout.');
+    process.exit(1);
+  }, 10000); // 10 seconds
+};
+
+const closeQueue = async (signal) => {
+  try {
+    if (queueWorker) {
+      await queueWorker.close();
+    } else {
+      logger.error('BullMQ worker is not defined.');
+    }
+  } catch (error) {
+    logger.error(`Error closing BullMQ worker: ${error.message}`);
+    throw error; // Propagate the error to be handled in the gracefulShutdown function
+  }
+};
+
 
 mongoose.connection.on('error', (err) => {
   console.log(err)

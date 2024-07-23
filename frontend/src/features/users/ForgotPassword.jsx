@@ -3,6 +3,8 @@ import { useForgotPasswordMutation } from "./usersApiSlice";
 import { Link } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import logo from "../../assets/images/logo.png";
+const consultationUrl = import.meta.env.CALENDLY_BOOKING_PAGE;
 import Joi from "joi";
 
 const emailSchema = Joi.object({
@@ -34,37 +36,42 @@ const ForgotPassword = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-[#FFEEE8]">
       <ToastContainer />
-      <img
-        src="/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/frontend/src/assets/images/logo.png"
-        alt="Logo"
-        className="mb-6"
-      />
-      <p className="mb-4 text-center text-gray-600">
-        Enter the email associated with your account and we'll send you a link
-        to reset your password
+      <Link to="/">
+        <img
+          src={logo}
+          alt="Logo"
+          className="mb-6 w-32" // Adjust size as needed
+        />
+      </Link>
+      <p className="mb-4 text-center text-[#E09E7C]">
+        Enter your email and we'll send you a link to reset your password.
       </p>
-      <form onSubmit={handleSubmit} noValidate className="w-80">
+      <form
+        onSubmit={handleSubmit}
+        noValidate
+        className="w-80 bg-white p-6 rounded-lg shadow-lg"
+      >
         <input
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="Enter your email"
-          className="w-full px-3 py-2 mb-4 text-gray-700 border rounded-lg focus:outline-none focus:shadow-outline"
+          className="w-full px-3 py-2 mb-4 text-gray-700 border border-[#E09E7C] rounded-lg focus:outline-none focus:shadow-outline"
         />
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full px-3 py-2 text-white bg-blue-500 rounded-lg hover:bg-blue-700 focus:outline-none focus:shadow-outline"
+          className="w-full px-3 py-2 text-white bg-[#E09E7C] rounded-lg hover:bg-[#E27A82] focus:outline-none focus:shadow-outline"
         >
           {isLoading ? "Sending..." : "Continue"}
         </button>
       </form>
       <p className="mt-4 text-center text-gray-500">
         Don't have an account?{" "}
-        <Link to="/booknow" className="text-blue-500 underline">
-          Sign up
+        <Link to={consultationUrl} className="text-[#E09E7C] underline">
+          Book a free consultation
         </Link>
       </p>
     </div>
