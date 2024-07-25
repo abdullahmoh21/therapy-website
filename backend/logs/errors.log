@@ -7844,3 +7844,16 @@ Error: ENOENT: no such file or directory, open '/logo.png'
 2024-07-23 13:52:35 [error]: [IOREDIS] Redis encountered a different error: connect ETIMEDOUT.
 2024-07-23 23:28:09 [error]: Error sending email alert: ENOENT: no such file or directory, open '/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/backend/utils/emailTemplates/undefined.hbs'
 2024-07-23 23:33:07 [error]: Forcing shutdown due to timeout.
+2024-07-24 23:44:27 [error]: TypeError: schema.validate is not a function
+TypeError: schema.validate is not a function
+    at expressJoiValidator (/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/backend/node_modules/express-joi-validation/express-joi-validation.js:77:28)
+    at Layer.handle [as handle_request] (/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/backend/node_modules/express/lib/router/layer.js:95:5)
+    at next (/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/backend/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/backend/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/backend/node_modules/express/lib/router/layer.js:95:5)
+    at /Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/backend/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/backend/node_modules/express/lib/router/index.js:346:12)
+    at next (/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/backend/node_modules/express/lib/router/index.js:280:10)
+    at Function.handle (/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/backend/node_modules/express/lib/router/index.js:175:3)
+    at router (/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/backend/node_modules/express/lib/router/index.js:47:12)
+2024-07-25 04:56:00 [error]: [EMAIL] Error sending Contact Me email to abdullahmohsin21007@gmail.com: Error: Message failed: 450 Missing `html` or `text` field.

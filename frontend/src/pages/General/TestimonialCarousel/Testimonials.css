@@ -17,6 +17,8 @@ body {
   transition: all 0.3s ease-in-out;
   position: relative; /* Added for positioning context */
   height: auto; /* Set height to auto */
+  padding: 0 10px; /* Add padding to prevent overflow */
+  box-sizing: border-box; /* Include padding in the element's width and height */
 }
 
 .slick-track {
@@ -29,12 +31,13 @@ body {
 .slick-center .item {
   background-color: #E27983; /* Background color for focused item */
   transform: scale(1.3); /* Scale up focused item */
-  z-index: 1; /* Ensure focused item is above unfocused items */
+  z-index: 20; /* Ensure focused item is above unfocused items */
 }
 
 .slick-slide {
   transition: transform 0.5s ease-in-out;
   padding: 50px 20px; /* Add padding to create space around the items */
+  box-sizing: border-box; /* Include padding in the element's width and height */
 }
 
 .slick-slide img {
@@ -58,7 +61,7 @@ body {
 .testimonial-content {
   background-color: inherit; /* Background color inside the testimonial content */
   border-radius: 0.25rem;
-  z-index: 999;
+  z-index: 20;
 }
 
 .testimonial-text {
@@ -66,8 +69,9 @@ body {
   color: #FFEEE8;
   padding-bottom: 20px;
   padding-top: 0px;
-  padding-right: 5px;
-  padding-left: 5px;
+  padding-right: 10px;
+  padding-left: 10px;
+  box-sizing: border-box; /* Include padding in the element's width and height */
 }
 
 .author-info {
@@ -87,7 +91,7 @@ body {
 
 /* Change the color of the left and right buttons */
 .slick-prev, .slick-next {
-  z-index: 10; /* Ensure arrows are on top */
+  z-index: 25; /* Ensure arrows are on top */
   width: 35px; /* Define a width for the arrows */
   height: 35px; /* Define a height for the arrows */
 }
@@ -98,11 +102,11 @@ body {
 }
 
 .slick-prev {
-  left: 10px; /* Position the left arrow within the container */
+  left: -15px; /* Position the left arrow within the container */
 }
 
 .slick-next {
-  right: 10px; /* Position the right arrow within the container */
+  right: -15px; /* Position the right arrow within the container */
 }
 
 /* Ensure the dots move down when item expands */
@@ -117,11 +121,14 @@ body {
   }
 
   .testimonial-text {
-    padding: 0 10px; /* Adjust padding for smaller screens */
+    padding: 0 10px; /* Ensure padding on both left and right for smaller screens */
   }
 
-  .slick-prev, .slick-next {
-    display:block; /* Do not display arrows on smaller screens */
+  .slick-slide {
+    padding: 50px 10px; /* Adjust padding for smaller screens */
   }
-  
+
+  .slick-prev, .slick-next, .slick-arrow {
+    display: none !important; /* Ensure arrows are hidden with higher specificity */
+  }
 }

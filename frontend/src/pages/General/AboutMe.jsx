@@ -1,5 +1,4 @@
 import React from "react";
-import aboutMe_hero from "../../assets/images/aboutMe_hero.png";
 
 const About = () => {
   return (

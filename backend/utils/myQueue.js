@@ -36,6 +36,8 @@ try {
                 return sendRefundRequest(job);
             case 'refundConfirmation':
                 return sendRefundConfirmation(job);
+            case 'ContactMe':
+                return sendContactMeEmail(job);
             case 'deleteDocuments':
                 return deleteDocuments(job);
             default:
@@ -286,6 +288,49 @@ const sendRefundConfirmation = async (job) => {
     }
 };
 
+const sendContactMeEmail = async (job) => {
+    try {
+        const { type, name, email, phone, message } = job.data;
+
+        // send user confirmation email
+        const userMailOptions = {
+            from: 'inquiries@fatimanaqvi.com',
+            to: email,
+            subject: 'Thank you for contacting me',
+            replyTo: "no-reply@fatimanaqvi.com",
+            template: 'contactMeConfirmation',
+            context: { name }
+        }
+
+        // forward email to admin. Admin will contact the user directly (or ignore, since this is my sister)
+        const adminMailOptions = {
+            from: 'inquiries@fatimanaqvi.com',
+            to: process.env.ADMIN_EMAIL,
+            subject: `[INQUIRY] ${type} Inquiry from ${name}`,
+            replyTo: email, // admin should reply to inquirer
+            template: 'contactMe',
+            context: {
+                name,
+                email,
+                type,
+                phone,
+                message
+            }
+        };
+
+        // Send email to admin first
+        await transporter.sendMail(adminMailOptions);
+
+        // If admin email is sent successfully, send confirmation email to user
+        await transporter.sendMail(userMailOptions);
+
+        logger.info(`Contact Me forwarded to admin and confirmation sent to ${email}`);
+    } catch (error) {
+        logger.error(`[EMAIL] Error sending Contact Me email to ${process.env.ADMIN_EMAIL}: ${error}`);
+    }
+}
+
+
 module.exports = {
     myQueue,
     queueWorker, // Export the worker instance to be closed during graceful shutdown
@@ -293,5 +338,6 @@ module.exports = {
     sendResetPasswordEmail,
     sendRefundRequest,
     sendRefundConfirmation,
+    sendContactMeEmail,
     deleteDocuments,
 };

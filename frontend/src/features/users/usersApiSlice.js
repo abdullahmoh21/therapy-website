@@ -45,7 +45,8 @@ export const usersApiSlice = apiSlice.injectEndpoints({
             }),
             validateStatus: (response, result) => {
                 if (response.status === undefined) {
-                    throw new Error("No response from server");
+                    console.error("Response status is undefined", response);
+                    return false; // Treat as an error
                 }
                 return response.status === 200 && !result.isError;
             },
@@ -83,7 +84,8 @@ export const usersApiSlice = apiSlice.injectEndpoints({
             }),
             validateStatus: (response, result) => {
                 if (response.status === undefined) {
-                    throw new Error("No response from server");
+                    console.error("Response status is undefined", response);
+                    return false; // Treat as an error
                 }
                 return response.status === 200 && !result.isError;
             },
@@ -96,7 +98,8 @@ export const usersApiSlice = apiSlice.injectEndpoints({
             }),
             validateStatus: (response, result) => {
                 if (response.status === undefined) {
-                    throw new Error("No response from server");
+                    console.error("Response status is undefined", response);
+                    return false; // Treat as an error
                 }
                 return response.status === 200 && !result.isError;
             },
@@ -105,7 +108,8 @@ export const usersApiSlice = apiSlice.injectEndpoints({
             query: (token) => `users/verifyEmail?token=${token}`,
             validateStatus: (response, result) => {
                 if (response.status === undefined) {
-                    throw new Error("No response from server");
+                    console.error("Response status is undefined", response);
+                    return false; // Treat as an error
                 }
                 return response.status === 200 && !result.isError;
             },
@@ -118,7 +122,8 @@ export const usersApiSlice = apiSlice.injectEndpoints({
             }),
             validateStatus: (response, result) => {
                 if (response.status === undefined) {
-                    throw new Error("No response from server");
+                    console.error("Response status is undefined", response);
+                    return false; // Treat as an error
                 }
                 return response.status === 200 && !result.isError;
             },
@@ -131,7 +136,22 @@ export const usersApiSlice = apiSlice.injectEndpoints({
             }),
             validateStatus: (response, result) => {
                 if (response.status === undefined) {
-                    throw new Error("No response from server");
+                    console.error("Response status is undefined", response);
+                    return false; // Treat as an error
+                }
+                return response.status === 200 && !result.isError;
+            },
+        }),
+        contactMe: builder.mutation({
+            query: (body) => ({
+                url: '/contactMe',
+                method: 'POST',
+                body
+            }),
+            validateStatus: (response, result) => {
+                if (response.status === undefined) {
+                    console.error("Response status is undefined", response);
+                    return false; // Treat as an error
                 }
                 return response.status === 200 && !result.isError;
             },
@@ -147,7 +167,8 @@ export const {
     useResendEmailVerificationMutation,
     useVerifyEmailMutation,
     useForgotPasswordMutation,
-    useResetPasswordMutation
+    useResetPasswordMutation,
+    useContactMeMutation
 } = usersApiSlice
 
 const selectRawUser = (state) => usersApiSlice.endpoints.getMyUser.select()(state);

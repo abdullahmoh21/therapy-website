@@ -16,10 +16,12 @@ Backend:
   ☐ Implement http/2 @optional
   ✔ Ensure that if redis disconnects server still continues serving. rn errors are spammed in console. @high @done(24-07-13 02:24)
   ✔ Add admin alerts on critical errors(redis not working, db not working, etc) @high @done(24-07-14 14:13)
+  ✔ Configure Contact me popup @high @done(24-07-25 02:48)
   ☐ fine tune rate Limit settings @low
   ☐ On rate limit, CORS error is thrown. fix this. @critical
   ☐ figure out how to rate limit new bookings. set a max, and start sending 403 on getMyBookingLink (what if user rememberes?) @critical
   ☐ why are page loads without redis not happening? @critical
+  ☐ Bookings with event dates in the past are being shown as "Active". Fix: should be "Completed" @high
   ☐ Change all paths to absolute @high
   ☐ Ensure that webhooks are not ratelimited (postman) @high
   ☐ test rate limiting when redis is down @high
@@ -39,15 +41,17 @@ Backend:
 
 Frontend:
   ☐ Mobile View @critical
+  ☐ Fix mobile navigation: not centered, to close to the top @critical
   ☐ Implement local data access from redux, intead of requesting each reload @critical
   ☐ Implement correct logout behaviour and dashboard icon on home page (esp when server down) @critical
+  ☐ Configure Contact me popup @critical
   ☐ Optimize using lighthouse @critical
-  ☐ logo overflowing on sticky header @high
+  ☐ review RTK queries and ensure they are optimized(invalidate tags???) @critical
+  ✔ logo overflowing on sticky header @high @done(24-07-24 05:07)
   ✔ Ensure that component order in navbar is correct, should be sequential @low @done(24-07-24 01:19)
   ✔ Refactor to a SPA  @critical @done(24-07-15 01:33)
   ✔ HomePaage: Book Now button redirect to Calendly page or /booknow page describing process @high @done(24-07-17 03:04)
   ✘ reset anchor tags # on reload. why? reload with #... @low @cancelled(24-07-17 03:04)
-  ☐ If user is signed in, change signin button on navbar to a dash button @low
   ☐ Client Dashboard:
     ☐ Add toast error messages on Mybookings tab (for pay button) @high
     ☐ Fix overflow on all pages. @high
@@ -76,14 +80,11 @@ Frontend:
     ☐ Add a page for adding posts for the resources page @high
     ☐ Add Logout button @low
 
-  ☐ Services: 
-    ☐ Make a Contact Form underneath the FAQ section @low
-    ✘ Add a Google Maps API to show the location of the clinic @low @cancelled(24-07-15 01:36)
-  ☐ Finalize Signup/register page styles: @high 
+  ☐ Signup page styles: @high 
     ✔ Disable email input @high @done(24-07-15 01:36)
     ☐ Redirect to login page after successful signup @high
   ☐ Forgot Password:
     ☐ Fix toast errors. currently giving success message on 500 as well @high
   ☐ Add a 404 page @low
-
+  ☐ Add names to testimonials, and fix mobile padding @low
   

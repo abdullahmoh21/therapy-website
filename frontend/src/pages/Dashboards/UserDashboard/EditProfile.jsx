@@ -152,11 +152,11 @@ const EditProfile = ({ onUserUpdate }) => {
             Phone:
           </label>
           <PhoneInput
-            defaultCountry="PK"
+            defaultCountry="pk"
             value={phone}
             onChange={onPhoneChanged}
             autoComplete="off"
-            className="mt-1 p-2 w-full border rounded lp-ignore"
+            className="mt-1 p-2 w-full border rounded"
             style={{
               "--react-international-phone-border-color": "transparent",
               "--react-international-phone-font-size": "16px",
