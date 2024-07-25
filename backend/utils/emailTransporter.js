@@ -20,7 +20,6 @@ const transporter = nodemailer.createTransport({
 const handlebarOptions = {
   viewEngine: {
       extName: '.hbs',
-      partialsDir: path.resolve('./views/email'),
       defaultLayout: '',
   },
   viewPath: path.resolve(__dirname, 'emailTemplates'),

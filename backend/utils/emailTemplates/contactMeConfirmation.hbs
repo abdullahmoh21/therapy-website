@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact Confirmation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #FFEDE8;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #FFFFFF;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background-color: #E27A82;
+            color: #FFFFFF;
+            padding: 10px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+        }
+        .content {
+            padding: 20px;
+        }
+        .footer {
+            background-color: #E09E7A;
+            color: #FFFFFF;
+            padding: 10px;
+            text-align: center;
+            border-radius: 0 0 8px 8px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            margin-top: 20px;
+            background-color: #E27A82;
+            color: #FFFFFF;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+        .btn:hover {
+            background-color: #E09E7A;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Inquiry Received</h1>
+        </div>
+        <div class="content">
+            <p>Dear {{name}},</p>
+            <p>Thank you for reaching out. We have received your inquiry and our admin will get back to you shortly.</p>
+            <p>If you have any further questions or need immediate assistance, please feel free to reply to this email or visit our website.</p>
+        </div>
+        <div class="footer">
+            <p>Best Regards,</p>
+            <p>Your Therapy Practice Team</p>
+            <a href="https://www.yourwebsite.com" class="btn">Visit Our Website</a>
+        </div>
+    </div>
+</body>
+</html>

@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import Home from "./Home";
 import AboutMe from "./AboutMe";
 import Services from "./Services";
-import ContactMe from "./ContactMe";
+import ContactMe from "./ContactMe/ContactMe.jsx";
 import TestimonialSlider from "./TestimonialCarousel/Testimonials";
 import FAQ from "./FAQ";
 import { useLocation } from "react-router-dom";

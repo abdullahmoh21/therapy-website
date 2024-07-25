@@ -7,11 +7,11 @@ const data = {
   rows: [
     {
       title: "    How do I book an appointment?",
-      content: `If you are a new client, simply navigate to our booking page and select your preferred date, and time slot. Follow the prompts to complete the booking process. For existing clients, log in to your account to book a new appointment. `,
+      content: `If you are a new client, simply navigate to our booking page and book a free 15 minute consultation. Follow the prompts to create a new account. For existing clients, log in to your account to book a new appointment. `,
     },
     {
       title: "    What payment methods do you accept for appointment bookings?",
-      content: `We accept all major credit and debit cards for appointment bookings. You can securely enter your payment information during the booking process. Payment by Cash and Bank transfer are also available. A 10% discount is available for Online payments.`,
+      content: `We accept all major credit and debit cards for payments. You can securely enter your payment information during the booking process. Payment by Cash and Bank transfer are also available.`,
     },
     {
       title:
@@ -20,11 +20,11 @@ const data = {
     },
     {
       title: "    What happens if I miss my appointment?",
-      content: `If you miss your appointment without canceling in advance, you may be subject to our cancellation policy, which could include a fee. Please contact us directly for more information.`,
+      content: `If you need to cancel your appointment, please do so 72 hours before your booking. If you cancel after this, you will not be eligible for a refund. Additionally, if you have not paid the cancellation fee, you will need to do so before booking another session. Please contact us directly for more information.`,
     },
     {
       title: "    Can I get a refund if I need to cancel my appointment?",
-      content: `Our refund policy depends on the timing of your cancellation. If you cancel within 24 hours of your appointment, you may be eligible for a refund.`,
+      content: `Our refund policy depends on the timing of your cancellation. If you cancel within 72 hours of your appointment, you are eligible to recieve a full refund.`,
     },
     {
       title: "    How long does an appointment typically last?",
@@ -48,14 +48,14 @@ const styles = {
 // FAQ Config
 const config = {
   animate: true,
-  // tabFocus: true
+  tabFocus: true,
 };
 const FAQ = () => {
   return (
     <>
       {/* FAQ Section */}
-      <section className="main-bg min-h-[663px] pb-[40px]">
-        <h1 className="text-[32px] leading-[46px] font-bold text-center text-[#c45e3e]">
+      <section className="main-bg pb-[100px]">
+        <h1 className="orelega-one text-[32px] leading-[46px] text-center text-[#c45e3e]">
           Frequently Asked Questions
         </h1>
 

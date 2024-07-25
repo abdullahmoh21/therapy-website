@@ -4,6 +4,7 @@ import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
 import "./Testimonials.css";
 import comma from "../../../assets/images/comma.png";
+
 const testimonials = [
   {
     id: 1,
@@ -14,20 +15,20 @@ const testimonials = [
   {
     id: 2,
     text: " “Fatima’s empathy and professionalism set her apart as a therapist. Her collaborative approach ensures that clients feel heard and understood, which is crucial for effective therapy.”  ",
-    authorName: "Ruth Anthony",
-    authorTitle: "Web Developer",
+    authorName: "Minahil Khan",
+    authorTitle: "Client",
   },
   {
     id: 3,
-    text: "Dramatically maintain clicks-and-mortar solutions without functional solutions. Completely synergize resource taxing relationships via premier niche markets. Professionally cultivate.",
-    authorName: "Brian Buie",
-    authorTitle: "Web Developer",
+    text: " “Fatima's guidance and support were instrumental in helping me work through my depression. She provided a safe space for me to express my feelings and offered practical advice that truly made a difference.”",
+    authorName: "Ayesha Malik",
+    authorTitle: "Client",
   },
   {
     id: 4,
-    text: "Dramatically maintain clicks-and-mortar solutions without functional solutions. Completely synergize resource taxing relationships via premier niche markets. Professionally cultivate.",
-    authorName: "Jeanna Mendoza",
-    authorTitle: "Web Developer",
+    text: " “I highly recommend Fatima to anyone seeking therapy. Her patience and insightful feedback helped me gain a deeper understanding of myself and develop healthier ways to manage my stress.”",
+    authorName: "Mohammad Ali",
+    authorTitle: "Client",
   },
 ];
 
@@ -52,7 +53,7 @@ const TestimonialCarousel = () => {
       {
         breakpoint: 768,
         settings: {
-          slidesToShow: 2,
+          slidesToShow: 1,
         },
       },
       {
@@ -66,9 +67,6 @@ const TestimonialCarousel = () => {
 
   return (
     <div className="testimonial-container h-auto pt-[40px]">
-      {/* <h1 className="text-[61.52px] leading-[46px] font-semibold text-[#BD704C] text-center w-full pt-[40px] pb-[20px] ">
-        Testimonials
-      </h1> */}
       <Slider {...settings}>
         {testimonials.map((testimonial) => (
           <div className="item" key={testimonial.id}>

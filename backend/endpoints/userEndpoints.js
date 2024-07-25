@@ -6,7 +6,7 @@ const verifyJWT = require('../middleware/verifyJWT');
 const { redisCaching } = require('../middleware/redisCaching');
 
 // Import validation schemas
-const { updateMyUser, emailSchema, passwordSchema, tokenOrEmailSchema, tokenSchema } = require('../utils/validation/userValidationSchemas');
+const { updateMyUser, emailSchema, passwordSchema, tokenOrEmailSchema, tokenSchema } = require('../utils/validation/ValidationSchemas');
 
 //open routes
 router.route(`/resendEmailVerification`)

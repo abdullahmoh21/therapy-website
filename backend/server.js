@@ -83,6 +83,7 @@ app.use('/users', require('./endpoints/userEndpoints'));
 app.use('/bookings', require('./endpoints/bookingEndpoints'));
 app.use('/payments', require('./endpoints/paymentEndpoints'));
 app.use('/admin', require('./endpoints/adminEndpoints'));
+app.use('/contactMe', require('./endpoints/contactMeEndpoints'));
 // app.use('/email', require('./endpoints/emailEndpoints.js'));
 // ---------------------------------------------//
 
