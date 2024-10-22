@@ -25,7 +25,6 @@ dist-ssr
 
 .eslintrc.cjs
 package-lock.json
-package.json
 postcss.config.cjs
 tailwind.config.js
 vite.config.js
