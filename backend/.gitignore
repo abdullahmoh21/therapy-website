@@ -4,4 +4,8 @@ keydb.conf
 cert.pem
 key.pem
 roles_list.js
+.DS_Store
 node_modules
+dump.rdb
+eslint.config.mjs
+package-lock.json
