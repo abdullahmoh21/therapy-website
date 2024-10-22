@@ -4,6 +4,17 @@ tailwind.config.js
 .DS_Store
 .vscode
 TODO
+.env
+TODO
+keydb.conf
+cert.pem
+key.pem
+roles_list.js
+.DS_Store
+node_modules
+dump.rdb
+eslint.config.mjs
+package-lock.json
 Fatima Website.code-workspace
 # Logs
 logs
@@ -13,12 +24,10 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
-
 node_modules
 dist
 dist-ssr
 *.local
-
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -29,7 +38,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-
 .eslintrc.cjs
 package-lock.json
 postcss.config.cjs
