@@ -18,7 +18,7 @@ const deflateAsync = promisify(zlib.deflate);
     - User updates their profile
     - Admin deletes a user
     - Calendly webhook triggers a new booking,cancellation or reschedule
-    - Safepay webhook triggers a change in payment status. 
+    - Payment webhook triggers a change in payment status. 
 */
 
 // Check if Redis is working
@@ -84,7 +84,7 @@ function generateKey(req) {
       if (pathArray.length > 1 && pathArray[1] === 'calendly') {
         keyBase = `bookingLink:${userId}`;
       } else {
-        keyBase = `bookings:${userId}`; // Modified as per requirement
+        keyBase = `bookings:${userId}`; 
       }
     } else {
       switch (pathArray[0]) {
