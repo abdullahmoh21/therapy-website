@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useForgotPasswordMutation } from "./usersApiSlice";
 import { Link } from "react-router-dom";
-import { ToastContainer, toast } from "react-toastify";
+import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import logo from "../../assets/images/logo.png";
 const consultationUrl = import.meta.env.CALENDLY_BOOKING_PAGE;
@@ -37,7 +37,6 @@ const ForgotPassword = () => {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-[#FFEEE8]">
-      <ToastContainer />
       <Link to="/">
         <img
           src={logo}

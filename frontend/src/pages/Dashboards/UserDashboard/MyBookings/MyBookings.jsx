@@ -1,4 +1,16 @@
-import React, { useState, useEffect } from "react";
+import { ProgressSpinner } from "primereact/progressspinner";
+import React, { useEffect, useState } from "react";
+import {
+  BiCalendar,
+  BiCheckCircle,
+  BiDollarCircle,
+  BiErrorCircle,
+  BiInfoCircle,
+  BiLoaderAlt,
+  BiMinusCircle,
+  BiTime,
+  BiXCircle,
+} from "react-icons/bi";
 import {
   useGetMyBookingsQuery,
   useNewBookingLinkQuery,
@@ -7,287 +19,439 @@ import {
   useGetPaymentLinkMutation,
   useSendRefundRequestMutation,
 } from "../../../../features/payments/paymentApiSlice";
-import { ProgressSpinner } from "primereact/progressspinner";
-import { Message } from "primereact/message";
+import { useGetMyUserQuery } from "../../../../features/users/usersApiSlice";
 import NoBooking from "./NoBooking";
 
 const MyBookings = () => {
-  console.log(`MyBookings component rendered`);
   const [bookings, setBookings] = useState([]);
   const [showCancelPopup, setShowCancelPopup] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [loading, setLoading] = useState(false);
   const [refundError, setRefundError] = useState(null);
+  const [userData, setUserData] = useState(null);
 
-  // Fetch bookings
   const {
     data: bookingData,
-    isLoading,
+    isLoading: isLoadingBookings,
     isSuccess: bookingsLoaded,
-  } = useGetMyBookingsQuery(); // Fetch user bookings
+    isError: isBookingError,
+    error: bookingFetchError,
+  } = useGetMyBookingsQuery();
 
-  // Fetch new booking link
   const {
-    data: Bookinglink,
-    error: BookingLinkError,
+    data: bookingLink,
     isLoading: gettingBookingLink,
+    refetch: refetchBookingLink,
   } = useNewBookingLinkQuery();
 
-  //Initiate payment and get payment link
+  const { data: userDataResult } = useGetMyUserQuery();
+
   const [
     triggerGetPaymentLink,
     { isLoading: gettingPaymentLink, error: getPaymentLinkError },
   ] = useGetPaymentLinkMutation();
 
-  // send refund request
   const [
     sendRefundRequest,
     { isLoading: sendingRefundRequest, error: sendRefundRequestError },
   ] = useSendRefundRequestMutation();
 
-  // extract bookings from data when available
   useEffect(() => {
     if (bookingData && Array.isArray(bookingData.ids)) {
-      setBookings(Object.values(bookingData.entities));
+      const sortedBookings = Object.values(bookingData.entities).sort(
+        (a, b) => new Date(a.eventStartTime) - new Date(b.eventStartTime)
+      );
+      setBookings(sortedBookings);
     }
   }, [bookingData]);
 
-  // fetch papyment link and redirect
+  useEffect(() => {
+    if (userDataResult) {
+      const entities = userDataResult.entities;
+      const fetchedUser = entities && entities[Object.keys(entities)[0]];
+      if (fetchedUser) {
+        setUserData(fetchedUser);
+      }
+    }
+  }, [userDataResult]);
+
   const redirectToPayment = async (bookingId) => {
-    console.log(`Fetching payment link for bookingId: ${bookingId}`);
     try {
       const response = await triggerGetPaymentLink({ bookingId }).unwrap();
       if (response.url) {
-        console.log("Payment link:", response.url);
-        window.location.href = response.url; // Redirect user to the payment link
+        window.location.href = response.url;
       } else {
-        //ADD TOAST HERE
         console.error("Failed to fetch payment link: No URL found");
       }
     } catch (error) {
       console.error("Failed to fetch payment link:", error);
-      // Handle errors, e.g., network issues, server errors
     }
   };
 
-  // Function to check eligibility for refund request
   const checkRefundEligibility = (booking) => {
-    const threeDaysInMs = 3 * 24 * 60 * 60 * 1000; // 3 days in milliseconds
+    const threeDaysInMs = 3 * 24 * 60 * 60 * 1000;
     const eventStartTime = new Date(booking.eventStartTime).getTime();
     const currentTime = Date.now();
     return eventStartTime - currentTime > threeDaysInMs;
   };
 
-  // Handle refund request
   const handleRefundRequest = async (bookingId, paymentId, cancelURL) => {
     setLoading(true);
     setRefundError(null);
     try {
-      console.log(
-        "Sending refund request, with details:",
-        bookingId,
-        paymentId
-      );
-      await sendRefundRequest({ bookingId, paymentId });
-      console.log("Refund request sent successfully");
+      await sendRefundRequest({ bookingId, paymentId }).unwrap();
       setShowCancelPopup(false);
       window.location.href = cancelURL;
     } catch (error) {
       console.error("Failed to send refund request:", error);
-      setRefundError(error);
+      setRefundError(
+        error?.data?.message ||
+          "An unexpected error occurred during refund request."
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  // Function to handle cancellation
   const handleCancellation = (cancelURL) => {
     window.location.href = cancelURL;
     setShowCancelPopup(false);
   };
 
-  // No booking found page
+  const formatDateTime = (dateString) => {
+    const date = new Date(dateString);
+    const optionsDate = { year: "numeric", month: "long", day: "numeric" };
+    const optionsTime = { hour: "2-digit", minute: "2-digit", hour12: true };
+    return {
+      date: date.toLocaleDateString("en-US", optionsDate),
+      time: date.toLocaleTimeString("en-US", optionsTime),
+    };
+  };
+
+  const getStatusStyles = (status) => {
+    switch (status) {
+      case "Completed":
+        return {
+          icon: <BiCheckCircle className="text-primaryColor" />,
+          text: "Paid",
+          color: "text-textColor",
+        };
+      case "Not Initiated":
+        return {
+          icon: <BiMinusCircle className="text-primaryColor" />,
+          text: "Not Initiated",
+          color: "text-textColor",
+        };
+      case "Failed":
+        return {
+          icon: <BiXCircle className="text-primaryColor" />,
+          text: "Payment Failed",
+          color: "text-textColor",
+        };
+      case "NA":
+        return {
+          icon: <BiCheckCircle className="text-primaryColor" />,
+          text: "Confirmed (Free)",
+          color: "text-textColor",
+        };
+      default:
+        return {
+          icon: <BiInfoCircle className="text-primaryColor" />,
+          text: status,
+          color: "text-textColor",
+        };
+    }
+  };
+
+  if (isLoadingBookings) {
+    return (
+      <div className="flex justify-center items-center min-h-[300px]">
+        <ProgressSpinner
+          style={{ width: "50px", height: "50px" }}
+          strokeWidth="8"
+          fill="var(--surface-ground)"
+          animationDuration=".5s"
+        />
+      </div>
+    );
+  }
+
+  if (isBookingError) {
+    return (
+      <div
+        className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative"
+        role="alert"
+      >
+        <strong className="font-bold">Error: </strong>
+        <span className="block sm:inline">
+          {bookingFetchError?.data?.message || "Failed to load bookings."}
+        </span>
+      </div>
+    );
+  }
+
   if (bookingsLoaded && bookings.length === 0) {
     return (
       <NoBooking
-        Bookinglink={Bookinglink}
+        Bookinglink={bookingLink}
         gettingBookingLink={gettingBookingLink}
       />
     );
   }
 
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
   return (
     <>
-      <div className="space-y-4">
-        {bookings.map((booking, index) => {
-          const startTime = new Date(booking.eventStartTime);
-          const endTime = new Date(booking.eventEndTime);
-          const duration = (endTime - startTime) / 60000; // Duration in minutes
+      {userData && (
+        <div className="mb-6 p-4 bg-white rounded-lg shadow flex flex-col sm:flex-row justify-between items-center">
+          <h1 className="text-xl font-semibold text-gray-800 mb-3 sm:mb-0">
+            Welcome back, {userData.name}!
+          </h1>
+          <button
+            className={`inline-flex items-center bg-[#DF9E7A] text-white font-bold px-4 py-2 rounded-lg transition-colors duration-300 ${
+              gettingBookingLink
+                ? "opacity-50 cursor-not-allowed"
+                : "hover:bg-[#c45e3e]"
+            }`}
+            disabled={gettingBookingLink}
+            onClick={() => {
+              if (bookingLink) {
+                window.location.href = bookingLink;
+              } else {
+                refetchBookingLink();
+              }
+            }}
+          >
+            {gettingBookingLink ? (
+              <>
+                <BiLoaderAlt className="animate-spin mr-2" /> Loading Link...
+              </>
+            ) : (
+              <>
+                <BiCalendar className="mr-2" /> Book a New Session
+              </>
+            )}
+          </button>
+        </div>
+      )}
 
-          const options = {
-            hour: "2-digit",
-            minute: "2-digit",
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          };
-          const formattedStartTime = startTime.toLocaleDateString(
-            undefined,
-            options
+      <div className="space-y-6">
+        {bookings.map((booking) => {
+          const { date: startDate, time: startTime } = formatDateTime(
+            booking.eventStartTime
           );
+          const { time: endTime } = formatDateTime(booking.eventEndTime);
+          const duration =
+            (new Date(booking.eventEndTime) -
+              new Date(booking.eventStartTime)) /
+            60000;
+          const paymentStatus = getStatusStyles(booking.transactionStatus);
+          const isConsultation = booking.eventName === "15 Minute Consultation";
 
           return (
-            <div key={index} className="border p-4 rounded shadow space-y-4">
-              <div>
-                <h2 className="text-xl font-bold">{`Booking number: ${booking.bookingId} `}</h2>
-                <p>{`Scheduled for ${formattedStartTime} (${duration} minutes)`}</p>
-                <p>{`Amount: ${
-                  booking.paymentAmount === 0
-                    ? "Free"
-                    : `${booking.amount} ${booking.currency}`
-                }`}</p>
-                <p>{`Payment Status: ${
-                  booking.transactionStatus === "NA"
-                    ? "Paid"
-                    : booking.transactionStatus
-                }`}</p>
+            <div
+              key={booking._id}
+              className="bg-white p-5 rounded-lg shadow-md border border-gray-200 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0 md:space-x-6"
+            >
+              <div className="flex-grow space-y-2">
+                <h2 className="text-xl font-semibold text-headingColor flex items-center">
+                  {isConsultation ? "Consultation" : "Therapy Session"}
+                  <span className="text-sm font-normal text-gray-500 ml-2">
+                    (ID: {booking.bookingId})
+                  </span>
+                </h2>
+                <div className="flex items-center text-gray-600">
+                  <BiCalendar className="mr-2 text-[#DF9E7A]" />
+                  <span>{startDate}</span>
+                </div>
+                <div className="flex items-center text-gray-600">
+                  <BiTime className="mr-2 text-[#DF9E7A]" />
+                  <span>{`${startTime} - ${endTime} (${duration} mins)`}</span>
+                </div>
+                <div
+                  className={`flex items-center font-medium ${paymentStatus.color}`}
+                >
+                  {paymentStatus.icon}
+                  <span className="ml-2">{paymentStatus.text}</span>
+                </div>
+                {!isConsultation && (
+                  <div className="flex items-center text-gray-600">
+                    <BiDollarCircle className="mr-2 text-[#DF9E7A]" />
+                    <span>{`${booking.amount} ${booking.currency}`}</span>
+                  </div>
+                )}
               </div>
 
-              {booking.transactionStatus === "Pending" && (
-                <div className="flex space-x-2">
+              <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-3 flex-shrink-0">
+                {booking.transactionStatus === "Not Initiated" && (
                   <button
-                    className={`bg-blue-500 text-white px-4 py-2 rounded ${
+                    className={`inline-flex justify-center items-center bg-green-500 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
                       gettingPaymentLink
                         ? "opacity-50 cursor-not-allowed"
-                        : "hover:bg-blue-700"
+                        : "hover:bg-green-600"
                     }`}
                     onClick={() => redirectToPayment(booking._id)}
                     disabled={gettingPaymentLink}
                   >
+                    {gettingPaymentLink ? (
+                      <BiLoaderAlt className="animate-spin mr-2" />
+                    ) : (
+                      <BiDollarCircle className="mr-1" />
+                    )}{" "}
                     Pay Online
                   </button>
-                </div>
-              )}
+                )}
 
-              {booking.cancelURL && (
-                <div className="flex space-x-2">
+                {booking.cancelURL && (
                   <button
-                    className="bg-red-500 text-white px-4 py-2 rounded"
+                    className="inline-flex justify-center items-center bg-red-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-red-600 transition-colors duration-200"
                     onClick={() => {
                       setSelectedBooking(booking);
+                      setRefundError(null);
                       setShowCancelPopup(true);
                       document.body.style.overflow = "hidden";
                     }}
                   >
-                    Cancel
+                    <BiXCircle className="mr-1" /> Cancel Booking
                   </button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           );
         })}
+      </div>
 
-        {/* NEW BOOKING HEADER */}
-        <div className="text-center mt-4 mb-4">
-          <h2 className="text-2xl font-semibold mb-3">
-            Ready for your next session?
-          </h2>
-          <p className="mb-4">Book now and let us help you</p>
-          <button
-            className={`inline-block bg-blue-500 text-white font-bold px-6 py-3 rounded-lg transition-colors duration-300 ${
-              gettingBookingLink
-                ? "opacity-50 cursor-not-allowed"
-                : "hover:bg-blue-700"
-            }`}
-            disabled={gettingBookingLink}
-            onClick={() => {
-              if (Bookinglink) {
-                window.location.href = Bookinglink;
-              }
-            }}
-          >
-            Book a Session
-          </button>
-        </div>
-
-        {/* Popup for cancellation */}
-        {showCancelPopup && selectedBooking && (
+      {showCancelPopup && selectedBooking && (
+        <div
+          className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 z-50 p-4"
+          onClick={() => {
+            setShowCancelPopup(false);
+            document.body.style.overflow = "auto";
+          }}
+        >
           <div
-            className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50"
-            onClick={() => {
-              setShowCancelPopup(false);
-              document.body.style.overflow = "auto";
-            }}
+            className="bg-white p-6 rounded-lg shadow-xl relative w-full max-w-md"
+            onClick={(e) => e.stopPropagation()}
           >
-            <div
-              className="bg-white p-6 rounded shadow-lg relative w-full max-w-lg"
-              onClick={(e) => e.stopPropagation()}
+            <button
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-2xl"
+              onClick={() => {
+                setShowCancelPopup(false);
+                document.body.style.overflow = "auto";
+              }}
+              aria-label="Close"
             >
+              &times;
+            </button>
+
+            <h2 className="text-xl font-semibold text-gray-800 mb-4">
+              Cancel Booking Confirmation
+            </h2>
+            <p className="text-sm text-gray-600 mb-4">
+              You are attempting to cancel your{" "}
+              <span className="font-medium">
+                {selectedBooking.eventName === "15 Minute Consultation"
+                  ? "Free Consultation"
+                  : "therapy session"}
+              </span>{" "}
+              scheduled on{" "}
+              <span className="font-medium">
+                {formatDateTime(selectedBooking.eventStartTime).date}
+              </span>{" "}
+              at{" "}
+              <span className="font-medium">
+                {formatDateTime(selectedBooking.eventStartTime).time}
+              </span>{" "}
+              (ID: {selectedBooking.bookingId}).
+            </p>
+
+            <div className="mb-5 p-3 bg-gray-100 rounded-md border border-gray-200 text-sm">
+              {selectedBooking.transactionStatus === "Completed" ? (
+                checkRefundEligibility(selectedBooking) ? (
+                  <p className="text-green-700 flex items-center">
+                    <BiCheckCircle className="mr-2 flex-shrink-0" /> Eligible
+                    for a full refund according to our policy.
+                  </p>
+                ) : (
+                  <p className="text-orange-700 flex items-center">
+                    <BiInfoCircle className="mr-2 flex-shrink-0" /> Not eligible
+                    for a refund due to late cancellation (less than 3 days
+                    prior).
+                  </p>
+                )
+              ) : selectedBooking.transactionStatus === "Not Initiated" ? (
+                checkRefundEligibility(selectedBooking) ? (
+                  <p className="text-gray-700 flex items-center">
+                    <BiInfoCircle className="mr-2 flex-shrink-0" /> This booking
+                    is not paid yet. You can cancel it directly.
+                  </p>
+                ) : (
+                  <p className="text-orange-700 flex items-center">
+                    <BiInfoCircle className="mr-2 flex-shrink-0" /> Cancelling
+                    less than 3 days prior. While unpaid, please note our policy
+                    requires payment for late cancellations.
+                  </p>
+                )
+              ) : (
+                <p className="text-gray-700 flex items-center">
+                  <BiInfoCircle className="mr-2 flex-shrink-0" /> This is a free
+                  consultation booking.
+                </p>
+              )}
+            </div>
+
+            {loading && (
+              <div className="flex items-center justify-center mb-4 text-gray-600">
+                <BiLoaderAlt className="animate-spin mr-2" /> Processing...
+              </div>
+            )}
+            {refundError && (
+              <div className="mb-4 p-3 bg-red-100 border border-red-300 text-red-700 rounded-md text-sm flex items-center">
+                <BiErrorCircle className="mr-2 flex-shrink-0" /> {refundError}
+              </div>
+            )}
+
+            <div className="flex justify-end space-x-3">
               <button
-                className="absolute top-2 right-2 text-2xl font-bold pr-2"
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 text-sm font-medium transition-colors duration-200"
                 onClick={() => {
                   setShowCancelPopup(false);
                   document.body.style.overflow = "auto";
                 }}
+                disabled={loading}
               >
-                &times;
+                Keep Booking
               </button>
-              <h2 className="text-xl font-bold mb-4">{`Attempting to cancel booking ${selectedBooking.bookingId}`}</h2>
-              {loading ? (
-                <div className="flex items-center justify-center mb-4">
-                  <ProgressSpinner />
-                </div>
-              ) : refundError ? (
-                <div className="mb-4">
-                  <Message
-                    severity="error"
-                    text="Failed to send refund request. Please proceed with the cancellation and contact your therapist directly for a refund."
-                  />
-                </div>
-              ) : selectedBooking.transactionStatus === "Completed" ? (
-                <p className="mb-4">
-                  {checkRefundEligibility(selectedBooking)
-                    ? "According to our cancellation policy, you are eligible for a refund. By clicking proceed, you will be refunded the amount after cancellation."
-                    : "According to our cancellation policy, you will NOT receive a refund. Do you still want to proceed with cancellation?"}
-                </p>
-              ) : checkRefundEligibility(selectedBooking) ? (
-                <p className="mb-4">Are you sure you want to cancel?</p>
-              ) : (
-                <p className="mb-4">
-                  Since you are cancelling within three days of your booking,
-                  you are still liable to pay the full amount. Do you still want
-                  to proceed with cancellation?
-                </p>
-              )}
-              <div className="flex justify-end">
-                <button
-                  className="bg-blue-500 text-white px-4 py-2 rounded"
-                  onClick={() => {
-                    if (selectedBooking.transactionStatus === "Completed") {
-                      if (checkRefundEligibility(selectedBooking)) {
-                        handleRefundRequest(
-                          selectedBooking._id,
-                          selectedBooking.paymentId,
-                          selectedBooking.cancelURL
-                        );
-                      } else {
-                        handleCancellation(selectedBooking.cancelURL);
-                      }
-                    } else {
-                      handleCancellation(selectedBooking.cancelURL);
-                    }
-                  }}
-                >
-                  Proceed
-                </button>
-              </div>
+              <button
+                className={`inline-flex items-center px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 text-sm font-medium transition-colors duration-200 ${
+                  loading ? "opacity-50 cursor-not-allowed" : ""
+                }`}
+                onClick={() => {
+                  if (
+                    selectedBooking.transactionStatus === "Completed" &&
+                    checkRefundEligibility(selectedBooking)
+                  ) {
+                    handleRefundRequest(
+                      selectedBooking._id,
+                      selectedBooking.paymentId,
+                      selectedBooking.cancelURL
+                    );
+                  } else {
+                    handleCancellation(selectedBooking.cancelURL);
+                  }
+                }}
+                disabled={loading}
+              >
+                {loading ? (
+                  <BiLoaderAlt className="animate-spin mr-2" />
+                ) : (
+                  <BiXCircle className="mr-1" />
+                )}{" "}
+                Proceed to Cancel
+              </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </>
   );
 };

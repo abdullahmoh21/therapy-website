@@ -1,80 +1,141 @@
-const nodemailer = require('nodemailer');
-const path = require('path');
-const logger = require('../logs/logger');
-const handlebars = require('nodemailer-express-handlebars');
+const nodemailer = require("nodemailer");
+const hbs = require("nodemailer-express-handlebars");
+const path = require("path");
+const Config = require("../models/Config");
+const logger = require("../logs/logger");
 
-// Create a Nodemailer transporter
+// Default email addresses in case database is not available
+const DEFAULT_ADMIN_EMAIL = "abdullahmohsin21007@gmail.com";
+const DEFAULT_DEV_EMAIL = "abdullahmohsin21007@gmail.com";
+
+// Setup nodemailer
 const transporter = nodemailer.createTransport({
-  pool: true,
-  maxConnections: 10,
-  host: 'smtp.resend.com',
+  host: process.env.EMAIL_HOST,
+  port: process.env.EMAIL_PORT,
   secure: true,
-  port: 465,
   auth: {
-      user: 'resend',
-      pass: process.env.RESEND_API_KEY,
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
   },
 });
 
-// Configure Handlebars for Nodemailer
+// Setup email templates
 const handlebarOptions = {
   viewEngine: {
-      extName: '.hbs',
-      defaultLayout: '',
+    extName: ".hbs",
+    partialsDir: path.resolve("./utils/emailTemplates"),
+    defaultLayout: false,
   },
-  viewPath: path.resolve(__dirname, 'emailTemplates'),
-  extName: '.hbs',
+  viewPath: path.resolve("./utils/emailTemplates"),
+  extName: ".hbs",
 };
 
-transporter.use('compile', handlebars(handlebarOptions));
+// Apply template configuration
+transporter.use("compile", hbs(handlebarOptions));
 
-function sendAdminAlert(type, options = {}) {
-  let body = '';
-  let subject = '';
+// Send admin alert function
+const sendAdminAlert = async (alertType, extraData = {}) => {
+  try {
+    // Attempt to get emails from database, fall back to defaults if needed
+    let adminEmail, devEmail;
 
-  switch(type) {
-    case 'redisThresholdReached': 
-      body = options.times 
-        ? `REDIS SERVER DOWN. 24 hour threshold reached. Further retries will be attempted every 24 hours. Please check the Redis server to ensure that caching and queueing services are operational.`
-        : `REDIS SERVER DOWN. This is the ${options.times} attempt. Please fix the Redis server to ensure that caching and queueing services are operational.`;
-      subject = '[URGENT] Redis Server Down';
-      break;
+    try {
+      adminEmail = (await Config.getValue("adminEmail")) || DEFAULT_ADMIN_EMAIL;
+      devEmail = (await Config.getValue("devEmail")) || DEFAULT_DEV_EMAIL;
+    } catch (configError) {
+      logger.error(`Error retrieving email configs: ${configError.message}`);
+      adminEmail = DEFAULT_ADMIN_EMAIL;
+      devEmail = DEFAULT_DEV_EMAIL;
+    }
 
-    case 'redisDisconnectedInitial': 
-      body = `REDIS SERVER DISCONNECTED. Will retry with an exponential backoff for 24 hours. Please check the Redis server to ensure that caching and queueing services are operational.`;
-      subject = '[URGENT] Redis Server Disconnected';
-      break;
+    // Select recipient based on alert type
+    const recipient = [
+      "mongoDisconnected",
+      "mongoReconnected",
+      "redisDisconnected",
+      "redisReconnected",
+    ].includes(alertType)
+      ? devEmail
+      : adminEmail;
 
-    case 'redisReconnected': 
-      body = `The Redis client has reconnected to the Redis server. Please check the Redis server to ensure that caching and queueing services are operational.`;
-      subject = '[INFO] Redis Server Reconnected';
-      break;
+    // Configure alert data
+    const alertConfig = getAlertConfig(alertType, extraData);
 
-    case 'serverDown': 
-      body = `The server is down. This can be because of a variety of reasons (MongoDB could be down, Calendly webhook or some other reason). Please check the server to ensure that all services are operational.`;
-      subject = '[URGENT] Server Down';
-      break;
+    // Send the email
+    const info = await transporter.sendMail({
+      from: `"Fatima Naqvi Alert System" <${process.env.EMAIL_USER}>`,
+      to: recipient,
+      subject: alertConfig.subject,
+      template: "alert",
+      context: {
+        title: alertConfig.title,
+        message: alertConfig.message,
+        actionText: alertConfig.actionText || null,
+        actionLink: alertConfig.actionLink || null,
+      },
+    });
 
-    default:
-      throw new Error('Invalid alert type');
+    logger.info(`Admin alert sent: ${alertType}`);
+    return info;
+  } catch (error) {
+    logger.error(`Error preparing email alert: ${error.message}`);
+    return null;
   }
+};
 
-  const mailOptions = {
-    from: 'admin@fatimanaqvi.com',
-    to: process.env.DEV_EMAIL,
-    subject,
-    text: body,
+// Helper function to get alert configuration
+function getAlertConfig(alertType, extraData) {
+  const configs = {
+    mongoDisconnected: {
+      subject: "ALERT: MongoDB Connection Lost",
+      title: "Database Connection Error",
+      message:
+        "The application has lost connection to MongoDB. Services requiring database access may be unavailable.",
+      actionText: "View System Status",
+      actionLink: `${process.env.FRONTEND_URL}/admin/systemhealth`,
+    },
+    mongoReconnected: {
+      subject: "INFO: MongoDB Connection Restored",
+      title: "Database Connection Restored",
+      message:
+        "The connection to MongoDB has been successfully restored. All services should now be functioning normally.",
+    },
+    // Add other alert types as needed...
+    redisDisconnected: {
+      subject: "ALERT: Redis Connection Lost",
+      title: "Cache Connection Error",
+      message:
+        "The application has lost connection to Redis. Caching and rate limiting may be affected.",
+    },
+    redisReconnected: {
+      subject: "INFO: Redis Connection Restored",
+      title: "Cache Connection Restored",
+      message:
+        "The connection to Redis has been successfully restored. Caching functionality is now operational.",
+    },
+    redisDisconnectedInitial: {
+      subject: "ALERT: Redis Connection Failed",
+      title: "Redis Connection Failed",
+      message:
+        "The application failed to establish an initial connection to Redis. The system will function with degraded performance.",
+    },
   };
 
-  logger.debug('Sending email alert to admin:', body);
-  transporter.sendMail(mailOptions, (error, info) => {
-    if (error) {
-      logger.error("Error sending email alert:", error);
-    } else {
-      logger.info('Message sent:', info.messageId);
-    }
-  });
+  const config = configs[alertType] || {
+    subject: `ALERT: ${alertType}`,
+    title: "System Alert",
+    message: `An alert of type ${alertType} was triggered.`,
+  };
+
+  // Add any extra data to the message if provided
+  if (extraData && Object.keys(extraData).length > 0) {
+    config.message += "\n\nAdditional Information:\n";
+    Object.entries(extraData).forEach(([key, value]) => {
+      config.message += `\n${key}: ${value}`;
+    });
+  }
+
+  return config;
 }
 
-
-module.exports = {transporter, sendAdminAlert};
+module.exports = { transporter, sendAdminAlert };

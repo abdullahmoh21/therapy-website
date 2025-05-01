@@ -1,11 +1,11 @@
 import { Link } from "react-router-dom";
-import logo from "/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/frontend/src/assets/images/logo.png";
-import wave from "/Users/AbdullahMohsin/Documents/Code/Personal/Fatima Website/frontend/src/assets/images/wave.png";
+import logo from "../../assets/images/logo.png";
+import wave from "../../assets/images/wave.png";
 import { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { setCredentials } from "./authSlice";
-import { ToastContainer, toast } from "react-toastify";
+import { toast } from "react-toastify";
 import Joi from "joi";
 import { useLoginMutation } from "./authApiSlice";
 import { useResendEmailVerificationMutation } from "../users/usersApiSlice";
@@ -150,7 +150,6 @@ const Login = () => {
 
   const verificationPage = (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <ToastContainer />
       <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-xl shadow-md">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
@@ -187,7 +186,6 @@ const Login = () => {
   const signinPage = (
     <div className="flex h-screen">
       <section className="main-bg w-full flex items-center justify-center">
-        <ToastContainer />
         <div className="w-full max-w-[600px] px-6">
           <div className="absolute top-0 left-1/2 transform -translate-x-1/2 pt-20">
             <Link to="/" className="flex justify-center items-center pb-[15px]">

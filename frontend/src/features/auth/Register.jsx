@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { format } from "date-fns";
 import Joi from "joi";
-import { ToastContainer, toast } from "react-toastify";
+import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useRegisterMutation } from "./authApiSlice";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 //Data validation
 const validPhone = Joi.string().custom((value, helpers) => {
@@ -81,20 +81,15 @@ const schema = Joi.object({
     "date.less": "Date of birth must be in the past",
     "string.empty": "DOB is required",
   }),
-  eventEndTime: Joi.string().required().messages({
-    "string.empty":
-      "Are you sure you booked a consultation bofore signing up?w",
-  }),
-  eventStartTime: Joi.string().required().messages({
-    "string.empty": "Are you sure you booked a consultation bofore signing up?",
-  }),
-  eventType: Joi.string().required().messages({
-    "string.empty":
-      "Are you sure you booked a consultation bofore signing up? ",
+  token: Joi.string().required().messages({
+    "string.empty": "Invitation token is required",
   }),
 });
 
 const Register = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -102,15 +97,7 @@ const Register = () => {
     password: "",
     confirmPassword: "",
     DOB: "",
-    eventEndTime: "",
-    eventStartTime: "",
-    eventType: "",
-  });
-  const [bookingDetails, setBookingDetails] = useState({
-    BookingId: "",
-    eventEndTime: "",
-    eventStartTime: "",
-    eventType: "",
+    token: "",
   });
 
   const [
@@ -124,27 +111,23 @@ const Register = () => {
   ] = useRegisterMutation();
 
   const urlParams = new URLSearchParams(location.search);
-  const name = urlParams.get("invitee_full_name");
-  const email = urlParams.get("invitee_email");
-  const phone = urlParams.get("answer_1");
-  const eventEndTime = urlParams.get("event_end_time");
-  const eventStartTime = urlParams.get("event_start_time");
-  const eventType = urlParams.get("event_type_name");
+  const invitationToken = urlParams.get("invitation");
+  const email = urlParams.get("email");
 
-  //on component mount, set the form values to the query params
+  //on component mount, check for invitation token
   useEffect(() => {
-    if (name && email && phone) {
+    if (invitationToken && email) {
       setForm({
         ...form,
-        name,
         email,
-        phone: phone.replace(/\s/g, ""),
-        eventEndTime,
-        eventStartTime,
-        eventType,
+        token: invitationToken,
       });
     } else {
-      //redirect to booking page if query params are missing?
+      // Redirect if no invitation token is present
+      toast.error("Valid invitation is required to register.");
+      setTimeout(() => {
+        navigate("/");
+      }, 3000);
     }
   }, []);
 
@@ -169,7 +152,12 @@ const Register = () => {
     try {
       // Send to backend
       await register({ ...form, phone: phoneString }).unwrap(); //replace phone with correctly formatted phone number
-      toast.success("Registration successful. Please sign in.");
+      toast.success(
+        "Registration successful. Please check your email to verify your account."
+      );
+      setTimeout(() => {
+        navigate("/signin");
+      }, 3000);
     } catch (err) {
       console.log(err);
       if (err.status === 400) {
@@ -187,25 +175,32 @@ const Register = () => {
     }
   };
 
-  if (!name || !email || !phone) {
+  if (!invitationToken || !email) {
     return (
-      <div>
-        <h1>How to create an account</h1>
-        <p>Follow the instructions...</p>
-        <a href="https://calendly.com/your-booking-link">Book a consultation</a>
+      <div className="flex justify-center items-center h-screen bg-gray-200">
+        <div className="bg-white p-10 rounded-lg shadow-md w-96 text-center">
+          <h1 className="text-2xl mb-4">Invalid Invitation</h1>
+          <p className="mb-4">
+            You need a valid invitation to create an account.
+          </p>
+          <p className="mb-4">
+            Please contact an administrator if you believe this is an error.
+          </p>
+          <button
+            className="bg-blue-500 text-white p-2 rounded-md"
+            onClick={() => navigate("/")}
+          >
+            Return to Home
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="flex justify-center items-center h-screen bg-gray-200">
-      <ToastContainer />
       <div className="bg-white p-10 rounded-lg shadow-md w-96">
-        <h2 className="text-2xl mb-4">
-          {/* Your free consultation is booked for{" "}
-          {format(new Date(eventStartTime), "do MMMM yyyy, h:mm a")} */}
-          Please create an Account to confirm your booking
-        </h2>
+        <h2 className="text-2xl mb-4">Create your account</h2>
         <form onSubmit={handleSubmit}>
           <label className="block text-sm font-medium text-gray-700">
             Full Name
@@ -216,6 +211,7 @@ const Register = () => {
             name="name"
             value={form.name}
             onChange={handleChange}
+            required
           />
           <label className="block text-sm font-medium text-gray-700">
             Email
@@ -227,6 +223,7 @@ const Register = () => {
             value={form.email}
             autoComplete="email"
             onChange={handleChange}
+            readOnly
           />
           <label className="block text-sm font-medium text-gray-700">
             Phone
@@ -238,6 +235,7 @@ const Register = () => {
             value={form.phone}
             autoComplete="tel"
             onChange={handleChange}
+            required
           />
           <label className="block text-sm font-medium text-gray-700">
             Password
@@ -250,6 +248,7 @@ const Register = () => {
             autoComplete="new-password"
             onChange={handleChange}
             onPaste={(e) => e.preventDefault()}
+            required
           />
           <label className="block text-sm font-medium text-gray-700">
             Confirm Password
@@ -262,6 +261,7 @@ const Register = () => {
             autoComplete="new-password"
             onChange={handleChange}
             onPaste={(e) => e.preventDefault()}
+            required
           />
           <label className="block text-sm font-medium text-gray-700">
             Date of Birth
@@ -280,26 +280,9 @@ const Register = () => {
                 .toISOString()
                 .split("T")[0]
             }
+            required
           />
-          <input
-            type="hidden"
-            name="eventEndTime"
-            value={form.eventEndTime}
-            autoComplete="off"
-          />
-          <input
-            type="hidden"
-            name="eventStartTime"
-            value={form.eventStartTime}
-            autoComplete="off"
-          />
-          <input
-            type="hidden"
-            name="eventType"
-            value={form.eventType}
-            autoComplete="off"
-          />
-          <input type="hidden" name="eventType" value={form.eventType} />
+          <input type="hidden" name="token" value={form.token} />
           <button
             className="bg-blue-500 text-white p-2 w-full rounded-md"
             type="submit"

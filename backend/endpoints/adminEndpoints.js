@@ -1,36 +1,62 @@
-const express = require('express')
-const router = express.Router()
-const adminController = require('../controllers/adminController')
-const verifyJWT = require('../middleware/verifyJWT')
+const express = require("express");
+const router = express.Router();
+const adminController = require("../controllers/adminController");
+const { verifyAdmin } = require("../middleware/verifyJWT");
 
 // All routes in this file are protected by JWT
-router.use(verifyJWT);
+router.use(verifyAdmin);
 
-router.route('/users')
-    .get(adminController.getAllUsers)
-    .delete(adminController.deleteUser)
+// User routes - collection endpoints
+router.route("/users").get(adminController.getAllUsers);
 
-router.route('/bookings')
-    .get(adminController.getAllBookings)              
+// User routes - document endpoints
+router
+  .route("/users/:userId")
+  .patch(adminController.updateUser)
+  .delete(adminController.deleteUser);
 
-router.route('/payments')
-    .get(adminController.getAllPayments)
+// Booking routes
+router
+  .route("/bookings")
+  .get(adminController.getAllBookings)
+  .patch(adminController.updateBooking)
+  .delete(adminController.deleteBooking);
 
-router.route('/statistics')
-    .get(adminController.getStatistics)
+// Payment routes
+router
+  .route("/payments")
+  .get(adminController.getAllPayments)
+  .patch(adminController.updatePayment);
+
+// Statistics routes
+router.route("/statistics").get(adminController.getStatistics);
+
+// Invitation routes
+router.route("/invite").post(adminController.inviteUser);
+router.route("/invitations").get(adminController.getAllInvitations);
+router
+  .route("/invitations/:invitationId")
+  .delete(adminController.deleteInvitation);
+router.route("/invite/:inviteId/resend").post(adminController.resendInvitation);
+
+// System Health & Config routes
+router.route("/system-health").get(adminController.getSystemHealth);
+router.route("/config/:key").patch(adminController.updateConfig);
+
+// TODO: broadcast email
+// router.route("/broadcast").post(adminController.broadcast);
 
 //formats any joi error into JSON for the client
 router.use((err, req, res, next) => {
-    if (err?.error?.isJoi) {
-        console.log(`In Joi middleware: ${err.error}`)
-        return res.status(400).json({
-            type: err.type,
-            message: err.error.details[0].message,
-            context: err.error.details[0].context
-        });
-    } else {
-        next(err);
-    }
+  if (err?.error?.isJoi) {
+    return res.status(400).json({
+      type: err.type,
+      message: err.error.details[0].message,
+      context: err.error.details[0].context,
+    });
+  } else {
+    next(err);
+  }
 });
-    
-module.exports = router
+
+module.exports = router;

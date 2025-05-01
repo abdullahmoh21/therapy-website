@@ -1,16 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, NavLink, Outlet } from "react-router-dom";
 import { useLogoutMutation } from "../../../features/auth/authApiSlice";
-import { BiMenu } from "react-icons/bi";
-import { Divider } from "primereact/divider";
-import logo from "../../../assets/images/logo.png"; // Assuming your logo is in this path
-
-import Statistics from "./Statistics";
-// import CurrentBookings from "./CurrentBookings/CurrentBookings";
-// import Resources from "./Resources/Resources";
+import { BiMenu, BiX, BiLoaderAlt } from "react-icons/bi";
+import logo from "../../../assets/images/logo.png";
 
 const AdminDashboard = () => {
-  const [activeTab, setActiveTab] = useState("statistics"); // Set Statistics as the default tab
   const [logout, { isLoading: isLoggingOut }] = useLogoutMutation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
@@ -29,153 +23,137 @@ const AdminDashboard = () => {
     setIsMenuOpen(!isMenuOpen);
   };
 
-  const renderTab = () => {
-    // if (isLoading) {
-    //   return <div className="pt-5">Loading...</div>;
-    // }
-    switch (activeTab) {
-      case "statistics":
-        return (
-          <div>
-            <Statistics />
-          </div>
-        );
-      case "currentBookings":
-        return (
-          <div>
-            <CurrentBookings />
-          </div>
-        );
-      case "resources":
-        return (
-          <div>
-            <Resources />
-          </div>
-        );
-      default:
-        return (
-          <div>
-            <Statistics />
-          </div>
-        );
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setIsMenuOpen(false);
+      }
+    };
+    if (isMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    } else {
+      document.removeEventListener("mousedown", handleClickOutside);
     }
-  };
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isMenuOpen]);
+
+  useEffect(() => {
+    if (isMenuOpen) {
+      document.body.classList.add("overflow-hidden");
+    } else {
+      document.body.classList.remove("overflow-hidden");
+    }
+    return () => document.body.classList.remove("overflow-hidden");
+  }, [isMenuOpen]);
+
+  const navItems = [
+    { path: "/admin/upcoming", label: "Upcoming Bookings" },
+    { path: "/admin/metrics", label: "Metrics" },
+    { path: "/admin/bookings", label: "Bookings" },
+    { path: "/admin/users", label: "Users" },
+    { path: "/admin/system", label: "System Health" },
+  ];
 
   return (
-    <div className="min-h-screen flex flex-col main-bg">
-      <header className="border-b border-dashed border-[#222222]">
-        {/* Desktop view */}
-        <div className="hidden md:flex justify-center my-4 space-x-4">
-          <button
-            className="w-full md:w-auto py-2 px-4 bg-[#DF9E7A] text-[#313131] font-semibold rounded-full"
-            onClick={() => setActiveTab("statistics")}
-          >
-            Statistics
-          </button>
-          <button
-            className="w-full md:w-auto py-2 px-4 bg-[#DF9E7A] text-[#313131] font-semibold rounded-full"
-            onClick={() => setActiveTab("currentBookings")}
-          >
-            Current Bookings
-          </button>
-          <button
-            className="w-full md:w-auto py-2 px-4 bg-[#DF9E7A] text-[#313131] font-semibold rounded-full"
-            onClick={() => setActiveTab("resources")}
-          >
-            Resources
-          </button>
-        </div>
+    <div className="min-h-screen flex flex-col bg-white">
+      <header className="sticky top-0 z-40 bg-white shadow-md flex items-center justify-between p-4">
+        <img src={logo} alt="logo" className="h-16 w-auto" />
 
-        <div className="absolute top-0 right-0 mt-2 mr-4 space-x-3 hidden md:block">
+        <nav className="hidden lg:flex items-center space-x-4">
+          {navItems.map((item) => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              className={({ isActive }) =>
+                `px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150 ${
+                  isActive
+                    ? "bg-[#FDF0E9] text-[#c45e3e]"
+                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                }`
+              }
+            >
+              {item.label}
+            </NavLink>
+          ))}
           <button
-            className="px-4 py-2 bg-[#DF9E7A] text-[#313131] font-semibold rounded-full"
-            type="button"
+            className="flex items-center justify-center px-3 py-2 bg-red-500 text-white rounded-md text-sm font-medium hover:bg-red-600 transition-colors duration-150 disabled:opacity-50"
             onClick={handleLogout}
             disabled={isLoggingOut}
           >
-            Logout
+            {isLoggingOut ? (
+              <BiLoaderAlt className="animate-spin mr-2" />
+            ) : (
+              "Logout"
+            )}
+          </button>
+        </nav>
+
+        <button
+          onClick={toggleMenu}
+          className="text-gray-600 hover:text-gray-900 lg:hidden"
+        >
+          <BiMenu className="w-6 h-6" />
+        </button>
+      </header>
+
+      <div
+        ref={menuRef}
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-xl transform ${
+          isMenuOpen ? "translate-x-0" : "-translate-x-full"
+        } transition-transform duration-300 ease-in-out lg:hidden`}
+      >
+        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+          <img src={logo} alt="logo" className="h-16 w-auto" />
+          <button
+            onClick={toggleMenu}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            <BiX className="w-6 h-6" />
           </button>
         </div>
-
-        {/* Mobile view */}
-        <div className="flex items-center justify-between w-full md:hidden relative">
-          <span className="absolute left-4 top-2">
-            <button
-              className="px-4 py-2 bg-[#DF9E7A] text-[#313131] font-semibold rounded-full"
-              type="button"
-              onClick={handleLogout}
-              disabled={isLoggingOut}
-              style={{ marginBottom: "8px" }} // Added margin-bottom for spacing
+        <nav className="flex-grow p-4 space-y-2">
+          {navItems.map((item) => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              className={({ isActive }) =>
+                `block w-full px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150 ${
+                  isActive
+                    ? "bg-[#FDF0E9] text-[#c45e3e]"
+                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                }`
+              }
+              onClick={toggleMenu}
             >
-              Logout
-            </button>
-          </span>
-          <div className="flex justify-center w-full">
-            <img
-              src={logo}
-              alt="logo"
-              className="h-auto max-h-14 w-auto object-contain"
-            />{" "}
-            {/* Adjusted logo size */}
-          </div>
-          <span onClick={toggleMenu} className="absolute right-4 top-2 z-50">
-            <BiMenu className="w-6 h-6 cursor-pointer" />
-          </span>
-        </div>
-
-        {/* Mobile Dropdown menu */}
-        {isMenuOpen && (
-          <div
-            className="fixed top-0 left-0 w-full h-full bg-white shadow-lg border-gray-200 md:hidden transform transition-transform duration-1000 ease-in-out"
-            ref={menuRef}
-            style={{
-              backdropFilter: "blur(8px)",
-              backgroundColor: "rgba(255, 255, 255, 0.9)",
-              zIndex: 49,
-            }}
+              {item.label}
+            </NavLink>
+          ))}
+        </nav>
+        <div className="p-4 border-t border-gray-200">
+          <button
+            className="w-full flex items-center justify-center px-4 py-2 bg-red-500 text-white rounded-md text-sm font-medium hover:bg-red-600 transition-colors duration-150 disabled:opacity-50"
+            onClick={handleLogout}
+            disabled={isLoggingOut}
           >
-            <ul className="flex flex-col items-start p-4">
-              <li className="w-full">
-                <button
-                  className="block w-full text-gray-800 py-2 px-4 hover:bg-[#e2e2e2] bg-transparent"
-                  onClick={() => {
-                    setActiveTab("statistics");
-                    toggleMenu();
-                  }}
-                >
-                  Statistics
-                </button>
-              </li>
-              <li className="w-full">
-                <button
-                  className="block w-full text-gray-800 py-2 px-4 hover:bg-[#e2e2e2] bg-transparent"
-                  onClick={() => {
-                    setActiveTab("currentBookings");
-                    toggleMenu();
-                  }}
-                >
-                  Current Bookings
-                </button>
-              </li>
-              <li className="w-full">
-                <button
-                  className="block w-full text-gray-800 py-2 px-4 hover:bg-[#e2e2e2] bg-transparent"
-                  onClick={() => {
-                    setActiveTab("resources");
-                    toggleMenu();
-                  }}
-                >
-                  Resources
-                </button>
-              </li>
-            </ul>
-          </div>
-        )}
-      </header>
-      <Divider type="solid" />
+            {isLoggingOut ? (
+              <BiLoaderAlt className="animate-spin mr-2" />
+            ) : (
+              "Logout"
+            )}
+          </button>
+        </div>
+      </div>
+      {isMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={toggleMenu}
+        ></div>
+      )}
 
-      <main className="flex-grow w-full p-4 h-min-h-screen main-bg">
-        {renderTab()}
+      <main className="flex-grow p-4 lg:p-8 overflow-y-auto bg-white">
+        <Outlet />
       </main>
     </div>
   );

@@ -6,14 +6,20 @@ import Routers from "../routes/Routers.jsx";
 
 const Layout = () => {
   const location = useLocation();
+
+  // Check if we're on admin dashboard or any of its subroutes
+  const isAdminRoute = location.pathname.startsWith("/admin");
+  const isDashboardRoute = location.pathname === "/dash";
+  const showHeaderFooter =
+    !isAdminRoute && !isDashboardRoute && location.pathname === "/";
+
   return (
     <>
-      {/* Renders the header&footer on all pages but these */}
-      {location.pathname === "/" && <Header />}
+      {showHeaderFooter && <Header />}
       <main>
         <Routers />
       </main>
-      {location.pathname === "/" && <Footer />}
+      {showHeaderFooter && <Footer />}
     </>
   );
 };

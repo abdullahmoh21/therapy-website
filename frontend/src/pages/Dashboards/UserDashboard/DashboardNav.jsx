@@ -1,36 +1,45 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGetMyUserQuery } from "../../../features/users/usersApiSlice";
 import { useLogoutMutation } from "../../../features/auth/authApiSlice";
-import { BiMenu } from "react-icons/bi";
-import { Divider } from "primereact/divider";
-import logo from "../../../assets/images/logo.png"; // Assuming your logo is in this path
+import {
+  BiMenu,
+  BiUser,
+  BiCalendar,
+  BiCreditCard,
+  BiLogOut,
+  BiX,
+  BiLoaderAlt,
+} from "react-icons/bi";
+import logo from "../../../assets/images/logo.png";
 
 import EditProfile from "./EditProfile";
 import MyBookings from "./MyBookings/MyBookings";
 import Billing from "./Billing/Billing";
 
 const Dashboard = () => {
-  const [activeTab, setActiveTab] = useState("myBookings"); // Set MyBookings as the default tab
-  const { data, isLoading, refetch } = useGetMyUserQuery();
-  const [userData, setUserData] = useState(null);
+  const [activeTab, setActiveTab] = useState("myBookings");
+  const {
+    data,
+    isLoading: isLoadingUser,
+    isError,
+    refetch,
+  } = useGetMyUserQuery();
   const [logout, { isLoading: isLoggingOut }] = useLogoutMutation();
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (data) {
-      const entities = data.entities;
-      const fetchedUser = entities && entities[Object.keys(entities)[0]];
-
-      const dob = new Date(fetchedUser.DOB); //create a new date object from the fetched timestamp
-      const formattedDob = `${dob.getFullYear()}-${(dob.getMonth() + 1)
-        .toString()
-        .padStart(2, "0")}-${dob.getDate().toString().padStart(2, "0")}`;
-      setUserData({ ...fetchedUser, DOB: formattedDob });
-    }
+  const fetchedUser = useMemo(() => {
+    if (!data) return null;
+    const entities = data.entities;
+    const user = entities && entities[Object.keys(entities)[0]];
+    if (!user) return null;
+    const formattedDob = user.DOB
+      ? new Date(user.DOB).toISOString().split("T")[0]
+      : "";
+    return { ...user, DOB: formattedDob };
   }, [data]);
 
   const handleUserUpdate = () => {
@@ -39,7 +48,7 @@ const Dashboard = () => {
 
   const handleLogout = async () => {
     try {
-      await logout();
+      await logout().unwrap();
       navigate("/");
     } catch (error) {
       console.error("Failed to log out: ", error);
@@ -47,15 +56,31 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
-    if (showEditProfileModal) {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setIsMenuOpen(false);
+      }
+    };
+    if (isMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    } else {
+      document.removeEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isMenuOpen]);
+
+  useEffect(() => {
+    if (showEditProfileModal || isMenuOpen) {
       document.body.classList.add("overflow-hidden");
     } else {
       document.body.classList.remove("overflow-hidden");
     }
     return () => document.body.classList.remove("overflow-hidden");
-  }, [showEditProfileModal]);
+  }, [showEditProfileModal, isMenuOpen]);
 
-  const handleClickOutside = (event) => {
+  const handleClickOutsideModal = (event) => {
     if (event.target.id === "edit-profile-modal-overlay") {
       toggleEditProfileModal();
     }
@@ -70,171 +95,181 @@ const Dashboard = () => {
   };
 
   const renderTab = () => {
-    if (isLoading) {
-      return <div className="pt-5">Loading...</div>;
+    if (isLoadingUser) {
+      return <div className="pt-10 text-center">Loading user data...</div>;
     }
     switch (activeTab) {
-      case "editProfile":
-        return (
-          <div>
-            <EditProfile onUserUpdate={handleUserUpdate} />
-          </div>
-        );
       case "myBookings":
-        return (
-          <div>
-            <MyBookings />
-          </div>
-        );
+        return <MyBookings />;
       case "Billing":
-        return (
-          <div>
-            <Billing />
-          </div>
-        );
+        return <Billing />;
       default:
-        return (
-          <div>
-            <MyBookings />
-          </div>
-        );
+        return <MyBookings />;
     }
   };
 
+  const navItems = [
+    {
+      id: "myBookings",
+      label: "My Bookings",
+      icon: <BiCalendar className="mr-2" />,
+    },
+    {
+      id: "Billing",
+      label: "Billing",
+      icon: <BiCreditCard className="mr-2" />,
+    },
+  ];
+
   return (
-    <div className="min-h-screen flex flex-col main-bg">
-      <header className="border-b border-dashed border-[#222222]">
-        {/* Desktop view */}
-        <div className="hidden md:flex justify-center my-4 space-x-4">
+    <div className="min-h-screen flex flex-col bg-gray-100">
+      <header className="sticky top-0 z-40 bg-white shadow-md flex items-center justify-between p-4">
+        <img src={logo} alt="logo" className="h-16 w-auto" />
+
+        <nav className="hidden lg:flex items-center space-x-4">
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150 ${
+                activeTab === item.id
+                  ? "bg-[#FDF0E9] text-[#c45e3e]"
+                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+              }`}
+              onClick={() => setActiveTab(item.id)}
+            >
+              {item.icon}
+              {item.label}
+            </button>
+          ))}
           <button
-            className="w-full md:w-auto py-2 px-4 bg-[#DF9E7A] text-[#313131] font-semibold rounded-full"
-            onClick={() => setActiveTab("myBookings")}
-          >
-            My Bookings
-          </button>
-          <button
-            className="w-full md:w-auto py-2 px-4 bg-[#DF9E7A] text-[#313131] font-semibold rounded-full"
-            onClick={() => setActiveTab("Billing")}
-          >
-            Billing
-          </button>
-          <button
-            className="w-full md:w-auto py-2 px-4 bg-[#DF9E7A] text-[#313131] font-semibold rounded-full"
-            type="button"
+            className="flex items-center px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors duration-150"
             onClick={toggleEditProfileModal}
           >
+            <BiUser className="mr-2" />
             Edit Profile
           </button>
-        </div>
-
-        <div className="absolute top-0 right-0 mt-2 mr-4 space-x-3 hidden md:block">
           <button
-            className="px-4 py-2 bg-[#DF9E7A] text-[#313131] font-semibold rounded-full"
-            type="button"
+            className="flex items-center justify-center px-3 py-2 bg-red-500 text-white rounded-md text-sm font-medium hover:bg-red-600 transition-colors duration-150 disabled:opacity-50"
             onClick={handleLogout}
             disabled={isLoggingOut}
           >
+            {isLoggingOut ? (
+              <BiLoaderAlt className="animate-spin mr-2" />
+            ) : (
+              <BiLogOut className="mr-2" />
+            )}
+            Logout
+          </button>
+        </nav>
+
+        <button
+          onClick={toggleMenu}
+          className="text-gray-600 hover:text-gray-900 lg:hidden"
+        >
+          <BiMenu className="w-6 h-6" />
+        </button>
+      </header>
+
+      <div
+        ref={menuRef}
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-xl transform ${
+          isMenuOpen ? "translate-x-0" : "-translate-x-full"
+        } transition-transform duration-300 ease-in-out lg:hidden`}
+      >
+        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+          <img src={logo} alt="logo" className="h-16 w-auto" />
+          <button
+            onClick={toggleMenu}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            <BiX className="w-6 h-6" />
+          </button>
+        </div>
+        <nav className="flex-grow p-4 space-y-2">
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              className={`w-full flex items-center px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150 ${
+                activeTab === item.id
+                  ? "bg-[#FDF0E9] text-[#c45e3e]"
+                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+              }`}
+              onClick={() => {
+                setActiveTab(item.id);
+                toggleMenu();
+              }}
+            >
+              {item.icon}
+              {item.label}
+            </button>
+          ))}
+          <button
+            className="w-full flex items-center px-4 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors duration-150"
+            onClick={() => {
+              toggleEditProfileModal();
+              toggleMenu();
+            }}
+          >
+            <BiUser className="mr-2" />
+            Edit Profile
+          </button>
+        </nav>
+        <div className="p-4 border-t border-gray-200">
+          <button
+            className="w-full flex items-center justify-center px-4 py-2 bg-red-500 text-white rounded-md text-sm font-medium hover:bg-red-600 transition-colors duration-150 disabled:opacity-50"
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+          >
+            {isLoggingOut ? (
+              <BiLoaderAlt className="animate-spin mr-2" />
+            ) : (
+              <BiLogOut className="mr-2" />
+            )}
             Logout
           </button>
         </div>
+      </div>
+      {isMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={toggleMenu}
+        ></div>
+      )}
 
-        {/* Mobile view */}
-        <div className="flex items-center justify-between w-full md:hidden relative">
-          <span className="absolute left-4 top-2">
-            <button
-              className="px-4 py-2 bg-[#DF9E7A] text-[#313131] font-semibold rounded-full"
-              type="button"
-              onClick={handleLogout}
-              disabled={isLoggingOut}
-              style={{ marginBottom: "8px" }} // Added margin-bottom for spacing
-            >
-              Logout
-            </button>
-          </span>
-          <div className="flex justify-center w-full">
-            <img
-              src={logo}
-              alt="logo"
-              className="h-auto max-h-14 w-auto object-contain"
-            />{" "}
-            {/* Adjusted logo size */}
-          </div>
-          <span onClick={toggleMenu} className="absolute right-4 top-2 z-50">
-            <BiMenu className="w-6 h-6 cursor-pointer" />
-          </span>
-        </div>
-
-        {/* Mobile Dropdown menu */}
-        {isMenuOpen && (
-          <div
-            className="fixed top-0 left-0 w-full h-full bg-white shadow-lg border-gray-200 md:hidden transform transition-transform duration-1000 ease-in-out"
-            ref={menuRef}
-            style={{
-              backdropFilter: "blur(8px)",
-              backgroundColor: "rgba(255, 255, 255, 0.9)",
-              zIndex: 49,
-            }}
-          >
-            <ul className="flex flex-col items-start p-4">
-              <li className="w-full">
-                <button
-                  className="block w-full text-gray-800 py-2 px-4 hover:bg-[#e2e2e2] bg-transparent"
-                  onClick={() => {
-                    setActiveTab("myBookings");
-                    toggleMenu();
-                  }}
-                >
-                  My Bookings
-                </button>
-              </li>
-              <li className="w-full">
-                <button
-                  className="block w-full text-gray-800 py-2 px-4 hover:bg-[#e2e2e2] bg-transparent"
-                  onClick={() => {
-                    setActiveTab("Billing");
-                    toggleMenu();
-                  }}
-                >
-                  Billing
-                </button>
-              </li>
-              <li className="w-full">
-                <button
-                  className="block w-full text-gray-800 py-2 px-4 hover:bg-[#e2e2e2] bg-transparent"
-                  onClick={() => {
-                    toggleEditProfileModal();
-                    toggleMenu();
-                  }}
-                >
-                  Edit Profile
-                </button>
-              </li>
-            </ul>
-          </div>
-        )}
-      </header>
-      <Divider type="solid" />
-
-      <main className="flex-grow w-full p-4 h-min-h-screen main-bg">
+      <main className="flex-grow p-4 lg:p-8 overflow-y-auto">
         {renderTab()}
       </main>
 
-      {/* Edit Profile Popup */}
       {showEditProfileModal && (
         <div
           id="edit-profile-modal-overlay"
-          className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
-          onClick={handleClickOutside}
+          className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 z-50 p-4"
+          onClick={handleClickOutsideModal}
         >
-          <div className="bg-white p-6 rounded-lg w-full max-w-lg relative">
+          <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-lg relative">
             <button
-              className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-3xl"
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-2xl"
               onClick={toggleEditProfileModal}
               aria-label="Close"
             >
               &times;
             </button>
-            <EditProfile onUserUpdate={handleUserUpdate} />
+            {/* Handle loading, error, and success states for rendering EditProfile */}
+            {isLoadingUser ? (
+              <div className="text-center p-4">Loading profile...</div>
+            ) : isError ? (
+              <div className="text-center p-4 text-red-600">
+                Error loading profile data. Please try again.
+                {/* Optionally display error details: {error?.data?.message || error.toString()} */}
+              </div>
+            ) : fetchedUser ? (
+              <EditProfile
+                user={fetchedUser} // Pass the derived user data
+                onUserUpdate={handleUserUpdate}
+              />
+            ) : (
+              <div className="text-center p-4">User data not found.</div>
+            )}
           </div>
         </div>
       )}

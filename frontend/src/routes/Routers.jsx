@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import PersistLogin from "../features/auth/PersisitLogin";
 import ProtectedRoute from "./ProtectedRoute";
 import AdminProtectedRoute from "./AdminProtectedRoute";
@@ -14,6 +14,13 @@ import Register from "../features/auth/Register";
 import Dashboard from "../pages/Dashboards/UserDashboard/DashboardNav";
 import AdminDashboard from "../pages/Dashboards/AdminDashboard/AdminDashNav";
 import NotFound from "../pages/404";
+
+// Admin Dashboard Components
+import AdminMetrics from "../pages/Dashboards/AdminDashboard/AdminMetrics";
+import AdminBookings from "../pages/Dashboards/AdminDashboard/Bookings/AdminBookings";
+import AdminUsers from "../pages/Dashboards/AdminDashboard/Users/AdminUsers";
+import SystemHealth from "../pages/Dashboards/AdminDashboard/SystemHealth";
+import UpcomingBookings from "../pages/Dashboards/AdminDashboard/UpcomingBookings";
 
 const Routers = () => {
   const email = useSelector(selectCurrentUserEmail);
@@ -35,6 +42,8 @@ const Routers = () => {
             </ProtectedRoute>
           }
         />
+
+        {/* Admin Dashboard with nested routes */}
         <Route
           path="/admin"
           element={
@@ -42,7 +51,14 @@ const Routers = () => {
               <AdminDashboard email={email} />
             </AdminProtectedRoute>
           }
-        />
+        >
+          <Route index element={<Navigate to="/admin/metrics" replace />} />
+          <Route path="metrics" element={<AdminMetrics />} />
+          <Route path="bookings" element={<AdminBookings />} />
+          <Route path="users" element={<AdminUsers />} />
+          <Route path="system" element={<SystemHealth />} />
+          <Route path="upcoming" element={<UpcomingBookings />} />
+        </Route>
       </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>

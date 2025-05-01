@@ -1,35 +1,64 @@
 import React from "react";
-import "primeicons/primeicons.css";
+import { BiCalendarPlus } from "react-icons/bi"; // Import a relevant icon
 
 const NoBooking = ({ gettingBookingLink, Bookinglink }) => {
+  const handleBookSession = () => {
+    if (Bookinglink) {
+      window.location.href = Bookinglink;
+    }
+  };
+
   return (
-    <div className="flex flex-col items-center justify-center h-screen">
-      <div>
-        <i
-          className="pi pi-calendar-times w-auto mb-4"
-          style={{ fontSize: "6rem" }}
-        ></i>
-      </div>
-      <p className="text-xl text-gray-700">
-        No bookings found! Please book a session using the following link
+    <div className="flex flex-col items-center justify-center text-center p-8 bg-white rounded-lg shadow-md min-h-[300px]">
+      {" "}
+      {/* Card-like appearance */}
+      <BiCalendarPlus className="w-16 h-16 text-[#DF9E7A] mb-4" />{" "}
+      {/* Larger, themed icon */}
+      <h2 className="text-2xl font-semibold text-gray-800 mb-2">
+        No Upcoming Bookings
+      </h2>
+      <p className="text-gray-600 mb-6 max-w-md">
+        You don't have any sessions scheduled at the moment. Ready to book your
+        next one?
       </p>
-      <div className="text-center mt-4">
-        <button
-          className={`bg-blue-500 text-white px-4 py-2 rounded ${
-            gettingBookingLink
-              ? "opacity-50 cursor-not-allowed"
-              : "hover:bg-blue-700"
-          }`}
-          disabled={gettingBookingLink}
-          onClick={() => {
-            if (Bookinglink) {
-              window.location.href = Bookinglink;
-            }
-          }}
-        >
-          Book a Session
-        </button>
-      </div>
+      <button
+        className={`inline-flex items-center justify-center bg-[#DF9E7A] text-white font-semibold px-6 py-3 rounded-lg shadow transition-colors duration-300 ${
+          /* Themed button */
+          gettingBookingLink
+            ? "opacity-70 cursor-not-allowed"
+            : "hover:bg-[#c45e3e]"
+        }`}
+        disabled={gettingBookingLink}
+        onClick={handleBookSession}
+      >
+        {gettingBookingLink ? (
+          <>
+            <svg
+              className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              ></circle>
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              ></path>
+            </svg>
+            Loading Link...
+          </>
+        ) : (
+          "Book a Session"
+        )}
+      </button>
     </div>
   );
 };

@@ -1,8 +1,8 @@
 const redisClient = require("../utils/redisClient");
 const logger = require("../logs/logger");
-const { promisify } = require('util');
-const path = require('path');
-const fs = require('fs');
+const { promisify } = require("util");
+const path = require("path");
+const fs = require("fs");
 const zlib = require("zlib");
 const inflateAsync = promisify(zlib.inflate);
 const deflateAsync = promisify(zlib.deflate);
@@ -31,12 +31,18 @@ async function invalidateCache(keyName) {
   if (!isRedisWorking()) {
     logger.error("Redis is not working, cannot invalidate cache.");
     try {
-      const invalidationFilePath = path.join(__dirname, '../utils/invalidationRequests.bin');
-      const buffer = Buffer.from(keyName + '\0', 'utf8'); // Null-terminated string
+      const invalidationFilePath = path.join(
+        __dirname,
+        "../utils/invalidationRequests.bin"
+      );
+      const buffer = Buffer.from(keyName + "\0", "utf8"); // Null-terminated string
       fs.appendFileSync(invalidationFilePath, buffer);
       logger.info(`Appended ${keyName} to invalidationRequests.bin`);
     } catch (fileError) {
-      logger.error(`Failed to append ${keyName} to invalidationRequests.bin`, fileError);
+      logger.error(
+        `Failed to append ${keyName} to invalidationRequests.bin`,
+        fileError
+      );
     }
     return false;
   }
@@ -57,7 +63,7 @@ async function addToCache(keyName, data, options = { EX: 21600 }) {
   let dataString;
 
   // Sometimes response sent using res.send() is already a valid JSON string so we need to make sure we dont double stringify it
-  if (typeof data === 'string' && isValidJsonString(data)) {
+  if (typeof data === "string" && isValidJsonString(data)) {
     dataString = data;
   } else {
     // Otherwise, stringify the data
@@ -66,8 +72,8 @@ async function addToCache(keyName, data, options = { EX: 21600 }) {
 
   try {
     const buffer = await deflateAsync(dataString);
-    const compressedData = buffer.toString('base64');
-    await redisClient.set(keyName, compressedData, 'EX', options.EX);
+    const compressedData = buffer.toString("base64");
+    await redisClient.set(keyName, compressedData, "EX", options.EX);
     logger.info(`Compressed data added to cache for key: ${keyName}`);
   } catch (error) {
     logger.error(`Failed to compress data for key=${keyName}`, error);
@@ -75,23 +81,23 @@ async function addToCache(keyName, data, options = { EX: 21600 }) {
 }
 // Generate a key based on the request. same input generates the same key
 function generateKey(req) {
-  const { userId } = req;
+  const userId = req.user.id;
   let keyBase;
-  const pathArray = req.originalUrl.split('/').filter(Boolean);
+  const pathArray = req.originalUrl.split("/").filter(Boolean);
 
   if (pathArray.length > 0) {
-    if (pathArray[0] === 'bookings') {
-      if (pathArray.length > 1 && pathArray[1] === 'calendly') {
+    if (pathArray[0] === "bookings") {
+      if (pathArray.length > 1 && pathArray[1] === "calendly") {
         keyBase = `bookingLink:${userId}`;
       } else {
         keyBase = `bookings:${userId}`; // Modified as per requirement
       }
     } else {
       switch (pathArray[0]) {
-        case 'users':
+        case "users":
           keyBase = `user:${userId}`;
           break;
-        case 'payments':
+        case "payments":
           keyBase = `payments:${userId}`;
           break;
         default:
@@ -99,7 +105,7 @@ function generateKey(req) {
       }
     }
   } else {
-    keyBase = 'unknownEndpoint';
+    keyBase = "unknownEndpoint";
   }
   return keyBase;
 }
@@ -107,7 +113,7 @@ function generateKey(req) {
 // Retrieve data from cache, parse if JSON, otherwise return as-is
 async function getFromCache(key) {
   if (!isRedisWorking()) {
-    return new Error("Redis is not working, cannot retrieve cache."); 
+    return new Error("Redis is not working, cannot retrieve cache.");
   }
 
   try {
@@ -119,11 +125,23 @@ async function getFromCache(key) {
       try {
         let parsedData = JSON.parse(data);
         // Check if the parsedData is still a string and parse it again if necessary
-        if (typeof parsedData === 'string') {
+        if (typeof parsedData === "string") {
           parsedData = JSON.parse(parsedData);
-          logger.debug(`Double-parsed cache data for key=${key} with type ${typeof parsedData}: ${JSON.stringify(parsedData, null, 2)}`);
+          logger.debug(
+            `Double-parsed cache data for key=${key} with type ${typeof parsedData}: ${JSON.stringify(
+              parsedData,
+              null,
+              2
+            )}`
+          );
         }
-        logger.debug(`Cache data retrieved for key=${key} with type ${typeof parsedData}:\n ${JSON.stringify(parsedData, null, 2)}\n`);
+        logger.debug(
+          `Cache data retrieved for key=${key} with type ${typeof parsedData}:\n ${JSON.stringify(
+            parsedData,
+            null,
+            2
+          )}\n`
+        );
         return parsedData; // Return parsed JSON data
       } catch (err) {
         logger.error(`Error parsing JSON for key=${key}: ${err.message}`);
@@ -131,34 +149,34 @@ async function getFromCache(key) {
       }
     }
   } catch (err) {
-    logger.error(`Error retrieving or decompressing cache for key=${key}: ${err.message}`);
+    logger.error(
+      `Error retrieving or decompressing cache for key=${key}: ${err.message}`
+    );
   }
 
   // catch-all return
-  return null; 
+  return null;
 }
-
-
 
 // Middleware to cache responses with cache refreshing logic
 function redisCaching(options = { EX: 21600 }) {
   return async (req, res, next) => {
-    if (req.method !== "GET" ) {
+    if (req.method !== "GET") {
       return next();
     }
     const key = generateKey(req);
-    try { 
+    try {
       //attempt to retrieve from cache
-      const cachedValue = await getFromCache(key);  
+      const cachedValue = await getFromCache(key);
       if (cachedValue) {
         logger.debug(`Cache hit for key: ${key}`);
         // Reset the TTL for the cache entry
         await redisClient.expire(key, options.EX);
         res.send(cachedValue);
-      } else {                                      
-        logger.debug(`Cache miss for key: ${key}`); 
+      } else {
+        logger.debug(`Cache miss for key: ${key}`);
         //if miss then cache the response
-        const oldSend = res.send; 
+        const oldSend = res.send;
         res.send = async function (data) {
           res.send = oldSend; // Restore original res.send immediately
           if (res.statusCode.toString().startsWith("2")) {

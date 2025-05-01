@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { useResetPasswordMutation } from "./usersApiSlice";
-import { ToastContainer, toast } from "react-toastify";
+import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Joi from "joi";
 
@@ -110,7 +110,6 @@ const ResetPassword = () => {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
-      <ToastContainer />
       <form onSubmit={handleSubmit} noValidate className="w-80">
         <input
           type="password"

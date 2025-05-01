@@ -1,0 +1,149 @@
+const User = require("../models/User");
+const asyncHandler = require("express-async-handler");
+const logger = require("../logs/logger");
+const Booking = require("../models/Booking");
+const Payment = require("../models/Payment");
+
+//@desc Get all users
+//@param {Object} req with valid role
+//@route GET /admin/users
+//@access Private
+const getAllUsers = asyncHandler(async (req, res) => {
+  // Retrieve pagination parameters from the query string
+  const page = parseInt(req.query.page, 10) || 1; // Default to page 1
+  const limit = parseInt(req.query.limit, 10) || 10; // Default to 10 items per page
+  const search = req.query.search || ""; // Get search term from query params
+
+  // Validate pagination parameters
+  if (page < 1 || limit < 1 || limit > 40) {
+    return res.status(400).json({
+      message:
+        "Page and limit must be positive integers and limit should not exceed 40",
+    });
+  }
+
+  try {
+    // Calculate the number of documents to skip
+    const skip = (page - 1) * limit;
+
+    // Create search query if search parameter exists
+    const searchQuery = search
+      ? {
+          $or: [
+            { name: { $regex: search, $options: "i" } }, // Case-insensitive search on name
+            { email: { $regex: search, $options: "i" } }, // Case-insensitive search on email
+          ],
+        }
+      : {};
+
+    // Add role filter if provided
+    if (req.query.role && ["admin", "user"].includes(req.query.role)) {
+      searchQuery.role = req.query.role;
+    }
+
+    // Retrieve users with pagination and search
+    const users = await User.find(searchQuery)
+      .select("email name phone DOB role") // Added role to the selection
+      .skip(skip)
+      .limit(limit)
+      .lean()
+      .exec();
+
+    // Get the total number of documents for pagination info
+    const totalUsers = await User.countDocuments(searchQuery);
+
+    // Send paginated response
+    res.status(200).json({
+      page,
+      limit,
+      totalUsers,
+      totalPages: Math.ceil(totalUsers / limit),
+      users,
+    });
+  } catch (error) {
+    // Handle any errors that occurred during the query
+    logger.error(`Error retrieving users: ${error.message}`);
+    res
+      .status(500)
+      .json({ message: "An error occurred while retrieving users", error });
+  }
+});
+
+//@desc Delete a user
+//@param {Object} req with valid role and email
+//@route DELETE /admin/users/:userId
+//@access Private
+const deleteUser = asyncHandler(async (req, res) => {
+  const userId = req.params.userId;
+
+  if (!userId) {
+    return res.status(400).json({ message: "User ID is required" });
+  }
+
+  try {
+    const [bookings, payments, user] = await Promise.all([
+      Booking.deleteMany({ userId }),
+      Payment.deleteMany({ userId }),
+      User.deleteOne({ _id: userId }),
+    ]);
+
+    logger.debug(
+      `User deletion count: ${user.deletedCount}\nBooking deleted count: ${bookings.deletedCount}\nPayment deleted count: ${payments.deletedCount}`
+    );
+
+    // Return proper success response with message
+    res.status(200).json({
+      message: "User deleted successfully",
+      deletedCount: user.deletedCount,
+    });
+  } catch (error) {
+    logger.error(`Error deleting user: ${error}`);
+    res.status(500).json({ message: "Error deleting user" });
+  }
+});
+
+//@desc Update a user
+//@param {Object} req with valid role and userId
+//@route PATCH /admin/users/:userId
+//@access Private
+const updateUser = asyncHandler(async (req, res) => {
+  const userId = req.params.userId;
+  const { name, email, role } = req.body;
+
+  if (!userId) {
+    return res.status(400).json({ message: "User ID is required" });
+  }
+
+  try {
+    // Create an update object with only the provided fields
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (email) updateData.email = email;
+    if (role && ["admin", "user"].includes(role)) updateData.role = role;
+
+    // Perform the update
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    ).select("name email role");
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({
+      message: "User updated successfully",
+      user: updatedUser,
+    });
+  } catch (error) {
+    logger.error(`Error updating user: ${error}`);
+    res.status(500).json({ message: "Error updating user" });
+  }
+});
+
+module.exports = {
+  getAllUsers,
+  deleteUser,
+  updateUser,
+};

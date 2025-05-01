@@ -1,101 +1,74 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useUpdateMyUserMutation } from "../../../features/users/usersApiSlice";
-import { useLogoutMutation } from "../../../features/auth/authApiSlice";
-import { useNavigate } from "react-router-dom";
-import { ToastContainer, toast } from "react-toastify";
+import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import phonevalidator from "libphonenumber-js";
 import { PhoneInput } from "react-international-phone";
 import "react-international-phone/style.css";
-import { useSelector } from "react-redux";
-import { selectMyUser } from "../../../features/users/usersApiSlice";
 import Joi from "joi";
-
-const validPhone = Joi.string().custom((value, helpers) => {
-  if (!phonevalidator(value)?.isValid()) {
-    return helpers.message("Phone number must be a valid international number");
-  }
-  return value;
-}, "Phone number validation");
 
 const JoiSchema = Joi.object({
   name: Joi.string().min(3).max(30).required().messages({
-    "string.base": "Name must be a string",
-    "string.empty": "Name cannot be empty",
-    "string.min": "Name must be at least {#limit} characters long",
-    "string.max": "Name must be less than {#limit} characters long",
-    "any.required": "Name is a required field",
+    "string.min": "Name must be at least 3 characters long",
+    "string.max": "Name must be less than 30 characters long",
+    "any.required": "Name is required",
   }),
-  phone: validPhone.required().messages({
-    "string.empty": "Phone number is required",
-    "any.required": "Phone number is a required field",
+  phone: Joi.string().required().messages({
+    "any.required": "Phone number is required",
   }),
-  DOB: Joi.date() //allow users above 11 years old
-    .iso()
-    .max(new Date(new Date().setFullYear(new Date().getFullYear() - 11)))
-    .messages({
-      "date.empty": "Please enter a valid Date of Birth",
-      "date.base": "Please enter a valid Date of Birth",
-      "date.format": "Please enter a valid Date of Birth",
-      "date.max": "You must be at least 11 years old",
-    }),
+  DOB: Joi.date().max("now").required().messages({
+    "date.base": "Date of Birth must be a valid date",
+    "date.max": "Date of Birth cannot be in the future",
+    "any.required": "Date of Birth is required",
+  }),
 });
 
-const EditProfile = ({ onUserUpdate }) => {
-  const [updateUser, { isLoading: isUpdating, isSuccess: isUpdateSuccess }] = //add updateuser spinner
-    useUpdateMyUserMutation();
-  const userData = useSelector(selectMyUser); //fetch user data from store
+// Rename prop from initialUser to user to match DashboardNav
+const EditProfile = ({ user, onUserUpdate }) => {
+  const [updateUser, { isLoading: isUpdating }] = useUpdateMyUserMutation();
 
-  let maxDate = new Date(new Date().setFullYear(new Date().getFullYear() - 11));
+  const maxDate = useMemo(() => {
+    const date = new Date();
+    date.setFullYear(date.getFullYear() - 11);
+    return date.toISOString().split("T")[0];
+  }, []);
 
-  const [initialUser, setUser] = useState({
-    name: "",
-    phone: "",
-    DOB: "",
-    email: "",
-  });
-  const [name, setName] = useState(initialUser.name);
-  const [phone, setPhone] = useState(initialUser.phone);
-  const [DOB, setDOB] = useState(initialUser.DOB);
+  const [name, setName] = useState(""); // Initialize with empty string
+  const [phone, setPhone] = useState(""); // Initialize with empty string
+  const [DOB, setDOB] = useState(""); // Initialize with empty string
 
-  // set userdata when available from prop
+  // Use refs to store the initial values received from the prop
+  const originalName = useRef("");
+  const originalPhone = useRef("");
+  const originalDOB = useRef("");
+
   useEffect(() => {
-    if (userData) {
-      setUser({
-        name: userData.name,
-        phone: userData.phone,
-        DOB: userData.formattedDob,
-        email: userData.email,
-      });
-      setName(userData.name);
-      setPhone(userData.phone);
-      setDOB(userData.DOB || "");
-    }
-  }, [userData]);
+    // When the user prop is available or changes, update the state and refs
+    if (user) {
+      setName(user.name || "");
+      setPhone(user.phone || "");
+      setDOB(user.DOB || ""); // user.DOB is pre-formatted 'YYYY-MM-DD'
 
-  const originalName = useRef(initialUser.name);
-  const originalPhone = useRef(initialUser.phone);
-  const originalDOB = useRef(initialUser.DOB);
+      // Update refs to store the initial values from this specific prop instance
+      originalName.current = user.name || "";
+      originalPhone.current = user.phone || "";
+      originalDOB.current = user.DOB || "";
+    }
+  }, [user]); // Rerun effect if user prop changes
+
   const onNameChanged = (e) => setName(e.target.value);
   const onPhoneChanged = (phoneString) => setPhone(phoneString);
   const onDOBChanged = (e) => setDOB(e.target.value);
 
-  useEffect(() => {
-    // Convert DOB to yyyy-mm-dd format
-
-    let convertedDOB = DOB;
-    if (typeof DOB === "string" && DOB.includes("/")) {
-      let splitDate = DOB.split("/");
-      convertedDOB = [splitDate[2], splitDate[1], splitDate[0]].join("-");
-    }
-  }, [DOB]);
-
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    const { error } = JoiSchema.validate({ name, phone, DOB });
+    const { error } = JoiSchema.validate(
+      { name, phone, DOB },
+      { abortEarly: false }
+    );
     if (error) {
-      toast.error(error.details[0].message);
+      error.details.forEach((detail) => toast.error(detail.message));
       return;
     }
 
@@ -104,115 +77,122 @@ const EditProfile = ({ onUserUpdate }) => {
     if (name !== originalName.current) {
       updatedFields.name = name;
     }
-
     if (phone !== originalPhone.current) {
       updatedFields.phone = phone;
     }
-
     if (DOB !== originalDOB.current) {
       updatedFields.DOB = DOB;
     }
 
     if (Object.keys(updatedFields).length > 0) {
       try {
-        const { result } = await updateUser(updatedFields).unwrap();
-        toast.success("User updated successfully.");
+        await updateUser(updatedFields).unwrap();
+        toast.success("Profile updated successfully.");
+
         originalName.current = name;
         originalPhone.current = phone;
         originalDOB.current = DOB;
-        onUserUpdate(); // Trigger a re-fetch in the Dashboard component
-      } catch {
-        toast.error("Failed to update user.");
+
+        onUserUpdate();
+      } catch (err) {
+        toast.error(err?.data?.message || "Failed to update profile.");
       }
     } else {
       toast.info("No changes detected.");
     }
   };
+
   return (
-    <form className="p-6 bg-white rounded" onSubmit={handleSubmit}>
-      <ToastContainer />
-      <h2 className="text-2xl font-bold mb-6">Edit your details</h2>
-      <div className="space-y-4">
+    <form onSubmit={handleSubmit}>
+      <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">
+        Edit Your Details
+      </h2>
+      <div className="space-y-5">
         <div>
-          <label className="block text-sm font-medium" htmlFor="name">
+          <label
+            className="block text-sm font-medium text-gray-700 mb-1"
+            htmlFor="name"
+          >
             Name:
           </label>
           <input
-            className="mt-1 p-2 w-full border rounded lp-ignore"
+            className="mt-1 p-2 w-full border border-gray-300 rounded-md shadow-sm focus:ring-[#c45e3e] focus:border-[#c45e3e]"
             id="name"
             name="name"
             type="text"
-            autoComplete="off"
+            autoComplete="name"
             value={name}
             onChange={onNameChanged}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium" htmlFor="phone">
+          <label
+            className="block text-sm font-medium text-gray-700 mb-1"
+            htmlFor="phone"
+          >
             Phone:
           </label>
           <PhoneInput
             defaultCountry="pk"
             value={phone}
             onChange={onPhoneChanged}
-            autoComplete="off"
-            className="mt-1 p-2 w-full border rounded"
+            inputClassName="!border-gray-300 focus:!border-[#c45e3e] focus:!ring-[#c45e3e]"
+            className="w-full"
             style={{
-              "--react-international-phone-border-color": "transparent",
-              "--react-international-phone-font-size": "16px",
+              "--react-international-phone-border-radius": "0.375rem",
+              "--react-international-phone-border-color": "#D1D5DB",
+              "--react-international-phone-background-color": "white",
+              "--react-international-phone-text-color": "#1F2937",
+              "--react-international-phone-font-size": "1rem",
+              "--react-international-phone-height": "2.5rem",
             }}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium" htmlFor="DOB">
+          <label
+            className="block text-sm font-medium text-gray-700 mb-1"
+            htmlFor="DOB"
+          >
             Date of Birth:
           </label>
           <input
-            className="mt-1 p-2 w-full border rounded lp-ignore"
+            className="mt-1 p-2 w-full border border-gray-300 rounded-md shadow-sm focus:ring-[#c45e3e] focus:border-[#c45e3e]"
             type="date"
             name="DOB"
+            id="DOB"
             value={DOB}
-            autoComplete="off"
-            data-lpignore="true"
+            autoComplete="bday"
             onChange={onDOBChanged}
-            max={
-              new Date(new Date().setFullYear(new Date().getFullYear() - 11))
-                .toISOString()
-                .split("T")[0]
-            }
+            max={maxDate}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium" htmlFor="email">
+          <label
+            className="block text-sm font-medium text-gray-700 mb-1"
+            htmlFor="email"
+          >
             Email:
           </label>
           <input
-            className="mt-1 p-2 w-full border rounded"
+            className="mt-1 p-2 w-full border border-gray-300 rounded-md shadow-sm bg-gray-100 cursor-not-allowed"
             id="email"
             name="email"
             type="email"
-            autoComplete="off"
-            value={initialUser.email}
+            autoComplete="email"
+            value={user?.email || ""}
             disabled
           />
         </div>
-        <div className="flex justify-center mt-6">
+        <div className="flex justify-center pt-4">
           <button
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            className="px-6 py-2 bg-[#DF9E7A] text-white font-semibold rounded-md hover:bg-[#c45e3e] transition-colors duration-200 disabled:opacity-50 flex items-center justify-center min-w-[100px]"
             type="submit"
+            disabled={isUpdating}
           >
             {isUpdating ? (
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                }}
-              >
-                <div className="spinner"></div>
-              </div>
+              <div className="spinner w-5 h-5 border-t-2 border-white border-solid rounded-full animate-spin"></div>
             ) : (
-              "Save"
+              "Save Changes"
             )}
           </button>
         </div>

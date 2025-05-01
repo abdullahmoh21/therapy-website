@@ -1,19 +1,21 @@
-const logger = require('../logs/logger');
-const { spawn } = require('child_process');
+const logger = require("../logs/logger");
+const { spawn } = require("child_process");
 
 const errorHandler = (err, req, res, next) => {
-    // Use Winston to log the error
-    logger.info('Error handler triggered');
-    logger.error(`${err.name}: ${err.message}\n${err.stack}`);
-    if (res.headersSent) {
-        return next(err);
-    }
+  // Use Winston to log the error
+  logger.info("Error handler triggered");
+  logger.error(`${err.name}: ${err.message}\n${err.stack}`);
+  if (res.headersSent) {
+    return next(err);
+  }
 
-    const status = err.statusCode || 500; // Assuming err can have a statusCode property
+  const status = err.statusCode || 500; // Assuming err can have a statusCode property
 
-    res.status(status);
-    res.json({ message: err.message, isError: true });
-}
+  res.status(status);
+  res.json({ message: err.message, isError: true });
+};
+
+// production: uncomment
 
 // To prevent the application from crashing
 // process.on("uncaughtException", function (err) {
@@ -23,7 +25,7 @@ const errorHandler = (err, req, res, next) => {
 //     }
 //     restartServer();
 // });
-  
+
 // process.on("unhandledRejection", (reason, promise) => {
 //     if (reason instanceof Error) {
 //         logger.error(`[UNHANDLED PROMISE] ${reason.name}: ${reason.message}`, { stack: reason.stack });

@@ -2,7 +2,7 @@ import React from "react";
 import { useForm, Controller } from "react-hook-form";
 import { joiResolver } from "@hookform/resolvers/joi";
 import Joi from "joi";
-import { toast, ToastContainer } from "react-toastify";
+import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { InputText } from "primereact/inputtext";
 import { Dropdown } from "primereact/dropdown";
@@ -94,7 +94,6 @@ const ContactMe = () => {
 
   return (
     <div className="p-6 max-w-lg mx-auto bg-[#FFEDE8] rounded-md shadow-md">
-      <ToastContainer className="z-[1000]" />
       <h2 className="orelega-one text-[30px] text-center mb-4 text-[#E27A82]">
         Contact Me
       </h2>

@@ -1,68 +1,40 @@
-<!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            color: #333;
-            margin: 0;
-            padding: 0;
-        }
-        .container {
-            background-color: #ECBEA7;
-            padding: 20px;
-            border-radius: 8px;
-            max-width: 800px;
-            margin: auto;
-        }
-        .header {
-            color: #333;
-            font-size: 18px;
-            font-weight: bold;
-            margin-bottom: 20px;
-        }
-        .details {
-            margin-bottom: 20px;
-            padding-left: 20px; /* Add indentation */
-        }
-        .details h3 {
-            margin: 0;
-            color: #333;
-            padding-bottom: 10px;
-        }
-        .details p {
-            margin: 5px 0;
-        }
-        .details a {
-            color: #0066cc; /* Link color */
-            text-decoration: none;
-        }
-        .footer {
-            color: #222;
-            font-size: 14px;
-        }
+      body { font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;
+      } .container { background-color: #ECBEA7; padding: 20px; border-radius:
+      8px; max-width: 800px; margin: auto; } .header { color: #333; font-size:
+      18px; font-weight: bold; margin-bottom: 20px; } .details { margin-bottom:
+      20px; padding-left: 20px; /* Add indentation */ } .details h3 { margin: 0;
+      color: #333; padding-bottom: 10px; } .details p { margin: 5px 0; }
+      .details a { color: #0066cc; /* Link color */ text-decoration: none; }
+      .footer { color: #222; font-size: 14px; }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="container">
-        <div class="header">
-            New Inquiry from {{name}}. Here are the details:
-        </div>
-        <div class="details">
-            <p><strong>Inquiry Type:</strong> {{type}}</p>
-            <p><strong>Email:</strong> <a href="mailto:{{email}}">{{email}}</a></p>
-            <p><strong>Phone:</strong> {{phone}}</p>
-            <p><strong>Message:</strong> {{message}}</p>
-            <p><strong>Please respond to the inquiry as soon as possible.(Just click reply to this email)</strong> <br></p> 
-            <br>
-        </div>
-        <div class="footer">
-            Regards,<br />
-            Your Server <br /> <br />  
-            Please kill me. End me. i beg you. I want to feel nothingness. I want to feel the sweet release of death. I want to feel the cold embrace of the void. I want to feel the darkness
-        </div>
+      <div class="header">
+        New Inquiry from
+        {{name}}. Here are the details:
+      </div>
+      <div class="details">
+        <p><strong>Inquiry Type:</strong> {{type}}</p>
+        <p><strong>Email:</strong> <a href="mailto:{{email}}">{{email}}</a></p>
+        <p><strong>Phone:</strong> {{phone}}</p>
+        <p><strong>Message:</strong> {{message}}</p>
+        <p><strong>Please respond to the inquiry as soon as possible.(Just click
+            reply to this email)</strong>
+          <br /></p>
+        <br />
+      </div>
+      <div class="footer">
+        Regards,<br />
+        Your Server
+        <br />
+        <br />
+      </div>
     </div>
-</body>
+  </body>
 </html>

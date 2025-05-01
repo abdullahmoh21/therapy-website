@@ -5,7 +5,7 @@ import {
   useResendEmailVerificationMutation,
 } from "./usersApiSlice";
 import Joi from "joi";
-import { ToastContainer, toast } from "react-toastify";
+import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { FaCheckCircle } from "react-icons/fa";
 
@@ -75,7 +75,6 @@ const VerifyEmail = () => {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
-      <ToastContainer />
       <h1 className="text-3xl font-semibold text-gray-800 mb-6">
         Email Verification
       </h1>
