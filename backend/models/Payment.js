@@ -30,6 +30,11 @@ const paymentSchema = new Schema(
       required: true,
       default: "PKR",
     },
+    paymentMethod: {
+      type: String,
+      enum: ["Cash", "Credit Card"],
+      default: "Cash",
+    },
     netAmountReceived: {
       type: Number,
     },
@@ -46,8 +51,12 @@ const paymentSchema = new Schema(
         "Refund Requested",
         "Refunded",
         "Partially Refunded",
+        "Error",
       ],
       default: "Not Initiated",
+    },
+    errorMessage: {
+      type: String,
     },
     linkGeneratedDate: {
       type: Date,
@@ -56,6 +65,9 @@ const paymentSchema = new Schema(
       type: Date,
     },
     paymentRefundedDate: {
+      type: Date,
+    },
+    refundRequestedDate: {
       type: Date,
     },
   },

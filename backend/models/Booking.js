@@ -48,8 +48,19 @@ const bookingSchema = new Schema(
       default: "Active",
     },
     location: {
-      type: String,
-      enum: ["in-person", "online"],
+      type: {
+        type: String,
+        enum: ["in-person", "online"],
+      },
+      join_url: {
+        type: String,
+      },
+      zoom_pwd: {
+        type: String,
+      },
+      inPersonLocation: {
+        type: String,
+      },
     },
     cancellation: {
       reason: {

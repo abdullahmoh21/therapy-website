@@ -6,11 +6,11 @@ const { redisCaching } = require("../middleware/redisCaching");
 
 router
   .route("/calendly")
-  .post(bookingController.handleCalendlyWebhook) // Webhook endpoint for Calendly events
-  .get(verifyJWT, redisCaching(), bookingController.getNewBookingLink); // Generate a new booking link
+  .get(verifyJWT, bookingController.getNewBookingLink)
+  .post(bookingController.handleCalendlyWebhook);
 
-router.use(verifyJWT); //all booking routes are protected
+router.use(verifyJWT);
 
-router.route("/").get(redisCaching(), bookingController.getMyBookings); //get users active bookings
+router.route("/").get(redisCaching(), bookingController.getActiveBookings);
 
 module.exports = router;

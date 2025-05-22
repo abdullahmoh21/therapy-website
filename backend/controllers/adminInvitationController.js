@@ -69,17 +69,8 @@ const inviteUser = asyncHandler(async (req, res) => {
         name: name,
         invitationUrl,
       });
-      logger.info(`Invitation email queued for ${email}`);
     } catch (err) {
-      logger.error(`Error queuing invitation email: ${err.message}`);
-      // Fallback to direct send if queue fails
-      await sendInvitationEmail({
-        data: {
-          recipient: email,
-          name: name,
-          invitationUrl,
-        },
-      });
+      return res.sendStatus(500);
     }
 
     // Success response
@@ -241,22 +232,15 @@ const resendInvitation = asyncHandler(async (req, res) => {
       process.env.FRONTEND_URL
     }/signup?invitation=${token}&email=${encodeURIComponent(invitee.email)}`;
 
-    // Send invitation email
     try {
+      // Send invitation email
       await myQueue.add("sendInvitation", {
         recipient: invitee.email,
         name: invitee.name,
         invitationUrl,
       });
-    } catch (err) {
-      logger.error(`Error adding invitation email to queue: ${err.message}`);
-      await sendInvitationEmail({
-        data: {
-          recipient: invitee.email,
-          name: invitee.name,
-          invitationUrl,
-        },
-      });
+    } catch (e) {
+      return res.sendStatus(500);
     }
 
     // Success response

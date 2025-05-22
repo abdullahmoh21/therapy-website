@@ -1,4 +1,3 @@
-const React = require("react");
 const asyncHandler = require("express-async-handler");
 const { Safepay } = require("@sfpy/node-sdk");
 const Joi = require("joi");
@@ -6,12 +5,8 @@ const Payment = require("../models/Payment");
 const Booking = require("../models/Booking");
 const logger = require("../logs/logger");
 const Config = require("../models/Config"); // Import Config model
-const {
-  myQueue,
-  sendRefundRequest,
-  sendRefundConfirmation,
-} = require("../utils/myQueue");
-const { invalidateCache, getFromCache } = require("../middleware/redisCaching");
+const { myQueue } = require("../utils/myQueue");
+const { invalidateCache } = require("../middleware/redisCaching");
 
 //production: change to main api
 const safepay = new Safepay({
@@ -26,8 +21,6 @@ const safepay = new Safepay({
 //@route POST /safepay
 //@access Public
 const handleSafepayWebhook = asyncHandler(async (req, res) => {
-  console.log("APG Webhook received: ", req.body);
-
   // Verify the webhook using the Safepay SDK
   const valid = await safepay.verify.webhook(req);
   if (!valid) {
@@ -61,6 +54,9 @@ const handleSafepayWebhook = asyncHandler(async (req, res) => {
         payment.netAmountReceived = notification.net;
         payment.feePaid = notification.fee;
         payment.paymentCompletedDate = new Date();
+        if (payment?.errorMessage) {
+          payment.errorMessage = "";
+        }
       }
       break;
     }
@@ -77,11 +73,13 @@ const handleSafepayWebhook = asyncHandler(async (req, res) => {
       break;
     case "error:occurred":
       payment.errorMessage = notification.message;
+      payment.transactionStatus = "Error";
       break;
     default:
       console.error(`Unhandled webhook type: ${type}`);
       return res.sendStatus(400); // Bad Request
   }
+  payment.paymentMethod = "Credit Card";
   await payment.save();
 
   //send email to user on refund
@@ -89,16 +87,12 @@ const handleSafepayWebhook = asyncHandler(async (req, res) => {
     try {
       await myQueue.add("refundConfirmation", { payment });
     } catch (error) {
-      const emailJobData = {
-        name: "refundConfirmation",
-        data: { payment },
-      };
-      await sendRefundConfirmation({ payment });
+      logger.error("Error sending refund confirmation email.");
+      return res.sendStatus(500);
     }
   }
-  // Invalidate the cache for the user's bookings since the payment status has changed
-  invalidateCache(`bookings:${payment.userId}`);
-  invalidateCache(`payments:${payment.userId}`);
+
+  invalidateCache("/bookings", payment.userId);
 
   console.log(
     `Payment document updated for tracker: ${tracker}/n ${JSON.stringify(
@@ -136,21 +130,33 @@ const createPayment = asyncHandler(async (req, res) => {
         .json({ message: "Server error: Invalid payment amount recorded." });
     }
 
-    // Create payment using the amount from the payment document
-    const createPaymentPromise = safepay.payments.create({
-      amount: paymentAmount, // Use amount from the payment document
-      currency: payment.currency,
-    });
+    let token;
+    try {
+      const result = await safepay.payments.create({
+        amount: paymentAmount,
+        currency: payment.currency,
+      });
+      token = result.token;
+    } catch (e) {
+      return res
+        .status(503)
+        .json({ message: "Payment service is temporarily unavailable" });
+    }
 
-    const [{ token }] = await Promise.all([createPaymentPromise]);
-
-    const url = safepay.checkout.create({
-      token,
-      orderId: payment.transactionReferenceNumber,
-      cancelUrl: "https://cattle-tender-mosquito.ngrok-free.app/dash",
-      redirectUrl: "https://cattle-tender-mosquito.ngrok-free.app/dash",
-      webhooks: true,
-    });
+    let url;
+    try {
+      url = safepay.checkout.create({
+        token,
+        orderId: payment.transactionReferenceNumber,
+        cancelUrl: `${process.env.FRONTEND_URL}/dash`,
+        redirectUrl: `${process.env.FRONTEND_URL}/dash`,
+        webhooks: true,
+      });
+    } catch (e) {
+      return res
+        .status(503)
+        .json({ message: "Payment service is temporarily unavailable" });
+    }
 
     if (!url) {
       return res.status(500).json({ message: "Error: no url found" });
@@ -161,76 +167,11 @@ const createPayment = asyncHandler(async (req, res) => {
     payment.linkGeneratedDate = new Date();
     await payment.save();
 
-    // Invalidate payment cache as tracker and linkGeneratedDate are updated
-    await invalidateCache(`payments:${payment.userId}`);
-
     return res.status(200).json({ url });
   } catch (error) {
     console.error(`Error in createPayment: ${error}`);
     return res.sendStatus(500);
   }
-});
-
-//@desc returns all payments of a user in past 30 days
-//@param valid user jwt token
-//@route GET /payments
-//@access Private
-const getMyPayments = asyncHandler(async (req, res) => {
-  const userId = req.user.id;
-
-  const [payments, bookings] = await Promise.all([
-    Payment.find({ userId })
-      .lean()
-      .select(
-        "_id bookingId userId amount transactionReferenceNumber transactionStatus paymentCompletedDate paymentRefundedDate"
-      )
-      .exec(),
-    Booking.find({ userId })
-      .lean("bookingId status eventStartTime cancellation")
-      .select()
-      .exec(),
-  ]);
-
-  // Type Validation
-  if (!Array.isArray(bookings)) {
-    logger.error(
-      `Expected bookings to be an array but received: ${typeof bookings} \nsimply sending payments`
-    );
-    bookings = [];
-  }
-
-  // Create a map of bookings by bookingId for quick lookup
-  const bookingMap = bookings.reduce((map, booking) => {
-    map[booking._id] = booking;
-    return map;
-  }, {});
-
-  // Add booking details to each payment
-  const enhancedPayments = payments.map((payment) => {
-    const booking = bookingMap[payment.bookingId];
-    if (booking) {
-      const result = {
-        ...payment,
-        customerBookingId: booking.bookingId,
-        bookingStatus: booking.status,
-        eventStartTime: booking.eventStartTime,
-      };
-
-      if (booking.cancellation) {
-        result.cancellation = booking.cancellation;
-      }
-
-      return result;
-    }
-  });
-  logger.debug(
-    `Enhanced payments for userId: ${userId} \n ${JSON.stringify(
-      enhancedPayments,
-      null,
-      2
-    )}`
-  );
-  res.json(enhancedPayments);
 });
 
 const refundSchema = Joi.object({
@@ -244,10 +185,6 @@ const refundSchema = Joi.object({
 //@access Private
 const refundRequest = asyncHandler(async (req, res) => {
   const { paymentId, bookingId } = req.body;
-
-  logger.debug(
-    `Refund request received for paymentId: ${paymentId} and bookingId: ${bookingId}`
-  );
 
   const { error } = refundSchema.validate({ paymentId, bookingId });
   if (error) return res.status(400).json({ message: error.details[0].message });
@@ -265,7 +202,7 @@ const refundRequest = asyncHandler(async (req, res) => {
 
   // Find the corresponding Payment and Booking documents
   const [payment, booking] = await Promise.all([
-    Payment.findOne({ _id: paymentId }).lean().exec(),
+    Payment.findOne({ _id: paymentId }).exec(),
     Booking.findOne({ _id: bookingId }).lean().exec(),
   ]);
 
@@ -277,9 +214,6 @@ const refundRequest = asyncHandler(async (req, res) => {
     !payment._id ||
     booking.paymentId.toString() !== payment._id.toString()
   ) {
-    logger.debug(
-      `Invalid or mismatched paymentId: ${booking?.paymentId} and _id: ${payment?._id}.`
-    );
     return res.status(400).end(); // Bad Request
   }
 
@@ -288,12 +222,29 @@ const refundRequest = asyncHandler(async (req, res) => {
       message: "Refunds can only be processed for completed payments",
     });
   }
-
   const currentTime = new Date();
   const seventyTwoHoursBeforeBooking = new Date(
     booking.eventStartTime.getTime() - 72 * 60 * 60 * 1000
   );
+  const rawCutoff = await Config.getValue("cancelCutoffDays");
+  const cutoffDays = parseInt(rawCutoff, 10);
+  if (isNaN(cutoffDays)) {
+    logger.error(`Invalid cancelCutoffDays config: ${rawCutoff}`);
+    return res
+      .status(500)
+      .json({ message: "Server config error: invalid cutoff" });
+  }
+  const now = new Date();
+  const cutoffMillis = cutoffDays * 24 * 60 * 60 * 1000;
+  const cutoffDeadline = new Date(
+    booking.eventStartTime.getTime() - cutoffMillis
+  );
 
+  if (now >= cutoffDeadline) {
+    return res.status(400).json({
+      message: `Refunds can only be requested when booking was cancelled at least ${cutoffDays} days before the booking.`,
+    });
+  }
   // Check if the current time is 72 hours before the booking's start time
   if (currentTime >= seventyTwoHoursBeforeBooking) {
     return res.status(400).json({
@@ -315,8 +266,10 @@ const refundRequest = asyncHandler(async (req, res) => {
     logger.error(
       `Error adding refund request job to queue. Sending manually: ${error}`
     );
-    await sendRefundRequest(emailJobData);
+    return res.sendStatus(500);
   }
+  payment.refundRequestedDate = new Date();
+  payment.save();
   return res
     .status(200)
     .json({ message: "Refund request has been added to the queue " });
@@ -325,6 +278,5 @@ const refundRequest = asyncHandler(async (req, res) => {
 module.exports = {
   handleSafepayWebhook,
   createPayment,
-  getMyPayments,
   refundRequest,
 };

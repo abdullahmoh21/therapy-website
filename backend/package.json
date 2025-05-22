@@ -11,7 +11,8 @@
   "license": "ISC",
   "dependencies": {
     "@sfpy/node-sdk": "^3.0.1",
-    "bcrypt": "^5.1.1",
+    "axios": "^1.7.2",
+    "bcryptjs": "^2.4.3",
     "bullmq": "^5.8.2",
     "compression": "^1.7.4",
     "cookie-parser": "^1.4.6",
@@ -23,27 +24,25 @@
     "express-joi-validation": "^5.0.1",
     "express-rate-limit": "^7.2.0",
     "helmet": "^7.1.0",
+    "ioredis": "^5.4.1",
     "joi": "^17.13.1",
     "jsonwebtoken": "^9.0.2",
     "libphonenumber-js": "^1.11.1",
     "mongoose": "^8.3.3",
     "mongoose-sequence": "^6.0.1",
     "nanoid": "^5.0.7",
+    "net": "^1.0.2",
     "node-cron": "^3.0.3",
     "nodemailer": "^6.9.14",
     "nodemailer-express-handlebars": "^6.1.2",
+    "opossum": "^5.0.1",
     "rate-limit-redis": "^4.2.0",
     "redis": "^4.6.14",
+    "short-unique-id": "^5.2.0",
     "uuid": "^8.3.2",
     "winston": "^3.13.0"
   },
   "devDependencies": {
-    "@eslint/compat": "^1.1.0",
-    "@eslint/js": "^9.6.0",
-    "eslint": "^9.6.0",
-    "eslint-plugin-react": "^7.34.3",
-    "eslint-plugin-security": "^3.0.1",
-    "globals": "^15.8.0",
     "nodemon": "^2.0.12"
   }
 }

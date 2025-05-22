@@ -7,112 +7,174 @@ const Booking = require("../models/Booking");
 const Payment = require("../models/Payment");
 const TemporaryBooking = require("../models/TemporaryBooking");
 const Config = require("../models/Config"); // Import Config model
+const { checkRedisAvailability } = require("./redisClient");
 
-let myQueue = null; // Variable to hold the queue instance
-let queueWorker = null; // Variable to hold the worker instance
+let myQueue = null;
+let queueWorker = null;
 
-try {
-  // Create Queue instance
-  myQueue = new Queue("myQueue", {
-    connection: {
-      host: "localhost",
-      port: 6379,
-      enableOfflineQueue: false,
-    },
-    defaultJobOptions: {
-      removeOnComplete: true,
-      removeOnFail: true,
-      attempts: 5, // Retry the job 5 times on failure
-    },
-  });
+// Initialize queue conditionally
+const initializeQueue = async () => {
+  const redisAvailable = await checkRedisAvailability();
 
-  // Create Worker instance and set up error handling
-  queueWorker = new Worker(
-    "myQueue",
-    async (job) => {
-      switch (job.name) {
-        case "verifyEmail":
-          return sendVerificationEmail(job);
-        case "resetPassword":
-          return sendResetPasswordEmail(job);
-        case "refundRequest":
-          return sendRefundRequest(job);
-        case "refundConfirmation":
-          return sendRefundConfirmation(job);
-        case "ContactMe":
-          return sendContactMeEmail(job);
-        case "deleteDocuments":
-          return deleteDocuments(job);
-        case "sendInvitation":
-          return sendInvitationEmail(job);
-        default:
-          logger.error(`[QUEUE SWITCH] Unknown email Job name: ${job.name}`);
-          return Promise.resolve({
-            success: false,
-            error: "Unknown email type",
-          });
-      }
-    },
-    { connection: { host: "localhost", port: 6379 } }
-  );
+  if (!redisAvailable) {
+    return false;
+  }
 
-  // Failed job handler
-  queueWorker.on("failed", async (job, err) => {
-    // Check if the job has failed after all retry attempts
-    if (job.attemptsMade === job.opts.attempts) {
-      const type = job.name === "deleteDocuments" ? "DATABASE" : "EMAIL";
-      logger.error(
-        `[QUEUE ERROR] [${type}] ${job.name} Job to ${job.data.recipient} failed after ${job.opts.attempts} retries. \nid: ${job.id} \nError: ${err.message}`
-      );
+  try {
+    // Create Queue instance
+    myQueue = new Queue("myQueue", {
+      connection: {
+        host: process.env.REDIS_HOST || "localhost",
+        port: process.env.REDIS_PORT || 6379,
+        enableOfflineQueue: false,
+        maxRetriesPerRequest: 1,
+      },
+      defaultJobOptions: {
+        removeOnComplete: true,
+        removeOnFail: true,
+        attempts: 5, // Retry the job 5 times on failure
+      },
+    });
 
-      try {
-        // Fetch admin email from config
-        const adminEmail = await Config.getValue("adminEmail");
-        if (!adminEmail) {
-          logger.error(
-            "Admin email not found in config, cannot send job failure notification"
-          );
-          return;
+    // Create Worker instance and set up error handling
+    queueWorker = new Worker(
+      "myQueue",
+      async (job) => {
+        switch (job.name) {
+          case "verifyEmail":
+            return sendVerificationEmail(job);
+          case "resetPassword":
+            return sendResetPasswordEmail(job);
+          case "refundRequest":
+            return sendRefundRequest(job);
+          case "refundConfirmation":
+            return sendRefundConfirmation(job);
+          case "ContactMe":
+            return sendContactMeEmail(job);
+          case "deleteDocuments":
+            return deleteDocuments(job);
+          case "sendInvitation":
+            return sendInvitationEmail(job);
+          default:
+            logger.error(`[QUEUE SWITCH] Unknown email Job name: ${job.name}`);
+            return Promise.resolve({
+              success: false,
+              error: "Unknown email type",
+            });
         }
-
-        const mailOptions = {
-          from: "server@fatimanaqvi.com",
-          to: adminEmail,
-          subject: "Job Failure Notification",
-          html: `
-                    <h1>Job Failure Alert. Please debug</h1>
-                    <h2>Job Details</h2>
-                    <p>Job ID: ${job.id}</p>
-                    <p>Job Name: ${job.name}</p>
-                    <p>Recipient: ${job.data.recipient}</p>
-                    <p>Error Message: ${err.message}</p>
-                    <p>Job Data: ${JSON.stringify(job.data)}</p>
-                `,
-        };
-
-        await transporter.sendMail(mailOptions);
-        logger.info(
-          `Error log sent to admin (${adminEmail}) for job ${job.id}`
-        );
-      } catch (notificationError) {
-        logger.error(
-          `[EMAIL] Failed to send notification to admin for job ${job.id}. Killing job. Error: ${notificationError}`
-        );
+      },
+      {
+        connection: {
+          host: process.env.REDIS_HOST || "localhost",
+          port: process.env.REDIS_PORT || 6379,
+          maxRetriesPerRequest: 1,
+        },
       }
-    }
-  });
+    );
 
-  queueWorker.on("error", (err) => {
-    logger.error(`[QUEUE ERROR] Error with the worker: ${err.message}`);
-  });
-  myQueue.on("error", (err) => {
-    logger.error(`[QUEUE ERROR] Error with the Queue: ${err.message}`);
-  });
-} catch (error) {
-  logger.error(
-    `[QUEUE INITIALIZATION] Error initializing queue: ${error.message}`
-  );
-}
+    // Failed job handler
+    queueWorker.on("failed", async (job, err) => {
+      // Check if the job has failed after all retry attempts
+      if (job.attemptsMade === job.opts.attempts) {
+        const type = job.name === "deleteDocuments" ? "DATABASE" : "EMAIL";
+        try {
+          // Fetch admin email from config
+          const adminEmail = await Config.getValue("adminEmail");
+          if (!adminEmail) {
+            logger.error(
+              "Admin email not found in config, cannot send job failure notification"
+            );
+            return;
+          }
+
+          const mailOptions = {
+            from: "server@fatimanaqvi.com",
+            to: adminEmail,
+            subject: "Job Failure Notification",
+            html: `
+                      <h1>Job Failure Alert. Please debug</h1>
+                      <h2>Job Details</h2>
+                      <p>Job ID: ${job.id}</p>
+                      <p>Job Name: ${job.name}</p>
+                      <p>Recipient: ${job.data.recipient}</p>
+                      <p>Error Message: ${err.message}</p>
+                      <p>Job Data: ${JSON.stringify(job.data)}</p>
+                  `,
+          };
+
+          await transporter.sendMail(mailOptions);
+          logger.info(
+            `Error log sent to admin (${adminEmail}) for job ${job.id}`
+          );
+        } catch (notificationError) {
+          logger.error(
+            `[EMAIL] Failed to send notification to admin for job ${job.id}. Killing job. Error: ${notificationError}`
+          );
+        }
+      }
+    });
+
+    logger.info("BullMQ queue system initialized successfully");
+    return true;
+  } catch (error) {
+    logger.error(`[QUEUE] Error initializing queue: ${error.message}`);
+    return false;
+  }
+};
+
+const safeAdd = async (jobName, jobData) => {
+  if (!myQueue) {
+    logger.warn(`Queue not available - executing ${jobName} job directly`);
+
+    // For email jobs, try to send directly
+    switch (jobName) {
+      case "verifyEmail":
+        return sendVerificationEmail({ data: jobData });
+      case "resetPassword":
+        return sendResetPasswordEmail({ data: jobData });
+      case "refundRequest":
+        return sendRefundRequest({ data: jobData });
+      case "refundConfirmation":
+        return sendRefundConfirmation({ data: jobData });
+      case "ContactMe":
+        return sendContactMeEmail({ data: jobData });
+      case "sendInvitation":
+        return sendInvitationEmail({ data: jobData });
+      case "deleteDocuments":
+        return deleteDocuments({ data: jobData });
+      default:
+        throw new Error(`Unknown job type: ${jobName}`);
+    }
+  }
+
+  try {
+    return await myQueue.add(jobName, jobData);
+  } catch (error) {
+    logger.warn(
+      `Failed to add job to queue, executing directly: ${error.message}`
+    );
+
+    // Same fallback logic as above
+    switch (jobName) {
+      case "verifyEmail":
+        return sendVerificationEmail({ data: jobData });
+      case "resetPassword":
+        return sendResetPasswordEmail({ data: jobData });
+      case "refundRequest":
+        return sendRefundRequest({ data: jobData });
+      case "refundConfirmation":
+        return sendRefundConfirmation({ data: jobData });
+      case "ContactMe":
+        return sendContactMeEmail({ data: jobData });
+      case "sendInvitation":
+        return sendInvitationEmail({ data: jobData });
+      case "deleteDocuments":
+        return deleteDocuments({ data: jobData });
+      default:
+        throw new Error(`Unknown job type: ${jobName}`);
+    }
+  }
+};
 
 //--------------------------------------------------- JOB HANDLERS ----------------------------------------------------//
 
@@ -458,6 +520,8 @@ const sendInvitationEmail = async (job) => {
 module.exports = {
   myQueue,
   queueWorker,
+  initializeQueue,
+  add: safeAdd,
   sendVerificationEmail,
   sendResetPasswordEmail,
   sendRefundRequest,

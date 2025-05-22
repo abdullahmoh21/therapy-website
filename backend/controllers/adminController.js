@@ -26,6 +26,7 @@ module.exports = {
   // Payment controller functions
   getAllPayments: paymentController.getAllPayments,
   updatePayment: paymentController.updatePayment,
+  markCashPaid: paymentController.markCashPaid,
 
   // Metrics controller functions
   getStatistics: metricsController.getStatistics,

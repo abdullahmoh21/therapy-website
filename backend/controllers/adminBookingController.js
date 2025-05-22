@@ -173,10 +173,6 @@ const getAllBookings = asyncHandler(async (req, res) => {
   // This is complex and depends on how 'overdue' is defined.
   // Example: Find bookings where payment is not 'Completed' and booking is in the past
   if (paymentOverdue === "true") {
-    // This requires joining with Payments or having relevant payment status on Booking
-    // Placeholder: Add logic here based on your data model
-    // query['paymentId.transactionStatus'] = { $ne: 'Completed' }; // Example if populated
-    // query.eventStartTime = { $lt: new Date().getTime() }; // Example for past bookings
     console.warn(
       "Payment overdue filter logic needs implementation based on schema."
     );

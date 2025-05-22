@@ -1,14 +1,17 @@
+const User = require("../models/User");
+const Booking = require("../models/Booking");
+const Payment = require("../models/Payment");
+const mongoose = require("mongoose");
+const asyncHandler = require("express-async-handler"); //middleware to handle exceptions
+const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
+const logger = require("../logs/logger");
+const { invalidateCache } = require("../middleware/redisCaching");
 const {
   myQueue,
   sendVerificationEmail,
   sendResetPasswordEmail,
 } = require("../utils/myQueue");
-const User = require("../models/User");
-const asyncHandler = require("express-async-handler"); //middleware to handle exceptions
-const bcrypt = require("bcrypt");
-const crypto = require("crypto");
-const logger = require("../logs/logger");
-const { invalidateCache } = require("../middleware/redisCaching");
 const TOKEN_ENCRYPTION_KEY = process.env.TOKEN_ENCRYPTION_KEY;
 const TOKEN_ENCRYPTION_IV = process.env.TOKEN_ENCRYPTION_IV;
 
@@ -97,10 +100,8 @@ const resendEvLink = asyncHandler(async (req, res) => {
   try {
     await myQueue.add("verifyEmail", emailJobData);
   } catch (err) {
-    logger.error(
-      `Error adding job to queue. continuing manually: ${err.message}`
-    );
-    await sendVerificationEmail(emailJobData);
+    logger.error(`Error sending email verification link`);
+    return res.sendStatus(500);
   }
 
   return res.status(200).json({ message: "Verification email sent" });
@@ -179,31 +180,10 @@ const forgotPassword = asyncHandler(async (req, res) => {
   };
 
   try {
-    logger.debug(`Attempting to add resetPassword job to queue`);
-    const response = await myQueue.add("resetPassword", emailJobData);
+    await myQueue.add("resetPassword", emailJobData);
   } catch (err) {
-    logger.error(
-      `Error adding resetPassword job to queue. continuing manually: ${err}`
-    );
-    emailJobData = {
-      //mock job created to pass to function
-      data: {
-        name: user.name,
-        recipient: user.email,
-        link: link,
-      },
-      name: "resetPassword",
-    };
-
-    try {
-      logger.debug(`Attempting to send reset password email manually`);
-      await sendResetPasswordEmail(emailJobData); // Ensure this function call is correct
-    } catch (emailError) {
-      logger.error(
-        `Error sending reset password email manually: ${emailError}`
-      );
-      return res.status(500).json({ message: "Internal Server Error" });
-    }
+    logger.error("Error sending forgot password email");
+    return res.sendStatus(500);
   }
 
   return res
@@ -287,8 +267,183 @@ const updateMyUser = asyncHandler(async (req, res) => {
   }
 
   logger.success(`User Updated! Invalidating User cache`);
-  invalidateCache(`user:${updatedUser._id}`);
+  invalidateCache(req.url, req.user.id);
   return res.status(201).json(updatedUser);
+});
+
+//@desc returns booking documents with payment and booking details with filters and searching
+//@param valid user jwt token
+//@route GET /user/bookings
+//@access Private
+const getAllMyBookings = asyncHandler(async (req, res) => {
+  const userId = new mongoose.Types.ObjectId(req.user.id);
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 10;
+  const { search, status, startDate, endDate, date, location } = req.query;
+  const skip = (page - 1) * limit;
+
+  const query = { userId };
+  if (status && ["Active", "Completed", "Cancelled"].includes(status)) {
+    query.status = status;
+  }
+  if (location && ["in-person", "online"].includes(location)) {
+    query.location = location;
+  }
+
+  if (date) {
+    const sd = new Date(date);
+    const nd = new Date(sd);
+    nd.setDate(nd.getDate() + 1);
+    query.eventStartTime = { $gte: sd, $lt: nd };
+  } else if (startDate && endDate) {
+    query.eventStartTime = {
+      $gte: new Date(startDate),
+      $lte: new Date(endDate),
+    };
+  } else if (startDate) {
+    query.eventStartTime = { $gte: new Date(startDate) };
+  } else if (endDate) {
+    query.eventStartTime = { $lte: new Date(endDate) };
+  }
+
+  if (search) {
+    const orClauses = [];
+
+    if (!isNaN(search)) {
+      orClauses.push({ bookingId: parseInt(search, 10) });
+    }
+
+    const payments = await Payment.find({
+      userId,
+      transactionReferenceNumber: { $regex: search, $options: "i" },
+    })
+      .select("_id")
+      .lean();
+
+    if (payments.length > 0) {
+      const paymentIds = payments.map((p) => p._id);
+      orClauses.push({ paymentId: { $in: paymentIds } });
+    }
+
+    if (orClauses.length > 0) {
+      query.$or = orClauses;
+    }
+  }
+
+  const aggregatePipeline = [
+    { $match: query },
+    { $sort: { eventStartTime: 1 } },
+    {
+      $facet: {
+        metadata: [{ $count: "totalBookings" }],
+        data: [
+          { $skip: skip },
+          { $limit: limit },
+          {
+            $lookup: {
+              from: "payments",
+              let: { pid: "$paymentId" },
+              pipeline: [
+                { $match: { $expr: { $eq: ["$_id", "$$pid"] } } },
+                { $project: { _id: 1, amount: 1, transactionStatus: 1 } },
+              ],
+              as: "payment",
+            },
+          },
+          { $unwind: { path: "$payment", preserveNullAndEmptyArrays: true } },
+          {
+            $project: {
+              _id: 1,
+              eventStartTime: 1,
+              bookingId: 1,
+              status: 1,
+              "payment._id": 1,
+              "payment.amount": 1,
+              "payment.transactionStatus": 1,
+            },
+          },
+        ],
+      },
+    },
+    { $unwind: { path: "$metadata", preserveNullAndEmptyArrays: true } },
+    {
+      $project: {
+        totalBookings: "$metadata.totalBookings",
+        bookings: "$data",
+      },
+    },
+  ];
+
+  try {
+    const [result] = await Booking.aggregate(aggregatePipeline).exec();
+
+    const totalBookings = result?.totalBookings || 0;
+    const bookings = result?.bookings || [];
+
+    logger.debug(
+      `Found ${bookings.length} bookings out of ${totalBookings} total`
+    );
+
+    // 9) Send response
+    res.json({
+      page,
+      limit,
+      totalBookings,
+      totalPages: Math.ceil(totalBookings / limit),
+      bookings,
+    });
+  } catch (error) {
+    logger.error(`Error fetching bookings: ${error.message}`);
+    res.status(500).json({ message: "Error fetching bookings" });
+  }
+});
+
+const getBooking = asyncHandler(async (req, res) => {
+  const { bookingId } = req.params;
+
+  if (!bookingId) {
+    return res.status(400).json({ message: "bookingId is required" });
+  }
+
+  const booking = await Booking.findOne({
+    userId: req.user.id,
+    _id: bookingId,
+  })
+    .lean()
+    .select(
+      "_id eventStartTime eventEndTime eventName status location cancellation"
+    )
+    .exec();
+
+  if (!booking) {
+    return res.status(404).json({ message: "No such booking found for user" });
+  }
+
+  res.json(booking);
+});
+
+const getPayment = asyncHandler(async (req, res) => {
+  const { paymentId } = req.params;
+
+  if (!paymentId) {
+    return res.status(400).json({ message: "bookingId is required" });
+  }
+
+  const payment = await Payment.findOne({
+    userId: req.user.id,
+    _id: paymentId,
+  })
+    .lean()
+    .select(
+      "_id transactionReferenceNumber amount currency transactionStatus paymentCompletedDate paymentRefundedDate refundRequestedDate"
+    )
+    .exec();
+
+  if (!payment) {
+    return res.status(404).json({ message: "No such Payment found for user" });
+  }
+
+  res.json(payment);
 });
 
 module.exports = {
@@ -298,4 +453,7 @@ module.exports = {
   resendEvLink,
   forgotPassword,
   resetPassword,
+  getAllMyBookings,
+  getBooking,
+  getPayment,
 };

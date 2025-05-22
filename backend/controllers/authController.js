@@ -1,11 +1,10 @@
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const Booking = require("../models/Booking");
 const TemporaryBooking = require("../models/TemporaryBooking");
 const asyncHandler = require("express-async-handler");
 const crypto = require("crypto");
-const axios = require("axios");
 const logger = require("../logs/logger");
 const {
   myQueue,
@@ -262,7 +261,7 @@ const sendEmail = async (email, name, token) => {
     logger.error(
       `Error adding verifyEmail job to queue. continuing manually: ${err.message}`
     );
-    await sendVerificationEmail(emailJobData);
+    return res.sendStatus(500);
   }
 };
 

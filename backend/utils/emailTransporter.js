@@ -3,6 +3,7 @@ const hbs = require("nodemailer-express-handlebars");
 const path = require("path");
 const Config = require("../models/Config");
 const logger = require("../logs/logger");
+const mongoose = require("mongoose");
 
 // Default email addresses in case database is not available
 const DEFAULT_ADMIN_EMAIL = "abdullahmohsin21007@gmail.com";
@@ -36,16 +37,29 @@ transporter.use("compile", hbs(handlebarOptions));
 // Send admin alert function
 const sendAdminAlert = async (alertType, extraData = {}) => {
   try {
-    // Attempt to get emails from database, fall back to defaults if needed
-    let adminEmail, devEmail;
+    // First check if MongoDB is connected - if not, use default emails
+    let adminEmail = DEFAULT_ADMIN_EMAIL;
+    let devEmail = DEFAULT_DEV_EMAIL;
 
-    try {
-      adminEmail = (await Config.getValue("adminEmail")) || DEFAULT_ADMIN_EMAIL;
-      devEmail = (await Config.getValue("devEmail")) || DEFAULT_DEV_EMAIL;
-    } catch (configError) {
-      logger.error(`Error retrieving email configs: ${configError.message}`);
-      adminEmail = DEFAULT_ADMIN_EMAIL;
-      devEmail = DEFAULT_DEV_EMAIL;
+    if (mongoose.connection.readyState === 1) {
+      try {
+        // Try to get emails from database, but fall back to defaults if anything fails
+        const dbAdminEmail = await Config.getValue("adminEmail");
+        const dbDevEmail = await Config.getValue("devEmail");
+
+        // Only use database values if they exist
+        if (dbAdminEmail) adminEmail = dbAdminEmail;
+        if (dbDevEmail) devEmail = dbDevEmail;
+      } catch (configError) {
+        // Log error but continue with default emails
+        logger.warn(
+          `Using default emails due to config error: ${configError.message}`
+        );
+      }
+    } else {
+      logger.debug(
+        `MongoDB not connected, using default email addresses for alert: ${alertType}`
+      );
     }
 
     // Select recipient based on alert type
@@ -61,22 +75,28 @@ const sendAdminAlert = async (alertType, extraData = {}) => {
     // Configure alert data
     const alertConfig = getAlertConfig(alertType, extraData);
 
-    // Send the email
-    const info = await transporter.sendMail({
-      from: `"Fatima Naqvi Alert System" <${process.env.EMAIL_USER}>`,
-      to: recipient,
-      subject: alertConfig.subject,
-      template: "alert",
-      context: {
-        title: alertConfig.title,
-        message: alertConfig.message,
-        actionText: alertConfig.actionText || null,
-        actionLink: alertConfig.actionLink || null,
-      },
-    });
+    // Send the email - wrapped in its own try/catch
+    try {
+      const info = await transporter.sendMail({
+        from: "alert@fatimanaqvi.com",
+        to: recipient,
+        subject: alertConfig.subject,
+        template: "alert",
+        context: {
+          title: alertConfig.title,
+          message: alertConfig.message,
+          actionText: alertConfig.actionText || null,
+          actionLink: alertConfig.actionLink || null,
+          currentYear: new Date().getFullYear(),
+        },
+      });
 
-    logger.info(`Admin alert sent: ${alertType}`);
-    return info;
+      logger.info(`Admin alert sent: ${alertType}`);
+      return info;
+    } catch (emailError) {
+      logger.error(`Failed to send email alert: ${emailError.message}`);
+      return null;
+    }
   } catch (error) {
     logger.error(`Error preparing email alert: ${error.message}`);
     return null;

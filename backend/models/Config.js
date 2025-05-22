@@ -1,6 +1,36 @@
 const mongoose = require("mongoose");
 const logger = require("../logs/logger");
 // Import redisClient when needed, not at module level
+const fs = require("fs");
+const path = require("path");
+// Path to local config cache binary file
+const LOCAL_CONFIG_FILE = path.join(__dirname, "../configLocalCache.bin");
+
+// Load local cache from binary file
+function loadLocalCache() {
+  try {
+    if (fs.existsSync(LOCAL_CONFIG_FILE)) {
+      const buffer = fs.readFileSync(LOCAL_CONFIG_FILE);
+      const json = buffer.toString("utf-8");
+      return JSON.parse(json);
+    }
+  } catch (err) {
+    logger.error(`Error loading local config cache: ${err.message}`);
+  }
+  return {};
+}
+
+// Save local cache to binary file (only adminEmail and devEmail)
+function saveLocalCache(cache = {}) {
+  try {
+    const existing = loadLocalCache();
+    const updated = { ...existing, ...cache };
+    const buffer = Buffer.from(JSON.stringify(updated, null, 2), "utf-8");
+    fs.writeFileSync(LOCAL_CONFIG_FILE, buffer);
+  } catch (err) {
+    logger.error(`Error saving local config cache: ${err.message}`);
+  }
+}
 
 // Config cache constants
 const CONFIG_CACHE_PREFIX = "config:";
@@ -89,8 +119,12 @@ configSchema.statics.getValue = async function (key) {
         errorLoggedKeys.add(key);
       }
 
-      // Return default value if available
+      // Return default or local cache if available
       if (key in CONFIG_DEFAULTS) {
+        const localCache = loadLocalCache();
+        if (localCache[key]) {
+          return localCache[key];
+        }
         return CONFIG_DEFAULTS[key];
       }
 
@@ -162,6 +196,11 @@ configSchema.statics.setValue = async function (key, value) {
       }
     }
 
+    // Update local file cache for adminEmail and devEmail
+    if (["adminEmail", "devEmail"].includes(key)) {
+      saveLocalCache({ [key]: result.value });
+    }
+
     return result;
   } catch (err) {
     logger.error(`Error setting config value for key=${key}: ${err.message}`);
@@ -229,6 +268,17 @@ configSchema.statics.initializeConfig = async function () {
         value: "abdullahmohsin21007@gmail.com",
         description: "Developer email for technical alerts",
       },
+      {
+        key: "maxBookings",
+        value: "3",
+        description: "Maximum number of active booking allowed at a time.",
+      },
+      {
+        key: "cancelCutoffDays",
+        value: 2,
+        description:
+          "The cutoff period for cancellations in days. If set to '2', users will only be able to cancel up to 2 days before a booking.",
+      },
     ];
 
     for (const item of requiredKeys) {
@@ -266,6 +316,15 @@ configSchema.statics.initializeConfig = async function () {
         );
       }
     }
+
+    // After initialization, update local cache for adminEmail and devEmail
+    const localSeed = {};
+    requiredKeys.forEach((item) => {
+      if (["adminEmail", "devEmail"].includes(item.key)) {
+        localSeed[item.key] = item.value;
+      }
+    });
+    saveLocalCache(localSeed);
 
     return true;
   } catch (err) {

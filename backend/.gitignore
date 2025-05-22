@@ -3,3 +3,8 @@ keydb.conf
 cert.pem
 key.pem
 roles_list.js
+configLocalCache.bin
+invalidationRequests.bin
+dump/
+node_modules/
+logs/

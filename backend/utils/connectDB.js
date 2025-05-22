@@ -1,12 +1,21 @@
 const mongoose = require("mongoose");
 const logger = require("../logs/logger");
 const { sendAdminAlert } = require("./emailTransporter");
+const CircuitBreaker = require("opossum");
 
 // Connection retry configuration
 const MAX_RETRY_ATTEMPTS = 5;
 const RETRY_INTERVAL = 5000; // 5 seconds
 let retryCount = 0;
 let mongoConnected = false;
+
+// Circuit breaker configuration
+const CIRCUIT_TIMEOUT = 15000; // 15 seconds
+const RESET_TIMEOUT = 30000; // 30 seconds
+const ERROR_THRESHOLD = 20; // 20% of requests failing will trip the circuit
+
+// Create the global circuitBreaker variable
+let circuitBreaker;
 
 // MongoDB connection event listeners
 const setupMongoEventListeners = () => {
@@ -15,6 +24,7 @@ const setupMongoEventListeners = () => {
     logger.info("MongoDB connected");
     mongoConnected = true;
     retryCount = 0;
+    global.mongoAvailable = true;
 
     // If we were previously disconnected, send reconnection alert
     if (global.wasMongoDisconnected) {
@@ -35,6 +45,7 @@ const setupMongoEventListeners = () => {
       logger.error(`MongoDB connection error: ${err.message}`);
       mongoConnected = false;
       global.wasMongoDisconnected = true;
+      global.mongoAvailable = false;
 
       try {
         await sendAdminAlert("mongoDisconnected", { error: err.message });
@@ -50,6 +61,7 @@ const setupMongoEventListeners = () => {
   mongoose.connection.on("disconnected", () => {
     logger.warn("MongoDB disconnected");
     mongoConnected = false;
+    global.mongoAvailable = false;
   });
 
   // Handle application termination
@@ -65,15 +77,9 @@ const setupMongoEventListeners = () => {
   });
 };
 
-// Main connection function
-const connectDB = async () => {
-  try {
-    // Check if we're already connected
-    if (mongoose.connection.readyState === 1) {
-      logger.info("MongoDB already connected");
-      return true;
-    }
-
+// Function to create and configure the circuit breaker
+const createCircuitBreaker = () => {
+  const connectFunction = async () => {
     // Set up MongoDB connection options
     const options = {
       serverSelectionTimeoutMS: 10000, // 10 seconds
@@ -95,8 +101,81 @@ const connectDB = async () => {
 
     await mongoose.connect(DATABASE_URI, options);
     return true;
+  };
+
+  // Create a new circuit breaker
+  const breaker = new CircuitBreaker(connectFunction, {
+    timeout: CIRCUIT_TIMEOUT,
+    resetTimeout: RESET_TIMEOUT,
+    errorThresholdPercentage: ERROR_THRESHOLD,
+    name: "mongodb-circuit",
+  });
+
+  // Circuit breaker events
+  breaker.on("open", async () => {
+    logger.error("MongoDB circuit breaker opened - connection is unavailable");
+    global.mongoAvailable = false;
+    try {
+      await sendAdminAlert("mongoDisconnected", {
+        error: "Circuit breaker tripped - MongoDB connection unavailable",
+      });
+    } catch (alertError) {
+      logger.error(
+        `Failed to send circuit breaker alert: ${alertError.message}`
+      );
+    }
+  });
+
+  breaker.on("close", async () => {
+    logger.info("MongoDB circuit breaker closed - connection restored");
+    global.mongoAvailable = true;
+    try {
+      await sendAdminAlert("mongoReconnected");
+    } catch (alertError) {
+      logger.error(
+        `Failed to send circuit closed alert: ${alertError.message}`
+      );
+    }
+  });
+
+  breaker.on("halfOpen", () => {
+    logger.info("MongoDB circuit breaker is half-open - testing connection");
+  });
+
+  breaker.on("fallback", (error) => {
+    logger.error(
+      `MongoDB circuit breaker fallback triggered: ${error.message}`
+    );
+  });
+
+  return breaker;
+};
+
+// Main connection function
+const connectDB = async () => {
+  // Initialize global mongo availability flag
+  if (global.mongoAvailable === undefined) {
+    global.mongoAvailable = false;
+  }
+
+  // Check if we're already connected
+  if (mongoose.connection.readyState === 1) {
+    logger.info("MongoDB already connected");
+    global.mongoAvailable = true;
+    return true;
+  }
+
+  try {
+    // Create circuit breaker if it doesn't exist
+    if (!circuitBreaker) {
+      circuitBreaker = createCircuitBreaker();
+    }
+
+    // Try to connect through the circuit breaker
+    return await circuitBreaker.fire();
   } catch (error) {
     mongoConnected = false;
+    global.mongoAvailable = false;
     logger.error(`MongoDB connection error: ${error.message}`);
 
     // Provide more context for specific errors
@@ -117,8 +196,8 @@ const connectDB = async () => {
       );
     }
 
-    // Send alert on first connection failure
-    if (retryCount === 0) {
+    // Send alert on first connection failure (only if circuit breaker is not handling it)
+    if (retryCount === 0 && !error.message.includes("Circuit breaker")) {
       try {
         global.wasMongoDisconnected = true;
         await sendAdminAlert("mongoDisconnected", { error: error.message });
@@ -153,4 +232,9 @@ const connectDB = async () => {
   }
 };
 
-module.exports = connectDB;
+// Export circuit breaker status check
+const isMongoAvailable = () => {
+  return global.mongoAvailable === true;
+};
+
+module.exports = { connectDB, isMongoAvailable };

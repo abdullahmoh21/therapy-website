@@ -2,6 +2,7 @@ const Redis = require("ioredis");
 const logger = require("../logs/logger");
 const fs = require("fs");
 const path = require("path");
+const net = require("net"); // Add this for Redis connection
 
 let wasDisconnected = false;
 let retryAttempts = 0;
@@ -44,6 +45,7 @@ const syncPendingInvalidations = () => {
 const redisClient = new Redis({
   host: process.env.REDIS_HOST || "localhost",
   port: process.env.REDIS_PORT || 6379,
+  lazyConnect: true,
   retryStrategy: function (times) {
     logger.info(`Redis connection attempt ${times + 1}`);
 
@@ -135,4 +137,29 @@ redisClient.on("end", function () {
   logger.warn("Redis connection closed");
 });
 
-module.exports = redisClient;
+const checkRedisAvailability = () => {
+  return new Promise((resolve) => {
+    const client = net.createConnection({
+      host: process.env.REDIS_HOST || "localhost",
+      port: process.env.REDIS_PORT || 6379,
+    });
+
+    client.setTimeout(1000); // Increase timeout for containerized environment
+
+    client.on("connect", () => {
+      client.end();
+      resolve(true);
+    });
+
+    client.on("timeout", () => {
+      client.destroy();
+      resolve(false);
+    });
+
+    client.on("error", () => {
+      resolve(false);
+    });
+  });
+};
+
+module.exports = { redisClient, checkRedisAvailability };

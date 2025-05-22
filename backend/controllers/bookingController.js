@@ -1,13 +1,8 @@
-const React = require("react");
 const crypto = require("crypto");
 const logger = require("../logs/logger");
 const asyncHandler = require("express-async-handler");
 const axios = require("axios");
-const {
-  addToCache,
-  invalidateCache,
-  getFromCache,
-} = require("../middleware/redisCaching");
+const { invalidateCache } = require("../middleware/redisCaching");
 const User = require("../models/User");
 const Booking = require("../models/Booking");
 const Payment = require("../models/Payment");
@@ -15,228 +10,212 @@ const TemporaryBooking = require("../models/TemporaryBooking");
 const Config = require("../models/Config"); // Import Config model
 const ShortUniqueId = require("short-unique-id");
 const uid = new ShortUniqueId({ length: 5 }); //for generating transaction reference number
+const jwt = require("jsonwebtoken");
 
 //@desc handles Calendly webhook events
 //@param valid webhook
 //@route POST /bookings/calendly
 //@access Public
 const handleCalendlyWebhook = asyncHandler(async (req, res) => {
-  const { event, payload } = req.body;
+  logger.debug("Calendly Webhook received: ", JSON.stringify(req.body));
+  const { event: calendlyEvent, payload } = req.body;
   const {
+    uri: inviteeUri,
+    created_at: inviteeCreatedAt,
+    email,
+    questions_and_answers = [],
     cancel_url,
     reschedule_url,
-    email,
-    tracking: { utm_content: receivedUserId },
+    tracking: { utm_content: token } = {},
     scheduled_event: {
-      start_time,
-      end_time,
       uri: eventURI,
       name: eventName,
       event_type: eventTypeURI,
-    },
+      start_time,
+      end_time,
+      location: {
+        type: locationType,
+        location: locationStr,
+        additional_info,
+        join_url,
+        data: zoomData,
+      } = {},
+    } = {},
   } = payload;
 
-  let canceler_type, reason, created_at;
-  if (event === "invitee.canceled") {
+  if (calendlyEvent === "invitee.canceled") {
+    let canceler_type, cancelReason, cancellationDate;
     const { cancellation } = payload;
-    ({ canceler_type, reason, created_at } = cancellation);
-  }
-
-  try {
-    if (eventName === "15 Minute Consultation") {
-      await handleConsultationEvent(event, {
-        email,
-        cancel_url,
-        reschedule_url,
-        start_time,
-        end_time,
-        eventName,
-        eventURI,
-        eventTypeURI,
-      });
-    } else {
-      await handleExistingUserEvent(event, {
-        receivedUserId,
-        start_time,
-        end_time,
-        eventName,
-        eventURI,
-        eventTypeURI,
-        cancel_url,
-        reschedule_url,
-        canceler_type,
-        reason,
-        created_at,
-      });
+    ({
+      canceler_type,
+      reason: cancelReason,
+      created_at: cancellationDate,
+    } = cancellation);
+    await cancelBooking({
+      eventURI,
+      canceler_type,
+      cancelReason,
+      cancellationDate,
+    });
+    return res.status(200).end();
+  } else if (calendlyEvent == "invitee.created") {
+    // 1) Verify JWT in utm_content
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+    } catch (err) {
+      try {
+        await deleteEvent(eventURI, "Expired or invalid booking link");
+      } catch (err) {}
+      return res.status(200).send();
     }
 
+    // 2) Enforce single-use via jti
+    const user = await User.findById(decoded.userId).exec();
+    if (!user || user.bookingTokenJTI !== decoded.jti) {
+      try {
+        `No user or invalid JTI\nuser.bookingTokenJTI:${user.bookingTokenJTI}\ndecoded jti: ${decoded.jti}`;
+        await deleteEvent(eventURI, "Expired or invalid booking link");
+      } catch (err) {}
+      return res.status(200).send();
+    }
+
+    // 3) Invalidate token so it cannot be reused
+    user.bookingTokenJTI = undefined;
+    await user.save();
+    await createBooking({
+      userId: decoded.userId,
+      start_time,
+      end_time,
+      eventName,
+      eventURI,
+      eventTypeURI,
+      cancel_url,
+      reschedule_url,
+      locationType,
+      locationStr,
+      additional_info,
+      join_url,
+      zoomData,
+    });
     return res.status(200).end();
-  } catch (error) {
-    logger.error(`Error handling Calendly webhook: ${error}`);
-    return res.status(500).send("Internal Server Error");
   }
 });
 
-// ----------------------------- Start Webhook Helper Functions ----------------------------- //
+// ----------------------------- Helper Functions ----------------------------- //
 
-async function handleConsultationEvent(
-  event,
-  {
-    email,
-    cancel_url,
-    reschedule_url,
-    start_time,
-    end_time,
-    eventName,
-    eventURI,
-    eventTypeURI,
+async function createBooking({
+  userId,
+  start_time,
+  end_time,
+  eventName,
+  eventURI,
+  eventTypeURI,
+  cancel_url,
+  reschedule_url,
+  locationType,
+  locationStr,
+  additional_info,
+  join_url,
+  zoomData,
+}) {
+  const sessionPrice = await Config.getValue("sessionPrice");
+  if (sessionPrice === undefined) {
+    try {
+      await deleteEvent(eventURI, "Session price not set");
+    } catch (err) {}
+    return res.status(200).send();
   }
-) {
-  // consultation events are made bofore user is created, so we need to store them in a temp booking
-  if (event === "invitee.created") {
-    const tempBooking = await TemporaryBooking.create({
-      email,
-      cancelURL: cancel_url,
-      rescheduleURL: reschedule_url,
-      eventStartTime: start_time,
-      eventEndTime: end_time,
-      eventName,
-      scheduledEventURI: eventURI,
-      eventTypeURI,
-    });
-    // add the temporary booking to cache, since will be needed imediately after for registration
-    addToCache(`tempBooking:${email}`, tempBooking);
-    logger.info(`New booking for consultation: ${email}`);
-  } else if (event === "invitee.canceled") {
-    await TemporaryBooking.deleteOne({ scheduledEventURI: eventURI });
-    // invalidate cache
-    invalidateCache(`tempBooking:${email}`);
-    logger.info(`Consultation canceled: ${eventURI}`);
-  } else if (event === "invitee.canceled") {
-    logger.debug("Attempting to delete consultation locally");
-    // Find the booking document to get its _id
-    const booking = await Booking.deleteOne({
-      scheduledEventURI: eventURI,
-    }).exec();
-    if (booking.deletedCount === 0) {
-      logger.info(`No booking found for eventURI: ${eventURI}.`);
-      return;
-    } else {
-      logger.debug("Consultation deleted locally");
-      invalidateCache(`bookings:${booking.userId}`);
-      invalidateCache(`payments:${booking.userId}`);
+  const [existingBooking, user] = await Promise.all([
+    Booking.findOne({ scheduledEventURI: eventURI }).lean(),
+    User.findById(userId).lean(),
+  ]);
+
+  if (existingBooking) {
+    return;
+  }
+  if (!user) {
+    try {
+      await deleteEvent(eventURI, "User not found");
+    } catch (err) {
+      logger.error(`Could not delete booking. request failed with err: ${err}`);
     }
+    return res.status(200).send();
   }
+
+  const transactionReferenceNumber = `T-${uid.rnd()}`;
+  const bookingData = {
+    userId: user._id,
+    eventStartTime: start_time,
+    eventEndTime: end_time,
+    eventName,
+    scheduledEventURI: eventURI,
+    eventTypeURI,
+    cancelURL: cancel_url,
+    rescheduleURL: reschedule_url,
+    amount: sessionPrice,
+    location: (() => {
+      const loc = {};
+      if (locationType === "zoom") {
+        loc.type = "online";
+        loc.join_url = join_url;
+        loc.zoom_pwd = zoomData?.password;
+      } else if (locationType === "google_conference") {
+        loc.type = "online";
+        loc.join_url = join_url;
+      } else if (locationType === "physical") {
+        loc.type = "in-person";
+        loc.inPersonLocation = locationStr;
+      }
+      return loc;
+    })(),
+  };
+
+  const paymentData = {
+    userId: user._id,
+    amount: sessionPrice,
+    transactionReferenceNumber,
+    paymentCurrency: "PKR",
+    status: "Pending",
+  };
+
+  const [booking, payment] = await Promise.all([
+    Booking.create(bookingData),
+    Payment.create(paymentData),
+  ]);
+
+  booking.paymentId = payment._id;
+  payment.bookingId = booking._id;
+  await Promise.all([booking.save(), payment.save()]);
+
+  await Promise.all([invalidateCache("/bookings", userId)]);
 }
 
-async function handleExistingUserEvent(
-  event,
-  {
-    receivedUserId,
-    start_time,
-    end_time,
-    eventName,
-    eventURI,
-    eventTypeURI,
-    cancel_url,
-    reschedule_url,
-    canceler_type,
-    reason,
-    created_at,
+async function cancelBooking({
+  eventURI,
+  canceler_type,
+  cancelReason,
+  cancellationDate,
+}) {
+  const booking = await Booking.findOne({ scheduledEventURI: eventURI }).exec();
+  if (!booking) {
+    return;
   }
-) {
-  if (event === "invitee.created") {
-    // Fetch session price from config
-    const sessionPrice = await Config.getValue("sessionPrice");
-    if (sessionPrice === undefined) {
-      logger.error(
-        "Session price not found in config. Aborting booking creation."
-      );
-      // Optionally, delete the Calendly event if the price isn't set
-      await deleteEvent(eventURI);
-      return; // Stop processing if price is missing
-    }
+  if (booking.status === "Cancelled") return;
 
-    const [existingBooking, user] = await Promise.all([
-      Booking.findOne({ scheduledEventURI: eventURI }).lean(),
-      User.findOne({ _id: receivedUserId }).lean(),
-    ]);
+  booking.status = "Cancelled";
+  booking.cancellation.reason = cancelReason;
+  booking.cancellation.cancelledBy =
+    canceler_type === "user" ? "User" : "Admin";
+  booking.cancellation.date = new Date(cancellationDate);
 
-    if (existingBooking) {
-      logger.info(
-        `Booking already exists for eventURI: ${eventURI}. Skipping creation.`
-      );
-      return;
-    }
+  await booking.save();
+  await invalidateCache("/bookings", booking.userId);
 
-    if (!user) {
-      logger.info(
-        `No user found with utm_content: ${receivedUserId}. Deleting event.`
-      );
-      await deleteEvent(eventURI);
-      return;
-    }
-
-    const transactionReferenceNumber = `T-${uid.rnd()}`;
-    const bookingData = {
-      userId: user._id,
-      eventStartTime: start_time,
-      eventEndTime: end_time,
-      eventName,
-      scheduledEventURI: eventURI,
-      eventTypeURI,
-      cancelURL: cancel_url,
-      rescheduleURL: reschedule_url,
-      amount: sessionPrice, // Use fetched session price
-    };
-
-    const paymentData = {
-      userId: user._id,
-      amount: sessionPrice, // Use fetched session price
-      transactionReferenceNumber,
-      paymentCurrency: "PKR",
-      status: "Pending",
-    };
-
-    // Create booking and payment
-    const [booking, payment] = await Promise.all([
-      Booking.create(bookingData),
-      Payment.create(paymentData),
-    ]);
-
-    // Link both documents
-    booking.paymentId = payment._id;
-    payment.bookingId = booking._id;
-    await Promise.all([booking.save(), payment.save()]);
-
-    // Invalidate cache
-    await Promise.all([
-      invalidateCache(`bookings:${user._id}`),
-      invalidateCache(`payments:${user._id}`), // since new payment is created
-    ]);
-
-    logger.info(`Booking and payment created for user: ${user.email}`);
-  } else if (event === "invitee.canceled") {
-    // Find the booking document to get its _id
-    const booking = await Booking.findOne({
-      scheduledEventURI: eventURI,
-    }).exec();
-    if (!booking) logger.info(`No booking found for eventURI: ${eventURI}.`);
-    if (booking.status === "Cancelled") return;
-
-    booking.status = "Cancelled";
-    booking.cancellation.reason = reason;
-    booking.cancellation.cancelledBy =
-      canceler_type === "user" ? "User" : "Admin";
-    booking.cancellation.date = new Date(created_at);
-
-    await booking.save();
-    invalidateCache(`bookings:${booking.userId}`);
-    invalidateCache(`payments:${booking.userId}`);
-  }
+  logger.info(`Booking cancelled locally for email ${booking.email}`);
 }
 
-async function deleteEvent(eventURI) {
+async function deleteEvent(eventURI, reasonText = "No user found") {
   const options = {
     method: "POST",
     url: `${eventURI}/cancellation`,
@@ -244,27 +223,60 @@ async function deleteEvent(eventURI) {
       "Content-Type": "application/json",
       Authorization: `Bearer ${process.env.CALENDLY_API_KEY}`,
     },
-    data: {
-      reason: "This is a server generated txt: No user found. Deleted event.",
-    },
+    data: { reason: reasonText },
   };
   await axios.request(options);
-  logger.info(`Event deleted: ${eventURI}`);
+  logger.info(`Event deleted: ${eventURI} – ${reasonText}`);
 }
 // ----------------------------- End Webhook Helper Functions ----------------------------- //
 
-//@desc gets users unique booking link
+//@desc creates a unique one-time booking link
 //@param {Object} req with valid userId
-//@route GET /bookings
+//@route GET /bookings/calendly
 //@access Private
 const getNewBookingLink = asyncHandler(async (req, res) => {
   const userId = req.user.id;
-  if (!userId)
+  if (!userId) {
     return res.status(401).json({ message: "No userId found in req object" });
+  }
 
-  // add the userId to the booking link
-  const bookingLink = `${process.env.CALENDLY_SESSION_URL}?=utm_source=dashboard&utm_content=${userId}`;
-  console.log(`new booking link: ${bookingLink}`);
+  const user = await User.findById(userId).exec();
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  const bookingCount = await Booking.find({
+    userId,
+    status: "Active",
+  })
+    .countDocuments()
+    .exec();
+  let maxAllowedBookings = await Config.getValue("maxBookings");
+  if (!maxAllowedBookings) {
+    maxAllowedBookings = 2;
+  }
+  if (bookingCount >= maxAllowedBookings) {
+    return res.status(403).json({
+      message: "The maximum amount of active bookings reached.",
+      maxAllowedBookings,
+    });
+  }
+
+  const now = new Date().toISOString();
+  const jti = uid.rnd();
+
+  const token = jwt.sign(
+    { userId, now, jti },
+    process.env.ACCESS_TOKEN_SECRET,
+    { expiresIn: "30m" }
+  );
+
+  user.bookingTokenJTI = jti;
+  await user.save();
+
+  const bookingLink = `${
+    process.env.CALENDLY_SESSION_URL
+  }?utm_source=dash&utm_content=${encodeURIComponent(token)}`;
 
   return res.status(200).json({ link: bookingLink });
 });
@@ -273,82 +285,56 @@ const getNewBookingLink = asyncHandler(async (req, res) => {
 //@param {Object} req with valid email
 //@route GET /bookings
 //@access Private
-const getMyBookings = asyncHandler(async (req, res) => {
+const getActiveBookings = asyncHandler(async (req, res) => {
   const userId = req.user.id;
-  let bookings, payments;
 
-  // Try to fetch payments from cache
-  try {
-    payments = await getFromCache(`payments:${userId}`);
-  } catch (error) {
-    logger.error(
-      `Error fetching payments for user ${userId} from cache. using db instead:\n ${error}`
-    );
-    payments = null;
-  }
-
-  // Fetch active bookings and all payments for the user in parallel IF payments are not found in cache
-  if (!payments) {
-    [bookings, payments] = await Promise.all([
-      Booking.find({
-        userId,
-        status: "Active",
-        eventEndTime: { $gt: new Date().getTime() },
-      })
-        .select(
-          "-userId -__v -createdAt -updatedAt -scheduledEventURI -eventTypeURI -rescheduleURL"
-        )
-        .lean()
-        .exec(),
-      Payment.find({
-        userId,
-      })
-        .select("transactionStatus amount paymentId currency bookingId userId")
-        .lean()
-        .exec(),
-    ]);
-  } else {
-    logger.info(
-      `Payments for user ${userId} found in cache: \n ${JSON.stringify(
-        payments,
-        null,
-        2
-      )}\n`
-    );
-    bookings = await Booking.find({
+  // Fetch active bookings and all payments for the user in parallel
+  const [bookings, payments] = await Promise.all([
+    Booking.find({
       userId,
       status: "Active",
       eventEndTime: { $gt: new Date().getTime() },
     })
       .select(
-        "-userId -__v -createdAt -updatedAt -scheduledEventURI -eventTypeURI -rescheduleURL"
+        "bookingId eventStartTime eventEndTime eventName status location cancelURL"
       )
       .lean()
-      .exec();
-  }
+      .exec(),
+    Payment.find({ userId })
+      .select("transactionStatus amount paymentId currency bookingId userId")
+      .lean()
+      .exec(),
+  ]);
 
   if (bookings.length === 0) return res.status(204).end();
 
-  // Convert payments array to a map for O(1) access by bookingId
+  const cancelCutoffDays = await Config.getValue("cancelCutoffDays");
+
+  // Map payments for quick lookup
   const paymentMap = new Map(
     payments.map((payment) => [payment.bookingId.toString(), payment])
   );
 
+  // Loop once to strip cancelURL and merge payment details
   const bookingsWithPaymentDetails = bookings.map((booking) => {
+    // strip cancelURL if cancellation window passed
+    const diffMs = new Date(booking.eventStartTime).getTime() - Date.now();
+    const daysLeft = diffMs / (1000 * 60 * 60 * 24);
+    if (daysLeft < cancelCutoffDays) {
+      delete booking.cancelURL;
+    }
+
+    // skip payment merge for free consultations
     if (booking.eventName === "15 Minute Consultation") {
       return booking;
     }
 
-    // Use the paymentMap for efficient lookup
     const paymentDetails = paymentMap.get(booking._id.toString());
     if (paymentDetails) {
-      return {
-        ...booking,
-        amount: paymentDetails.amount,
-        currency: paymentDetails.currency,
-        transactionStatus: paymentDetails.transactionStatus,
-        paymentId: paymentDetails._id,
-      };
+      booking.amount = paymentDetails.amount;
+      booking.currency = paymentDetails.currency;
+      booking.transactionStatus = paymentDetails.transactionStatus;
+      booking.paymentId = paymentDetails._id;
     }
 
     return booking;
@@ -357,58 +343,8 @@ const getMyBookings = asyncHandler(async (req, res) => {
   res.json(bookingsWithPaymentDetails);
 });
 
-//@desc cleans up old bookings and their associated payments
-//@access Private /local use only
-const deleteOldBookingsAndPayments = async () => {
-  try {
-    const retentionMonths = await Config.getValue("statRetentionMonths");
-    if (retentionMonths === undefined) {
-      logger.error(
-        "statRetentionMonths not found in config. Using default 6 months."
-      );
-      retentionMonths = 6; // Fallback to default if not found
-    }
-
-    const cutoffDate = new Date(
-      new Date().setMonth(new Date().getMonth() - retentionMonths)
-    );
-
-    // Find bookings that are either completed and older than the retention period
-    const bookingsToDelete = await Booking.find({
-      status: "Completed",
-      eventEndTime: { $lt: cutoffDate },
-    }).exec();
-
-    // Extract booking IDs
-    const bookingIds = bookingsToDelete.map((booking) => booking._id);
-
-    // Delete payments associated with these bookings
-    const paymentDeletionResult = await Payment.deleteMany({
-      bookingId: { $in: bookingIds },
-    }).exec();
-
-    console.log(
-      `Deleted ${paymentDeletionResult.deletedCount} payments associated with old or cancelled bookings.`
-    );
-
-    // Delete the bookings themselves
-    const bookingDeletionResult = await Booking.deleteMany({
-      _id: { $in: bookingIds },
-    }).exec();
-
-    console.log(
-      `Deleted ${bookingDeletionResult.deletedCount} old or cancelled bookings.`
-    );
-  } catch (error) {
-    console.error(
-      `Error deleting old or cancelled bookings and their payments: ${error}`
-    );
-  }
-};
-
 module.exports = {
   handleCalendlyWebhook,
-  getMyBookings,
-  deleteOldBookingsAndPayments,
+  getActiveBookings,
   getNewBookingLink,
 };

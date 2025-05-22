@@ -108,7 +108,32 @@ const updatePayment = asyncHandler(async (req, res) => {
   }
 });
 
+//@desc marks a payment as paid in cash
+//@param valid payment _id
+//@route POST /payments/:ref
+//@access Private(admin)
+const markCashPaid = asyncHandler(async (req, res) => {
+  const { paymentId } = req.url;
+  if (!paymentId) {
+    return res
+      .status(400)
+      .json({ message: "No transaction reference provided" });
+  }
+  const payment = Payment.findOne({ _id: paymentId }).exec();
+  if (!payment) {
+    return res.status(404).json({ message: "No such payment found" });
+  }
+  payment.paymentMethod = "Cash";
+  payment.netAmountReceived = payment.amount;
+  payment.feePaid = 0;
+  payment.transactionStatus = "Completed";
+  payment.paymentCompletedDate = new Date();
+
+  return res.status(200).send();
+});
+
 module.exports = {
   getAllPayments,
   updatePayment,
+  markCashPaid,
 };

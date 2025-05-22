@@ -41,7 +41,7 @@ const userSchema = new Schema(
     DOB: {
       type: Date,
     },
-    utmContent: {
+    bookingTokenJTI: {
       type: String,
     },
     refreshTokenHash: {
