@@ -4,6 +4,7 @@ Fatima Website.code-workspace
 .vscode
 TODO
 .env
+.env.production
 TODO
 dump.rdb
 eslint.config.mjs

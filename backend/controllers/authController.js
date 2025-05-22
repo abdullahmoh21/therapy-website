@@ -252,7 +252,7 @@ const createUser = async ({
 };
 
 const sendEmail = async (email, name, token) => {
-  const link = `http://localhost:3200/verifyEmail?token=${token}`; //production: change to domain
+  const link = `${FRONTEND_URL}/verifyEmail?token=${token}`; //production: change to domain
   const emailJobData = { recipient: email, name, link };
 
   try {

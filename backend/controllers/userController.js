@@ -76,7 +76,7 @@ const resendEvLink = asyncHandler(async (req, res) => {
     user.emailVerified.encryptedToken &&
     user.emailVerified.expiresIn > Date.now()
   ) {
-    link = `http://localhost:5173/verifyEmail?token=${decrypt(
+    link = `${FRONTEND_URL}/verifyEmail?token=${decrypt(
       user.emailVerified.encryptedToken
     )}`;
     user.emailVerified.expiresIn = Date.now() + 3600000; // reset expiry
@@ -86,7 +86,7 @@ const resendEvLink = asyncHandler(async (req, res) => {
     user.emailVerified.encryptedToken = encrypt(newToken);
     user.emailVerified.expiresIn = Date.now() + 3600000; // 1 hour
     await user.save();
-    link = `http://localhost:5173/verifyEmail?token=${newToken}`;
+    link = `${FRONTEND_URL}/verifyEmail?token=${newToken}`;
   }
 
   // Prepare email job data
@@ -171,7 +171,7 @@ const forgotPassword = asyncHandler(async (req, res) => {
     );
   }
 
-  const link = `http://localhost:5173/resetPassword?token=${resetToken}`; //production: change to domain
+  const link = `${FRONTEND_URL}/resetPassword?token=${resetToken}`; //production: change to domain
 
   let emailJobData = {
     name: user.name,
