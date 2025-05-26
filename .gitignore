@@ -34,3 +34,4 @@ dist-ssr
 *.sw?
 .eslintrc.cjs
 package-lock.json
+.history/
