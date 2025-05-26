@@ -6,7 +6,6 @@ const helmet = require("helmet");
 const compression = require("compression");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
-const requestLogger = require("./middleware/requestLogger");
 const errorHandler = require("./middleware/errorHandler");
 const credentials = require("./middleware/credentials");
 const conditionalRateLimiter = require("./middleware/rateLimiting/generalRateLimit");
@@ -109,7 +108,6 @@ app.use(compression());
 app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 app.use(cookieParser());
-app.use(requestLogger);
 app.use(credentials);
 app.use(cors(require("./config/corsOptions")));
 
