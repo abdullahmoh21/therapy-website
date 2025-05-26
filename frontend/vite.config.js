@@ -9,13 +9,6 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (
-            id.includes("node_modules/react") ||
-            id.includes("node_modules/react-dom")
-          ) {
-            return "react-core";
-          }
-
           if (id.includes("node_modules/chart.js")) {
             return "admin-dashboard";
           }
