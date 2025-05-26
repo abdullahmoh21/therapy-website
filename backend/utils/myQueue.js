@@ -438,6 +438,7 @@ const sendRefundConfirmation = async (job) => {
 
 const sendContactMeEmail = async (job) => {
   try {
+    logger.debug("in contactMe worker");
     const { type, name, email, phone, message } = job.data;
 
     // Fetch admin email from config
@@ -448,7 +449,7 @@ const sendContactMeEmail = async (job) => {
       );
       throw new Error("Admin email configuration not found");
     }
-
+    logger.debug(`sending email to admin: ${adminEmail}`);
     // send user confirmation email
     const userMailOptions = {
       from: "inquiries@fatimanaqvi.com",
@@ -463,7 +464,7 @@ const sendContactMeEmail = async (job) => {
     const adminMailOptions = {
       from: "inquiries@fatimanaqvi.com",
       to: adminEmail,
-      subject: `[INQUIRY] ${type} Inquiry from ${name}`,
+      subject: `Inquiry from ${name}`,
       replyTo: email, // admin should reply to inquirer
       template: "contactMe",
       context: {
@@ -475,11 +476,8 @@ const sendContactMeEmail = async (job) => {
       },
     };
 
-    // Send email to admin first
-    await transporter.sendMail(adminMailOptions);
-
-    // If admin email is sent successfully, send confirmation email to user
     await transporter.sendMail(userMailOptions);
+    await transporter.sendMail(adminMailOptions);
 
     logger.info(
       `Contact Me forwarded to admin (${adminEmail}) and confirmation sent to ${email}`
@@ -521,7 +519,7 @@ module.exports = {
   myQueue,
   queueWorker,
   initializeQueue,
-  add: safeAdd,
+  sendEmail: safeAdd, // Renamed from 'add: safeAdd'
   sendVerificationEmail,
   sendResetPasswordEmail,
   sendRefundRequest,

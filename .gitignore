@@ -34,4 +34,3 @@ dist-ssr
 *.sw?
 .eslintrc.cjs
 package-lock.json
-postcss.config.cjs

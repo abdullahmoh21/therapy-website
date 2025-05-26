@@ -8,3 +8,4 @@ invalidationRequests.bin
 dump/
 node_modules/
 logs/
+.history/

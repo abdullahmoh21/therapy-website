@@ -1,61 +1,99 @@
 import React from "react";
+import { motion } from "framer-motion";
+import {
+  FaMapMarkerAlt,
+  FaPhoneAlt,
+  FaEnvelope,
+  FaLinkedin,
+  FaTwitter,
+  FaWhatsapp,
+} from "react-icons/fa";
+import { Link } from "react-router-dom";
 
 const Footer = () => {
+  const currentYear = new Date().getFullYear();
+
   return (
     <footer>
-      <div className="bg-[#E09E7A] p-6 flex flex-col md:flex-row items-center justify-between text-[#313131] space-y-4 md:space-y-0">
-        <div className="flex flex-col items-center md:items-start md:ml-[100px] mb-4 md:mb-0 space-y-2">
-          <div className="flex items-center pb-[10px]">
-            <i className="pi pi-map-marker text-[#313131] mr-2" />
+      <div className="bg-orangeBg pt-6 px-6 flex flex-col md:flex-row items-center justify-between text-textColor space-y-6 md:space-y-0">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          viewport={{ once: true }}
+          className="flex flex-col items-center md:items-start md:ml-[100px] space-y-3"
+        >
+          <div className="flex items-center pb-[5px] group">
+            <FaMapMarkerAlt className="text-textColor mr-3 text-xl transition-colors duration-300" />
             <h1 className="text-center md:text-left">
               208B, Street 5, Cavalry Ground, Lahore, Pakistan
             </h1>
           </div>
-          <div className="flex items-center pb-[10px]">
-            <i className="pi pi-phone text-[#313131] mr-2" />
+          <div className="flex items-center pb-[5px] group">
+            <FaPhoneAlt className="text-textColor mr-3 text-xl transition-colors duration-300" />
             <a
               href="tel:+923334245151"
-              className="text-[#313131] text-center md:text-left"
+              className="text-textColor text-center md:text-left underline transition-colors duration-300"
             >
               +92 333 4245151
             </a>
           </div>
-          <div className="flex items-center">
-            <i className="pi pi-envelope text-[#313131] mr-2" />
+          <div className="flex items-center group">
+            <FaEnvelope className="text-textColor mr-3 text-xl transition-colors duration-300" />
             <a
               href="mailto:fatimamohsin40@gmail.com"
-              className="text-[#313131] text-center md:text-left"
+              className="text-textColor text-center md:text-left underline transition-colors duration-300"
             >
               fatimamohsin40@gmail.com
             </a>
           </div>
-        </div>
-        <div className="orlega-one flex flex-col items-center md:items-end md:mr-[100px] space-y-4 md:space-y-2">
-          <h1 className="orelega-one text-[30px] md:text-[40px] text-[#313131] text-center md:text-right">
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          viewport={{ once: true }}
+          className="orlega-one flex flex-col items-center md:items-end md:mr-[100px] space-y-3"
+        >
+          <h1 className="orelega-one text-[28px] md:text-[36px] text-textColor text-center md:text-right">
             Fatima Mohsin Naqvi
           </h1>
-          <div className="flex flex-row lg:justify-center justify-end w-full space-x-4">
-            {/* Production: change to actual links */}
+          <div className="flex flex-row justify-center w-full space-x-6">
+            {/* Social links with enhanced styling */}
             <a
               href="https://www.linkedin.com"
-              className="text-[#313131] text-xl"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-textColor text-xl transform hover:scale-125 transition-all duration-300 "
             >
-              <i className="pi pi-linkedin text-[#313131]" />
+              <FaLinkedin className="text-textColor transition-colors duration-300" />
             </a>
             <a
               href="https://www.twitter.com"
-              className="text-[#313131] text-xl"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-textColor text-xl transform hover:scale-125 transition-all duration-300 "
             >
-              <i className="pi pi-twitter text-[#313131]" />
+              <FaTwitter className="text-textColor transition-colors duration-300" />
             </a>
             <a
               href="https://wa.me/+923334245151"
-              className="text-[#313131] text-xl"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-textColor text-xl transform hover:scale-125 transition-all duration-300 "
             >
-              <i className="pi pi-whatsapp text-[#313131]" />
+              <FaWhatsapp className="text-textColor transition-colors duration-300" />
             </a>
           </div>
-        </div>
+        </motion.div>
+      </div>
+      <div className="bg-orangeBg text-center py-4 text-textColor text-sm flex flex-col sm:flex-row justify-center items-center space-y-2 sm:space-y-0 sm:space-x-4">
+        <p>© {currentYear} Fatima Mohsin Naqvi. All rights reserved.</p>
+        <span className="hidden sm:inline">|</span>
+        <Link to="/terms-and-conditions" className="hover:underline">
+          Terms and Conditions
+        </Link>
       </div>
     </footer>
   );

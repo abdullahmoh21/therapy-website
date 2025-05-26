@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useGetAllBookingsQuery } from "../../../features/bookings/bookingApiSlice";
+const useGetAllBookingsQuery = () => {};
 import {
   BiCalendar,
   BiTime,

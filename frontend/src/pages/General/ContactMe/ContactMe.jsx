@@ -93,14 +93,14 @@ const ContactMe = () => {
   };
 
   return (
-    <div className="p-6 max-w-lg mx-auto bg-[#FFEDE8] rounded-md shadow-md">
-      <h2 className="orelega-one text-[30px] text-center mb-4 text-[#E27A82]">
+    <div className="p-6 max-w-lg mx-auto bg-whiteBg rounded-md shadow-md">
+      <h2 className="orelega-one text-[30px] text-center mb-4 text-lightPink">
         Contact Me
       </h2>
       <form onSubmit={handleSubmit(onSubmit)}>
         <div className="mb-4">
           <label
-            className="block text-sm font-semibold text-[#DC9B79]"
+            className="block text-sm font-semibold text-orangeHeader"
             htmlFor="name"
           >
             Name
@@ -124,7 +124,7 @@ const ContactMe = () => {
         </div>
         <div className="mb-4">
           <label
-            className="block text-sm font-semibold text-[#DC9B79]"
+            className="block text-sm font-semibold text-orangeHeader"
             htmlFor="phone"
           >
             Phone
@@ -154,7 +154,7 @@ const ContactMe = () => {
         </div>
         <div className="mb-4">
           <label
-            className="block text-sm mb-2 font-semibold text-[#DC9B79]"
+            className="block text-sm mb-2 font-semibold text-orangeHeader"
             htmlFor="email"
           >
             Email
@@ -178,7 +178,7 @@ const ContactMe = () => {
         </div>
         <div className="mb-4">
           <label
-            className="block text-sm mb-2 font-semibold text-[#DC9B79]"
+            className="block text-sm mb-2 font-semibold text-orangeHeader"
             htmlFor="requestType"
           >
             Type of Request
@@ -210,7 +210,7 @@ const ContactMe = () => {
         </div>
         <div className="mb-4">
           <label
-            className="block text-sm mb-2 font-semibold text-[#DC9B79]"
+            className="block text-sm mb-2 font-semibold text-orangeHeader"
             htmlFor="message"
           >
             Message
@@ -239,7 +239,7 @@ const ContactMe = () => {
 
         <Button
           type="submit"
-          className={`w-32 p-2 bg-[#E27A82] text-white rounded-full mx-auto block ${
+          className={`w-32 p-2 bg-lightPink text-white rounded-full mx-auto block ${
             isLoading ? "pi pi-spin pi-spinner" : ""
           }`}
         >

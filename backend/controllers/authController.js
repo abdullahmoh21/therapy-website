@@ -6,12 +6,7 @@ const TemporaryBooking = require("../models/TemporaryBooking");
 const asyncHandler = require("express-async-handler");
 const crypto = require("crypto");
 const logger = require("../logs/logger");
-const {
-  myQueue,
-  deleteDocuments,
-  sendVerificationEmail,
-} = require("../utils/myQueue");
-const { getFromCache } = require("../middleware/redisCaching");
+const { sendEmail } = require("../utils/myQueue");
 const { response } = require("express");
 const Invitee = require("../models/Invitee");
 
@@ -194,8 +189,8 @@ const register = async (req, res) => {
       verificationToken,
     });
 
-    // Send the verification email
-    await sendEmail(email, name, verificationToken);
+    const link = `${process.env.FRONTEND_URL}/verifyEmail?token=${token}`;
+    await sendEmail("verifyEmail", { recipient: email, name, link });
 
     // Mark invitation as used
     await markInvitationAsUsed(email);
@@ -249,20 +244,6 @@ const createUser = async ({
     "emailVerified.encryptedToken": encryptedToken,
     "emailVerified.expiresIn": Date.now() + 3600000, // 1 hour
   });
-};
-
-const sendEmail = async (email, name, token) => {
-  const link = `${FRONTEND_URL}/verifyEmail?token=${token}`; //production: change to domain
-  const emailJobData = { recipient: email, name, link };
-
-  try {
-    await myQueue.add("verifyEmail", emailJobData);
-  } catch (err) {
-    logger.error(
-      `Error adding verifyEmail job to queue. continuing manually: ${err.message}`
-    );
-    return res.sendStatus(500);
-  }
 };
 
 const rollbackUserCreation = async (email) => {

@@ -16,7 +16,7 @@ import {
 import Pagination from "../../../../components/pagination";
 import ConfirmationModal from "../../../../components/confirmationModal";
 import { toast } from "react-toastify";
-import { debounce } from "lodash";
+import { debounce } from "lodash/debounce";
 
 import {
   useGetInvitedUsersQuery,

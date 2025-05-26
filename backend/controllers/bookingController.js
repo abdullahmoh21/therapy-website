@@ -343,8 +343,33 @@ const getActiveBookings = asyncHandler(async (req, res) => {
   res.json(bookingsWithPaymentDetails);
 });
 
+const getBooking = asyncHandler(async (req, res) => {
+  const { bookingId } = req.params;
+
+  if (!bookingId) {
+    return res.status(400).json({ message: "bookingId is required" });
+  }
+
+  const booking = await Booking.findOne({
+    userId: req.user.id,
+    _id: bookingId,
+  })
+    .lean()
+    .select(
+      "_id eventStartTime eventEndTime eventName status location cancellation"
+    )
+    .exec();
+
+  if (!booking) {
+    return res.status(404).json({ message: "No such booking found for user" });
+  }
+
+  res.json(booking);
+});
+
 module.exports = {
   handleCalendlyWebhook,
   getActiveBookings,
   getNewBookingLink,
+  getBooking,
 };

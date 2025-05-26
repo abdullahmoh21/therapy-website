@@ -20,7 +20,7 @@ import {
 import { toast } from "react-toastify";
 import Pagination from "../../../../components/pagination";
 import ConfirmationModal from "../../../../components/confirmationModal";
-import { debounce } from "lodash";
+import { debounce } from "lodash/debounce";
 import { format } from "date-fns";
 import { ProgressSpinner } from "primereact/progressspinner";
 import BookingDetailsDialog from "./BookingDetailsDialog";
@@ -306,9 +306,7 @@ const AdminBookings = () => {
   return (
     <div className="max-w-7xl mx-auto">
       <header className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">
-          Booking Management
-        </h1>
+        <h1 className="text-3xl font-bold text-gray-800">Booking Management</h1>
         <p className="mt-2 text-gray-600">
           Manage and monitor all client bookings
         </p>
@@ -508,7 +506,8 @@ const AdminBookings = () => {
       <div className="mb-4">
         <span className="text-gray-600">
           Showing <span className="font-medium">{bookings.length}</span> of{" "}
-          <span className="font-medium">{pagination.totalBookings}</span> bookings
+          <span className="font-medium">{pagination.totalBookings}</span>{" "}
+          bookings
         </span>
       </div>
 
@@ -790,13 +789,16 @@ const AdminBookings = () => {
             </div>
           </>
         }
-        confirmText={isDeleting ? (
-          <>
-            <BiLoaderAlt className="animate-spin mr-2 inline-block" /> Deleting...
-          </>
-        ) : (
-          "Delete Permanently"
-        )}
+        confirmText={
+          isDeleting ? (
+            <>
+              <BiLoaderAlt className="animate-spin mr-2 inline-block" />{" "}
+              Deleting...
+            </>
+          ) : (
+            "Delete Permanently"
+          )
+        }
         cancelText="Cancel"
       />
     </div>

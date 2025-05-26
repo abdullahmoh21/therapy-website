@@ -1,5 +1,6 @@
 import React from "react";
 import Faq from "react-faq-component";
+import { motion } from "framer-motion"; // You'll need to install framer-motion
 
 // FAQ Data
 const data = {
@@ -43,27 +44,80 @@ const styles = {
   rowContentTextSize: "19px",
   rowContentPaddingRight: "30px",
   rowContentPaddingLeft: "30px",
-  arrowColor: "#68554f",
 };
 // FAQ Config
 const config = {
   animate: true,
   tabFocus: true,
+  openOnload: 0,
+  expandIcon: "+",
+  collapseIcon: "-",
 };
-const FAQ = () => {
-  return (
-    <>
-      {/* FAQ Section */}
-      <section className="main-bg pb-[100px]">
-        <h1 className="orelega-one text-[32px] leading-[46px] text-center text-[#c45e3e]">
-          Frequently Asked Questions
-        </h1>
 
-        <div>
+const FAQ = () => {
+  // Updated function to properly open the contact popup
+  const openContactPopup = () => {
+    if (typeof window.openContactPopup === "function") {
+      window.openContactPopup();
+    } else {
+      console.warn(
+        "Contact popup function not found. Make sure the Header component is mounted."
+      );
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      whileInView={{ opacity: 1 }}
+      transition={{ duration: 0.6 }}
+      viewport={{ once: true }}
+      className="main-bg pt-16 pb-8"
+    >
+      {/* FAQ Section */}
+      <section className="max-w-4xl mx-auto px-[20px]">
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
+          whileInView={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.5 }}
+          viewport={{ once: true }}
+          className="text-center mb-12"
+        >
+          <h1 className="orelega-one text-4xl md:text-5xl text-center text-lightPink">
+            Frequently Asked Questions
+          </h1>
+          <div className="w-24 h-1 bg-lightPink mx-auto mt-4"></div>
+        </motion.div>
+
+        <motion.div
+          initial={{ y: 30, opacity: 0 }}
+          whileInView={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          viewport={{ once: true }}
+          className="bg-white rounded-lg shadow-md p-8"
+        >
           <Faq data={data} styles={styles} config={config} />
-        </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
+          whileInView={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.4 }}
+          viewport={{ once: true }}
+          className="text-center mt-12"
+        >
+          <p className="text-textColor mb-6">
+            Still have questions? Feel free to reach out.
+          </p>
+          <button
+            onClick={openContactPopup}
+            className="inline-block py-3 px-8 bg-orangeButton text-textOnOrange border-[2px] border-black font-semibold rounded-full hover:bg-lightPink transition-all duration-300 transform hover:scale-105 shadow-md"
+          >
+            Contact Me
+          </button>
+        </motion.div>
       </section>
-    </>
+    </motion.div>
   );
 };
 

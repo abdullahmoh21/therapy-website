@@ -1,38 +1,53 @@
 import React from "react";
 import service_hero from "../../assets/images/servicesImage.png";
+import { motion } from "framer-motion";
 
 const Services = () => {
   return (
     <>
       {/* ------ Heading------- */}
-      <section className="w-full main-bg pt-[40px]">
+      <motion.section
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        transition={{ duration: 0.6 }}
+        viewport={{ once: true }}
+        className="w-full main-bg pt-[40px]"
+      >
         <div className="flex justify-center items-center">
-          <h1 className="orelega-one text-[50px] md:text-[76.9px] leading-[57.5px] text-[#BD704C] text-center w-full">
+          <h1 className="orelega-one text-4xl md:text-5xl text-center text-lightPink">
             Services
           </h1>
         </div>
-      </section>
+        <div className="flex justify-center pt-[10px]">
+          <hr className="w-32 border-t-[4px] border-lightPink" />
+        </div>
+      </motion.section>
 
       {/* ------ Services Break Down ------- */}
-      <section className="main-bg w-full flex flex-col items-center pt-[60px] space-y-10">
+      <section className="main-bg w-full flex flex-col items-center pt-[20px] space-y-10">
         {/* INDIVIDUAL THERAPY */}
-        <div className="flex flex-col md:flex-row justify-center px-[20px] md:px-[100px] space-y-[20px] md:space-y-0 md:space-x-[20px] w-full max-w-6xl">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          viewport={{ once: true }}
+          className="flex flex-col md:flex-row justify-center px-[20px] md:px-[100px] space-y-[20px] md:space-y-0 md:space-x-[20px] w-full max-w-6xl"
+        >
           <div className="Service flex-1 max-w-[400px] text-center md:text-left">
-            <h1 className="orelega-one text-[47.5px] md:text-[40px] leading-[40px] text-[#5C4E36] pb-[5px]">
+            <h1 className="orelega-one text-2xl md:text-3xl leading-tight text-orangeHeader pb-[5px]">
               Individual
               <br />
               Psychotherapy
             </h1>
-            <p className="hidden md:block text-[40px] md:text-[20px] text-[#5C4E36]">
-              ONLINE & IN PERSON
-            </p>
-            <p className="lg:text-[20px] text-[17.5px] text-[#5C4E36]">
+            <p className="hidden md:block text-textColor">ONLINE & IN PERSON</p>
+            <p className="text-textColor">
               Per Session Rate: 8000 pkr, 60 MINUTES
             </p>
+            <div className="w-16 h-1 bg-lightPink mx-auto md:mx-0 my-3 hidden md:block"></div>
           </div>
 
           <div className="Service-description flex-1 max-w-[600px] flex items-center">
-            <p className="text-[22.5px] md:text-[20px] text-[#393224] text-justify">
+            <p className="text-[22.5px] md:text-[20px] text-textColor text-justify">
               Individual psychotherapy is a one-on-one session between the
               therapist and the client, focusing on personal issues and mental
               health concerns. It aims to help clients understand their
@@ -40,25 +55,31 @@ const Services = () => {
               such as anxiety, depression, or trauma.
             </p>
           </div>
-        </div>
+        </motion.div>
+
         {/* ADOLESCENT THERAPY */}
-        <div className="flex flex-col md:flex-row justify-center px-[20px] md:px-[100px] space-y-[20px] md:space-y-0 md:space-x-[20px] w-full max-w-6xl">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+          viewport={{ once: true }}
+          className="flex flex-col md:flex-row justify-center px-[20px] md:px-[100px] space-y-[20px] md:space-y-0 md:space-x-[20px] w-full max-w-6xl"
+        >
           <div className="Service flex-1 max-w-[400px] text-center md:text-left">
-            <h1 className="orelega-one text-[40px] leading-[40px] text-[#5C4E36] pb-[5px]">
+            <h1 className="orelega-one text-2xl md:text-3xl leading-tight text-orangeHeader pb-[5px]">
               Adolescent
               <br />
               Psychotherapy
             </h1>
-            <p className="hidden md:block text-[17.5px] md:text-[20px] text-[#5C4E36]">
-              ONLINE & IN PERSON
-            </p>
-            <p className="lg:text-[20px] text-[17.5px] text-[#5C4E36]">
+            <p className="hidden md:block text-textColor">ONLINE & IN PERSON</p>
+            <p className="text-textColor">
               Per Session Rate: 8000 pkr, 60 MINUTES
             </p>
+            <div className="w-16 h-1 bg-lightPink mx-auto md:mx-0 my-3 hidden md:block"></div>
           </div>
 
           <div className="Service-description flex-1 max-w-[600px] flex items-center">
-            <p className="text-[22.5px] md:text-[20px] text-[#393224] text-justify">
+            <p className="text-[22.5px] md:text-[20px] text-textColor text-justify">
               Adolescent psychotherapy provides a supportive environment for
               teenagers to explore their thoughts and feelings, addressing
               issues unique to their developmental stage. This type of therapy
@@ -67,25 +88,31 @@ const Services = () => {
               healthy coping mechanisms.
             </p>
           </div>
-        </div>
+        </motion.div>
+
         {/* COUPLES THERAPY */}
-        <div className="flex flex-col md:flex-row justify-center px-[20px] md:px-[100px] space-y-[20px] md:space-y-0 md:space-x-[20px] w-full max-w-6xl">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          viewport={{ once: true }}
+          className="flex flex-col md:flex-row justify-center px-[20px] md:px-[100px] space-y-[20px] md:space-y-0 md:space-x-[20px] w-full max-w-6xl"
+        >
           <div className="Service flex-1 max-w-[400px] text-center md:text-left">
-            <h1 className="orelega-one text-[40px] leading-[40px] text-[#5C4E36] pb-[5px]">
+            <h1 className="orelega-one text-2xl md:text-3xl leading-tight text-orangeHeader pb-[5px]">
               Couples
               <br />
               Psychotherapy
             </h1>
-            <p className="hidden md:block text-[17.5px] md:text-[20px] text-[#5C4E36]">
-              ONLINE & IN PERSON
-            </p>
-            <p className="lg:text-[20px] text-[17.5px] text-[#5C4E36]">
+            <p className="hidden md:block text-textColor">ONLINE & IN PERSON</p>
+            <p className="text-textColor">
               Per Session Rate: 8000 pkr, 60 MINUTES
             </p>
+            <div className="w-16 h-1 bg-lightPink mx-auto md:mx-0 my-3 hidden md:block"></div>
           </div>
 
           <div className="Service-description flex-1 max-w-[600px] flex items-center">
-            <p className="text-[22.5px] md:text-[20px] text-[#393224] text-justify">
+            <p className="text-[22.5px] md:text-[20px] text-textColor text-justify">
               Couples psychotherapy is designed to help partners improve their
               relationship dynamics and resolve conflicts. Through guided
               sessions, couples learn effective communication skills, understand
@@ -93,31 +120,39 @@ const Services = () => {
               intimacy.
             </p>
           </div>
-        </div>
+        </motion.div>
       </section>
 
       {/* ------ Services Image ------- */}
-      <section className="relative main-bg pt-[40px] md:pt-[100px]">
+      <motion.section
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        transition={{ duration: 0.8 }}
+        viewport={{ once: true }}
+        className="relative main-bg pt-[20px] md:pt-[80px]"
+      >
         <div className="flex flex-col lg:flex-row justify-end">
-          <div className="flex flex-col justify-center lg:pr-[5px] lg:w-1/2 text-center lg:text-right">
-            <h1 className="orelega-one text-3xl lg:text-[50px] leading-[1.25] lg:leading-[80px] pb-4 lg:pb-[90px] text-[#BD704C]">
+          <div className="flex flex-col justify-center lg:pr-[5px] lg:w-1/2 text-center lg:text-right px-4 lg:px-0">
+            <h1 className="orelega-one text-2xl md:text-3xl leading-tight text-orangeHeader pb-4 lg:pb-[90px]">
               Guiding you towards <br />
               a more fulfilling <br />
               future.
             </h1>
           </div>
-          <img
-            src={service_hero}
-            alt="Service Image"
-            className="w-full lg:w-1/2 object-cover z-[20] shadow-md"
-          />
+          <div className="w-full lg:w-1/2">
+            <img
+              src={service_hero}
+              alt="Service Image"
+              className="w-full object-cover z-[20] shadow-md"
+            />
+          </div>
         </div>
         {/* Colored lines (only visible on lg screens) */}
         <div className="hidden lg:block absolute bottom-0 left-0 w-full">
-          <div className="bg-[#E09E7A] h-20"></div>
-          <div className="bg-[#E27A82] h-5"></div>
+          <div className="bg-orangeBg h-20"></div>
+          <div className="bg-lightPink h-5"></div>
         </div>
-      </section>
+      </motion.section>
     </>
   );
 };

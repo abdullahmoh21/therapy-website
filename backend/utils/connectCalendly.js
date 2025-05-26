@@ -12,39 +12,6 @@ const RETRY_INTERVAL = 5000; // 5 seconds
 // Retry counter
 let retryCount = 0;
 
-const getApiPrefixedUrl = (originalUrlString) => {
-  if (!originalUrlString) {
-    logger.warn("CALENDLY_WEBHOOK_URL is not set. Cannot prefix with /api.");
-    return originalUrlString;
-  }
-  try {
-    const url = new URL(originalUrlString);
-    let path = url.pathname;
-
-    // If path already starts with /api/, return original string to preserve it exactly
-    if (path.startsWith("/api/")) {
-      return originalUrlString;
-    }
-
-    // Normalize path to always start with a single slash
-    path = path.startsWith("/") ? path : "/" + path;
-    path = path.replace(/^\/+/, "/"); // Consolidate multiple leading slashes
-
-    if (path === "/") {
-      // Original path was just "/" or empty
-      url.pathname = "/api";
-    } else {
-      url.pathname = "/api" + path; // path already starts with a single slash here
-    }
-    return url.toString();
-  } catch (error) {
-    logger.error(
-      `Invalid CALENDLY_WEBHOOK_URL format: ${originalUrlString}. Error: ${error.message}`
-    );
-    return originalUrlString; // Fallback to original URL on parsing error
-  }
-};
-
 const manageWebhookSubscription = async () => {
   try {
     let webhookSubscriptions = await fetchWebhookSubscriptions();
@@ -169,20 +136,19 @@ const deleteAllWebhookSubscriptions = async (webhookSubscriptions) => {
 };
 
 const createWebhookSubscription = async () => {
-  const calendlyWebhookUrlFromEnv = process.env.CALENDLY_WEBHOOK_URL
+  const webhookUrl = process.env.CALENDLY_WEBHOOK_URL
     ? process.env.CALENDLY_WEBHOOK_URL.trim()
     : "";
-  const targetWebhookUrl = getApiPrefixedUrl(calendlyWebhookUrlFromEnv);
 
-  if (!targetWebhookUrl) {
+  if (!webhookUrl) {
     logger.error(
-      "Cannot create Calendly webhook subscription: CALENDLY_WEBHOOK_URL is not configured or is invalid after prefixing."
+      "Cannot create Calendly webhook subscription: CALENDLY_WEBHOOK_URL is not configured."
     );
     return false;
   }
 
   const webhookData = {
-    url: targetWebhookUrl,
+    url: webhookUrl,
     events: ["invitee.created", "invitee.canceled"],
     organization: process.env.CALENDLY_ORGANIZATION_URI,
     user: process.env.CALENDLY_USER_URI,
@@ -208,16 +174,22 @@ const createWebhookSubscription = async () => {
 };
 
 function isWebhookConfigCorrect(webhook) {
-  const calendlyWebhookUrlFromEnv = process.env.CALENDLY_WEBHOOK_URL
+  const expectedWebhookUrl = process.env.CALENDLY_WEBHOOK_URL
     ? process.env.CALENDLY_WEBHOOK_URL.trim()
     : "";
-  const expectedWebhookUrl = getApiPrefixedUrl(calendlyWebhookUrlFromEnv);
 
   if (!expectedWebhookUrl) {
     logger.warn(
-      "Cannot verify Calendly webhook: CALENDLY_WEBHOOK_URL is not configured or is invalid after prefixing."
+      "Cannot verify Calendly webhook: CALENDLY_WEBHOOK_URL is not configured."
     );
     return false;
+  }
+
+  // Log URL mismatch if they don't match
+  if (webhook.callback_url.trim() !== expectedWebhookUrl) {
+    logger.warn(
+      `Webhook URL mismatch: Expected "${expectedWebhookUrl}" but found "${webhook.callback_url.trim()}" in Calendly.`
+    );
   }
 
   return (

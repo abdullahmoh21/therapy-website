@@ -14,6 +14,7 @@
     "@hookform/resolvers": "^3.9.0",
     "@reduxjs/toolkit": "^2.2.4",
     "date-fns": "^3.6.0",
+    "framer-motion": "^12.12.2",
     "joi": "^17.13.1",
     "libphonenumber-js": "^1.11.1",
     "primeicons": "^7.0.0",
@@ -48,6 +49,8 @@
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.3.4",
     "postcss": "^8.4.24",
+    "postcss-nesting": "^12.1.5",
+    "rollup-plugin-visualizer": "^5.14.0",
     "tailwindcss": "^3.3.2",
     "vite": "^5.2.12"
   }

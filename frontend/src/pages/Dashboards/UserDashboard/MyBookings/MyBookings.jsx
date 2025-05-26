@@ -1,5 +1,5 @@
-import { ProgressSpinner } from "primereact/progressspinner";
 import React, { useEffect, useState } from "react";
+import { ProgressSpinner } from "primereact/progressspinner";
 import {
   BiCalendar,
   BiCheckCircle,
@@ -10,10 +10,13 @@ import {
   BiMinusCircle,
   BiTime,
   BiXCircle,
+  BiVideo,
+  BiMapPin,
 } from "react-icons/bi";
+import { toast } from "react-toastify";
 import {
-  useGetMyBookingsQuery,
-  useNewBookingLinkQuery,
+  useGetMyActiveBookingsQuery,
+  useGetNewBookingLinkQuery,
 } from "../../../../features/bookings/bookingApiSlice";
 import {
   useGetPaymentLinkMutation,
@@ -25,6 +28,7 @@ import NoBooking from "./NoBooking";
 const MyBookings = () => {
   const [bookings, setBookings] = useState([]);
   const [showCancelPopup, setShowCancelPopup] = useState(false);
+  const [showNoCancelPopup, setShowNoCancelPopup] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [loading, setLoading] = useState(false);
   const [refundError, setRefundError] = useState(null);
@@ -36,140 +40,133 @@ const MyBookings = () => {
     isSuccess: bookingsLoaded,
     isError: isBookingError,
     error: bookingFetchError,
-  } = useGetMyBookingsQuery();
+  } = useGetMyActiveBookingsQuery();
 
   const {
     data: bookingLink,
     isLoading: gettingBookingLink,
     refetch: refetchBookingLink,
-  } = useNewBookingLinkQuery();
+    error: newBookingLinkError,
+    isError: isNewBookingLinkError,
+  } = useGetNewBookingLinkQuery();
 
   const { data: userDataResult } = useGetMyUserQuery();
 
-  const [
-    triggerGetPaymentLink,
-    { isLoading: gettingPaymentLink, error: getPaymentLinkError },
-  ] = useGetPaymentLinkMutation();
+  const [triggerGetPaymentLink, { isLoading: gettingPaymentLink }] =
+    useGetPaymentLinkMutation();
 
-  const [
-    sendRefundRequest,
-    { isLoading: sendingRefundRequest, error: sendRefundRequestError },
-  ] = useSendRefundRequestMutation();
+  const [sendRefundRequest, { isLoading: sendingRefundRequest }] =
+    useSendRefundRequestMutation();
 
   useEffect(() => {
-    if (bookingData && Array.isArray(bookingData.ids)) {
-      const sortedBookings = Object.values(bookingData.entities).sort(
+    if (bookingData?.ids) {
+      const sorted = Object.values(bookingData.entities).sort(
         (a, b) => new Date(a.eventStartTime) - new Date(b.eventStartTime)
       );
-      setBookings(sortedBookings);
+      setBookings(sorted);
     }
   }, [bookingData]);
 
   useEffect(() => {
-    if (userDataResult) {
-      const entities = userDataResult.entities;
-      const fetchedUser = entities && entities[Object.keys(entities)[0]];
-      if (fetchedUser) {
-        setUserData(fetchedUser);
-      }
+    if (userDataResult?.entities) {
+      const usr =
+        userDataResult.entities[Object.keys(userDataResult.entities)[0]];
+      if (usr) setUserData(usr);
     }
   }, [userDataResult]);
 
-  const redirectToPayment = async (bookingId) => {
+  const formatAmount = (amt) =>
+    typeof amt === "number" ? amt.toLocaleString("en-US") : amt;
+
+  const formatDateTime = (s) => {
+    const d = new Date(s);
+    return {
+      date: d.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      }),
+      time: d.toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      }),
+    };
+  };
+
+  const redirectToPayment = async (id) => {
     try {
-      const response = await triggerGetPaymentLink({ bookingId }).unwrap();
-      if (response.url) {
-        window.location.href = response.url;
-      } else {
-        console.error("Failed to fetch payment link: No URL found");
-      }
-    } catch (error) {
-      console.error("Failed to fetch payment link:", error);
+      const res = await triggerGetPaymentLink({ bookingId: id }).unwrap();
+      if (res.url) window.location.href = res.url;
+    } catch (e) {
+      console.error(e);
     }
   };
 
-  const checkRefundEligibility = (booking) => {
-    const threeDaysInMs = 3 * 24 * 60 * 60 * 1000;
-    const eventStartTime = new Date(booking.eventStartTime).getTime();
-    const currentTime = Date.now();
-    return eventStartTime - currentTime > threeDaysInMs;
+  const checkRefundEligibility = (b) => {
+    const threeDays = 3 * 24 * 60 * 60 * 1000;
+    return new Date(b.eventStartTime).getTime() - Date.now() > threeDays;
   };
 
-  const handleRefundRequest = async (bookingId, paymentId, cancelURL) => {
+  const handleRefundRequest = async (bid, pid, url) => {
     setLoading(true);
     setRefundError(null);
     try {
-      await sendRefundRequest({ bookingId, paymentId }).unwrap();
-      setShowCancelPopup(false);
-      window.location.href = cancelURL;
-    } catch (error) {
-      console.error("Failed to send refund request:", error);
-      setRefundError(
-        error?.data?.message ||
-          "An unexpected error occurred during refund request."
-      );
+      await sendRefundRequest({ bookingId: bid, paymentId: pid }).unwrap();
+      window.location.href = url;
+    } catch (e) {
+      setRefundError(e?.data?.message || "Something went wrong.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCancellation = (cancelURL) => {
-    window.location.href = cancelURL;
-    setShowCancelPopup(false);
-  };
-
-  const formatDateTime = (dateString) => {
-    const date = new Date(dateString);
-    const optionsDate = { year: "numeric", month: "long", day: "numeric" };
-    const optionsTime = { hour: "2-digit", minute: "2-digit", hour12: true };
-    return {
-      date: date.toLocaleDateString("en-US", optionsDate),
-      time: date.toLocaleTimeString("en-US", optionsTime),
-    };
+  const handleCancellation = (url) => {
+    if (url) {
+      window.location.href = url;
+    } else {
+      setShowNoCancelPopup(true);
+    }
   };
 
   const getStatusStyles = (status) => {
     switch (status) {
       case "Completed":
         return {
-          icon: <BiCheckCircle className="text-primaryColor" />,
+          icon: <BiCheckCircle className="text-green-500 text-xl" />,
           text: "Paid",
-          color: "text-textColor",
+          badgeClass: "bg-green-100 text-green-800",
         };
       case "Not Initiated":
         return {
-          icon: <BiMinusCircle className="text-primaryColor" />,
-          text: "Not Initiated",
-          color: "text-textColor",
+          icon: <BiMinusCircle className="text-yellow-500 text-xl" />,
+          text: "Payment Pending",
+          badgeClass: "bg-yellow-100 text-yellow-800",
         };
       case "Failed":
         return {
-          icon: <BiXCircle className="text-primaryColor" />,
+          icon: <BiXCircle className="text-red-500 text-xl" />,
           text: "Payment Failed",
-          color: "text-textColor",
-        };
-      case "NA":
-        return {
-          icon: <BiCheckCircle className="text-primaryColor" />,
-          text: "Confirmed (Free)",
-          color: "text-textColor",
+          badgeClass: "bg-red-100 text-red-800",
         };
       default:
         return {
-          icon: <BiInfoCircle className="text-primaryColor" />,
+          icon: <BiInfoCircle className="text-gray-500 text-xl" />,
           text: status,
-          color: "text-textColor",
+          badgeClass: "bg-gray-100 text-gray-800",
         };
     }
   };
 
+  const maxReached =
+    isNewBookingLinkError && newBookingLinkError?.status === 403;
+
   if (isLoadingBookings) {
     return (
-      <div className="flex justify-center items-center min-h-[300px]">
+      <div className="flex items-center justify-center h-[60vh]">
         <ProgressSpinner
-          style={{ width: "50px", height: "50px" }}
+          style={{ width: "4rem", height: "4rem" }}
           strokeWidth="8"
-          fill="var(--surface-ground)"
           animationDuration=".5s"
         />
       </div>
@@ -178,14 +175,9 @@ const MyBookings = () => {
 
   if (isBookingError) {
     return (
-      <div
-        className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative"
-        role="alert"
-      >
-        <strong className="font-bold">Error: </strong>
-        <span className="block sm:inline">
-          {bookingFetchError?.data?.message || "Failed to load bookings."}
-        </span>
+      <div className="bg-red-100 text-red-800 p-4 rounded-lg">
+        <strong>Error:</strong>{" "}
+        {bookingFetchError?.data?.message || "Unable to load bookings."}
       </div>
     );
   }
@@ -200,201 +192,258 @@ const MyBookings = () => {
   }
 
   return (
-    <>
+    <div className="container mx-auto px-4 py-8">
       {userData && (
-        <div className="mb-6 p-4 bg-white rounded-lg shadow flex flex-col sm:flex-row justify-between items-center">
-          <h1 className="text-xl font-semibold text-gray-800 mb-3 sm:mb-0">
-            Welcome back, {userData.name}!
-          </h1>
+        <div className="bg-gradient-to-r from-[#DF9E7A] to-[#C45E3E] text-white p-6 rounded-2xl shadow-md mb-8 flex flex-col sm:flex-row sm:justify-between sm:items-center">
+          <div className="mb-4 sm:mb-0">
+            <h1 className="text-3xl font-bold">Hey, {userData.name}!</h1>
+            <p className="opacity-90 mt-1">Here’s your upcoming schedule.</p>
+            <p className="opacity-70 text-sm mt-1">
+              Online payment is optional; you can also pay in cash during your
+              session.
+            </p>
+          </div>
           <button
-            className={`inline-flex items-center bg-[#DF9E7A] text-white font-bold px-4 py-2 rounded-lg transition-colors duration-300 ${
-              gettingBookingLink
-                ? "opacity-50 cursor-not-allowed"
-                : "hover:bg-[#c45e3e]"
-            }`}
-            disabled={gettingBookingLink}
+            disabled={gettingBookingLink || maxReached}
             onClick={() => {
-              if (bookingLink) {
+              if (maxReached) {
+                const maxNum =
+                  newBookingLinkError?.data?.maxAllowedBookings ?? null;
+                toast.error(
+                  maxNum
+                    ? `Only ${maxNum} active bookings allowed.`
+                    : newBookingLinkError?.data?.message ||
+                        "Booking limit reached."
+                );
+              } else if (bookingLink) {
                 window.location.href = bookingLink;
               } else {
                 refetchBookingLink();
               }
             }}
+            className={`flex items-center space-x-2 bg-white text-[#DF9E7A] font-semibold px-5 py-3 rounded-full shadow hover:shadow-lg transition ${
+              gettingBookingLink || maxReached
+                ? "opacity-50 cursor-not-allowed"
+                : ""
+            }`}
           >
             {gettingBookingLink ? (
-              <>
-                <BiLoaderAlt className="animate-spin mr-2" /> Loading Link...
-              </>
+              <BiLoaderAlt className="animate-spin text-xl" />
+            ) : maxReached ? (
+              <BiErrorCircle className="text-xl" />
             ) : (
-              <>
-                <BiCalendar className="mr-2" /> Book a New Session
-              </>
+              <BiCalendar className="text-xl" />
             )}
+            <span>
+              {gettingBookingLink
+                ? "Loading..."
+                : maxReached
+                ? "Max Reached"
+                : "Book New Session"}
+            </span>
           </button>
         </div>
       )}
 
-      <div className="space-y-6">
-        {bookings.map((booking) => {
-          const { date: startDate, time: startTime } = formatDateTime(
-            booking.eventStartTime
+      <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+        {bookings.map((b) => {
+          const isConsultation = b.eventName === "15 Minute Consultation";
+          const { date: sd, time: st } = formatDateTime(b.eventStartTime);
+          const { time: et } = formatDateTime(b.eventEndTime);
+          const duration = Math.round(
+            (new Date(b.eventEndTime) - new Date(b.eventStartTime)) / 60000
           );
-          const { time: endTime } = formatDateTime(booking.eventEndTime);
-          const duration =
-            (new Date(booking.eventEndTime) -
-              new Date(booking.eventStartTime)) /
-            60000;
-          const paymentStatus = getStatusStyles(booking.transactionStatus);
-          const isConsultation = booking.eventName === "15 Minute Consultation";
+          const {
+            icon,
+            text: statusText,
+            badgeClass,
+          } = getStatusStyles(b.transactionStatus);
+
+          const hasCancelUrl = Boolean(b.cancelURL);
 
           return (
             <div
-              key={booking._id}
-              className="bg-white p-5 rounded-lg shadow-md border border-gray-200 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0 md:space-x-6"
+              key={b._id}
+              className="bg-white rounded-2xl shadow-lg overflow-hidden flex flex-col"
             >
-              <div className="flex-grow space-y-2">
-                <h2 className="text-xl font-semibold text-headingColor flex items-center">
-                  {isConsultation ? "Consultation" : "Therapy Session"}
-                  <span className="text-sm font-normal text-gray-500 ml-2">
-                    (ID: {booking.bookingId})
-                  </span>
-                </h2>
-                <div className="flex items-center text-gray-600">
-                  <BiCalendar className="mr-2 text-[#DF9E7A]" />
-                  <span>{startDate}</span>
-                </div>
-                <div className="flex items-center text-gray-600">
-                  <BiTime className="mr-2 text-[#DF9E7A]" />
-                  <span>{`${startTime} - ${endTime} (${duration} mins)`}</span>
-                </div>
-                <div
-                  className={`flex items-center font-medium ${paymentStatus.color}`}
-                >
-                  {paymentStatus.icon}
-                  <span className="ml-2">{paymentStatus.text}</span>
-                </div>
-                {!isConsultation && (
-                  <div className="flex items-center text-gray-600">
-                    <BiDollarCircle className="mr-2 text-[#DF9E7A]" />
-                    <span>{`${booking.amount} ${booking.currency}`}</span>
+              <div className="p-6 flex flex-col flex-grow">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h2 className="text-xl font-semibold">
+                      {isConsultation ? "Consultation" : "Therapy Session"}
+                    </h2>
+                    <span className="text-sm text-gray-500">
+                      ID: {b.bookingId}
+                    </span>
                   </div>
-                )}
-              </div>
-
-              <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-3 flex-shrink-0">
-                {booking.transactionStatus === "Not Initiated" && (
-                  <button
-                    className={`inline-flex justify-center items-center bg-green-500 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
-                      gettingPaymentLink
-                        ? "opacity-50 cursor-not-allowed"
-                        : "hover:bg-green-600"
-                    }`}
-                    onClick={() => redirectToPayment(booking._id)}
-                    disabled={gettingPaymentLink}
+                  <span
+                    className={`inline-flex items-center px-3 py-1 text-sm font-medium rounded-full ${badgeClass}`}
                   >
-                    {gettingPaymentLink ? (
-                      <BiLoaderAlt className="animate-spin mr-2" />
-                    ) : (
-                      <BiDollarCircle className="mr-1" />
-                    )}{" "}
-                    Pay Online
-                  </button>
-                )}
+                    {icon}
+                    <span className="ml-2">{statusText}</span>
+                  </span>
+                </div>
 
-                {booking.cancelURL && (
-                  <button
-                    className="inline-flex justify-center items-center bg-red-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-red-600 transition-colors duration-200"
-                    onClick={() => {
-                      setSelectedBooking(booking);
-                      setRefundError(null);
-                      setShowCancelPopup(true);
-                      document.body.style.overflow = "hidden";
-                    }}
-                  >
-                    <BiXCircle className="mr-1" /> Cancel Booking
-                  </button>
-                )}
+                <div className="mt-4 space-y-3 text-gray-700">
+                  <div className="flex items-center">
+                    <BiCalendar className="mr-2 text-[#DF9E7A]" />
+                    <span>{sd}</span>
+                  </div>
+                  <div className="flex items-center">
+                    <BiTime className="mr-2 text-[#DF9E7A]" />
+                    <span>{`${st} – ${et} (${duration} mins)`}</span>
+                  </div>
+                  {b.location?.type === "online" && (
+                    <div className="flex items-center">
+                      <BiVideo className="mr-2 text-[#DF9E7A]" />
+                      <span>Online Meeting</span>
+                    </div>
+                  )}
+                  {b.location?.type === "in-person" &&
+                    b.location.inPersonLocation && (
+                      <div className="flex items-center">
+                        <BiMapPin className="mr-2 text-[#DF9E7A]" />
+                        <span>{b.location.inPersonLocation}</span>
+                      </div>
+                    )}
+                  {!isConsultation && (
+                    <div className="flex items-center">
+                      <BiDollarCircle className="mr-2 text-green-500" />
+                      <span>
+                        {formatAmount(b.amount)} {b.currency}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-6 bg-gray-50 flex flex-wrap gap-2">
+                  {b.transactionStatus === "Not Initiated" && (
+                    <button
+                      disabled={gettingPaymentLink}
+                      onClick={() => redirectToPayment(b._id)}
+                      className={`flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-lg font-medium transition ${
+                        gettingPaymentLink
+                          ? "bg-green-300 cursor-not-allowed"
+                          : "bg-green-500 hover:bg-green-600 text-white"
+                      }`}
+                    >
+                      {gettingPaymentLink ? (
+                        <BiLoaderAlt className="animate-spin" />
+                      ) : (
+                        <BiDollarCircle />
+                      )}
+                      <span>Pay</span>
+                    </button>
+                  )}
+
+                  {hasCancelUrl && (
+                    <button
+                      onClick={() => {
+                        setSelectedBooking(b);
+                        setRefundError(null);
+                        setShowCancelPopup(true);
+                        document.body.style.overflow = "hidden";
+                      }}
+                      className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white font-medium transition"
+                    >
+                      <BiXCircle />
+                      <span>Cancel</span>
+                    </button>
+                  )}
+
+                  {!hasCancelUrl && (
+                    <button
+                      onClick={() => {
+                        setSelectedBooking(b);
+                        setShowNoCancelPopup(true);
+                        document.body.style.overflow = "hidden";
+                      }}
+                      className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-lg bg-red-300 text-white font-medium"
+                    >
+                      <BiXCircle />
+                      <span>Cancel</span>
+                    </button>
+                  )}
+
+                  {b.location?.type === "online" && (
+                    <button
+                      onClick={() =>
+                        window.open(
+                          b.location.join_url,
+                          "_blank",
+                          "noopener,noreferrer"
+                        )
+                      }
+                      className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white font-medium transition"
+                    >
+                      <BiVideo />
+                      <span>Join</span>
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           );
         })}
       </div>
-
       {showCancelPopup && selectedBooking && (
         <div
-          className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 z-50 p-4"
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
           onClick={() => {
             setShowCancelPopup(false);
             document.body.style.overflow = "auto";
           }}
         >
           <div
-            className="bg-white p-6 rounded-lg shadow-xl relative w-full max-w-md"
+            className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full relative"
             onClick={(e) => e.stopPropagation()}
           >
             <button
-              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-2xl"
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl"
               onClick={() => {
                 setShowCancelPopup(false);
                 document.body.style.overflow = "auto";
               }}
-              aria-label="Close"
             >
               &times;
             </button>
-
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">
-              Cancel Booking Confirmation
+            <h2 className="text-2xl font-semibold mb-4 text-gray-800">
+              Cancel Confirmation
             </h2>
-            <p className="text-sm text-gray-600 mb-4">
-              You are attempting to cancel your{" "}
+            <p className="text-gray-600 mb-6">
+              You’re cancelling your{" "}
               <span className="font-medium">
                 {selectedBooking.eventName === "15 Minute Consultation"
                   ? "Free Consultation"
-                  : "therapy session"}
+                  : "Therapy Session"}
               </span>{" "}
-              scheduled on{" "}
+              on{" "}
               <span className="font-medium">
-                {formatDateTime(selectedBooking.eventStartTime).date}
-              </span>{" "}
-              at{" "}
-              <span className="font-medium">
+                {formatDateTime(selectedBooking.eventStartTime).date} at{" "}
                 {formatDateTime(selectedBooking.eventStartTime).time}
-              </span>{" "}
-              (ID: {selectedBooking.bookingId}).
+              </span>
+              .
             </p>
 
-            <div className="mb-5 p-3 bg-gray-100 rounded-md border border-gray-200 text-sm">
+            <div className="mb-6 p-4 bg-gray-50 rounded-lg text-sm text-gray-700">
               {selectedBooking.transactionStatus === "Completed" ? (
                 checkRefundEligibility(selectedBooking) ? (
-                  <p className="text-green-700 flex items-center">
-                    <BiCheckCircle className="mr-2 flex-shrink-0" /> Eligible
-                    for a full refund according to our policy.
+                  <p className="flex items-center text-green-700">
+                    <BiCheckCircle className="mr-2" /> Eligible for full refund.
                   </p>
                 ) : (
-                  <p className="text-orange-700 flex items-center">
-                    <BiInfoCircle className="mr-2 flex-shrink-0" /> Not eligible
-                    for a refund due to late cancellation (less than 3 days
-                    prior).
+                  <p className="flex items-center text-orange-600">
+                    <BiInfoCircle className="mr-2" /> Too late for refund.
                   </p>
                 )
               ) : selectedBooking.transactionStatus === "Not Initiated" ? (
-                checkRefundEligibility(selectedBooking) ? (
-                  <p className="text-gray-700 flex items-center">
-                    <BiInfoCircle className="mr-2 flex-shrink-0" /> This booking
-                    is not paid yet. You can cancel it directly.
-                  </p>
-                ) : (
-                  <p className="text-orange-700 flex items-center">
-                    <BiInfoCircle className="mr-2 flex-shrink-0" /> Cancelling
-                    less than 3 days prior. While unpaid, please note our policy
-                    requires payment for late cancellations.
-                  </p>
-                )
+                <p className="flex items-center">
+                  <BiInfoCircle className="mr-2" /> Unpaid bookings cancel
+                  immediately.
+                </p>
               ) : (
-                <p className="text-gray-700 flex items-center">
-                  <BiInfoCircle className="mr-2 flex-shrink-0" /> This is a free
-                  consultation booking.
+                <p className="flex items-center">
+                  <BiInfoCircle className="mr-2" /> This is a free consult.
                 </p>
               )}
             </div>
@@ -405,26 +454,24 @@ const MyBookings = () => {
               </div>
             )}
             {refundError && (
-              <div className="mb-4 p-3 bg-red-100 border border-red-300 text-red-700 rounded-md text-sm flex items-center">
-                <BiErrorCircle className="mr-2 flex-shrink-0" /> {refundError}
+              <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md flex items-center">
+                <BiErrorCircle className="mr-2" />
+                {refundError}
               </div>
             )}
 
             <div className="flex justify-end space-x-3">
               <button
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 text-sm font-medium transition-colors duration-200"
                 onClick={() => {
                   setShowCancelPopup(false);
                   document.body.style.overflow = "auto";
                 }}
                 disabled={loading}
+                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition"
               >
-                Keep Booking
+                Keep It
               </button>
               <button
-                className={`inline-flex items-center px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 text-sm font-medium transition-colors duration-200 ${
-                  loading ? "opacity-50 cursor-not-allowed" : ""
-                }`}
                 onClick={() => {
                   if (
                     selectedBooking.transactionStatus === "Completed" &&
@@ -440,19 +487,79 @@ const MyBookings = () => {
                   }
                 }}
                 disabled={loading}
+                className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-white font-medium transition ${
+                  loading
+                    ? "bg-red-300 cursor-not-allowed"
+                    : "bg-red-500 hover:bg-red-600"
+                }`}
               >
                 {loading ? (
-                  <BiLoaderAlt className="animate-spin mr-2" />
+                  <BiLoaderAlt className="animate-spin" />
                 ) : (
-                  <BiXCircle className="mr-1" />
-                )}{" "}
-                Proceed to Cancel
+                  <BiXCircle />
+                )}
+                <span>Proceed</span>
               </button>
             </div>
           </div>
         </div>
       )}
-    </>
+
+      {showNoCancelPopup && selectedBooking && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => {
+            setShowNoCancelPopup(false);
+            document.body.style.overflow = "auto";
+          }}
+        >
+          <div
+            className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl"
+              onClick={() => {
+                setShowNoCancelPopup(false);
+                document.body.style.overflow = "auto";
+              }}
+            >
+              &times;
+            </button>
+            <div className="mb-4 text-red-500 flex justify-center">
+              <BiErrorCircle className="text-5xl" />
+            </div>
+            <h2 className="text-2xl font-semibold mb-4 text-gray-800 text-center">
+              Cancellation Not Available
+            </h2>
+            <div className="text-gray-600 mb-6 space-y-3">
+              <p>
+                You can no longer cancel this booking as it's too close to the
+                appointment time.
+              </p>
+              <p>
+                If this is an emergency, please contact your therapist directly.
+              </p>
+              <p className="font-medium">
+                You are still expected to pay for this session. If you have
+                already paid, thank you for your understanding.
+              </p>
+            </div>
+            <div className="flex justify-center">
+              <button
+                onClick={() => {
+                  setShowNoCancelPopup(false);
+                  document.body.style.overflow = "auto";
+                }}
+                className="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition font-medium"
+              >
+                I Understand
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 

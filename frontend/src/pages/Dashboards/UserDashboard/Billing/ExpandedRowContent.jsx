@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from "react";
 import {
-  useGetBookingQuery,
-  useGetPaymentQuery,
-} from "../../../../features/users/usersApiSlice";
+  useGetBookingQuery, // This should be from bookingApiSlice, ensure correct import path
+} from "../../../../features/bookings/bookingApiSlice"; // Corrected path assumption
+import {
+  useGetPaymentQuery, // This should be from paymentApiSlice
+} from "../../../../features/payments/paymentApiSlice"; // Corrected path assumption
 import PaymentButton from "./PaymentButton";
 import ExpandedContentSkeleton from "./ExpandedContentSkeleton";
-import { BiErrorCircle, BiVideo } from "react-icons/bi"; // Import BiVideo
+import { BiErrorCircle, BiVideo } from "react-icons/bi";
 import ExpandedStatusDisplay from "./ExpandedStatusDisplay";
-import { getStatusDisplay } from "./billingUtils";
+import { getStatusDisplay } from "./billingUtils"; // Make sure this util is robust
 
 const formatReadableDate = (dateInput) => {
   if (!dateInput) return "--";
@@ -44,27 +46,35 @@ const formatLocation = (locationData) => {
 };
 
 const ExpandedRowContent = ({
-  data: initialData,
+  data: initialData, // initialData is a booking object from the list
   onRedirectToPayment,
   payingBookingId,
 }) => {
-  const bookingIdForQuery = initialData._id; // MongoDB _id of the booking
-  const paymentIdForQuery = initialData.payment?._id; // MongoDB _id of the payment, if payment object exists
+  const bookingIdForQuery = initialData?._id; // MongoDB _id of the booking
+  const paymentIdForQuery = initialData?.payment?._id; // MongoDB _id of the payment, if payment object exists
 
   const {
     data: bookingDetails,
     isLoading: bookingLoading,
     isError: bookingError,
+    // refetch: refetchBookingDetails // Optional: if you need to manually refetch
   } = useGetBookingQuery(bookingIdForQuery, { skip: !bookingIdForQuery });
 
   const {
     data: paymentDetails,
     isLoading: paymentLoading,
     isError: paymentError,
-  } = useGetPaymentQuery(paymentIdForQuery, { skip: !paymentIdForQuery });
+    // refetch: refetchPaymentDetails // Optional
+  } = useGetPaymentQuery(paymentIdForQuery, {
+    skip: !paymentIdForQuery || !initialData?.payment,
+  }); // Also skip if no initial payment object
 
   const [combinedData, setCombinedData] = useState({
-    ...initialData, // initialData already contains the payment object from the list
+    ...initialData, // Start with data from the row
+    payment: initialData.payment || {}, // Ensure payment is an object
+    transactionStatusDisplay:
+      initialData.transactionStatusDisplay ||
+      getStatusDisplay(initialData.payment?.transactionStatus),
   });
 
   const calculateDuration = (startTime, endTime) => {
@@ -76,39 +86,62 @@ const ExpandedRowContent = ({
   };
 
   useEffect(() => {
-    // Start with a fresh copy of initialData, ensuring payment sub-object is present
-    const newData = { ...initialData, payment: initialData.payment || {} };
+    // initialData already contains basic booking and payment info
+    // We are fetching more details for booking and payment separately
+    const newData = {
+      ...initialData,
+      payment: { ...(initialData.payment || {}) }, // Ensure payment is an object
+    };
 
     if (bookingDetails && !bookingLoading && !bookingError) {
-      Object.assign(newData, { ...bookingDetails, payment: newData.payment }); // Preserve payment from initialData or paymentDetails
+      // Merge bookingDetails, but be careful not to overwrite essential fields from initialData
+      // if bookingDetails is a more complete version of the booking.
+      Object.assign(newData, bookingDetails); // bookingDetails is the full booking object
+      // Ensure payment from initialData isn't lost if bookingDetails doesn't have it (it shouldn't)
+      newData.payment = {
+        ...(initialData.payment || {}),
+        ...(bookingDetails.payment || {}),
+      };
+
       if (bookingDetails.eventStartTime && bookingDetails.eventEndTime) {
         newData.sessionDuration = calculateDuration(
           bookingDetails.eventStartTime,
           bookingDetails.eventEndTime
         );
       }
+      // If bookingDetails has a more up-to-date status or other fields, they are now in newData
+      newData.status = bookingDetails.status || newData.status;
+      newData.eventName = bookingDetails.eventName || newData.eventName;
+      newData.location = bookingDetails.location || newData.location;
+      newData.notes = bookingDetails.notes || newData.notes;
+      newData.cancellation =
+        bookingDetails.cancellation || newData.cancellation;
     }
 
     if (paymentDetails && !paymentLoading && !paymentError) {
+      // Merge paymentDetails into the payment sub-object
       newData.payment = { ...newData.payment, ...paymentDetails };
       if (paymentDetails.transactionStatus) {
         newData.transactionStatusDisplay = getStatusDisplay(
           paymentDetails.transactionStatus
         );
-        newData.transactionStatus = paymentDetails.transactionStatus; // also update raw status
+        // Ensure raw transactionStatus on payment object is also updated
+        newData.payment.transactionStatus = paymentDetails.transactionStatus;
       }
     } else if (
       initialData.payment?.transactionStatus &&
       !newData.transactionStatusDisplay
     ) {
       // Fallback to initialData's payment status if paymentDetails didn't load or update it
+      // This should already be set in initial useState or by initialData.transactionStatusDisplay
       newData.transactionStatusDisplay = getStatusDisplay(
         initialData.payment.transactionStatus
       );
-      newData.transactionStatus = initialData.payment.transactionStatus;
     }
 
-    setCombinedData(newData);
+    // If initialData itself was updated (e.g. parent list refetched), merge it too.
+    // This helps if the row data in the parent table changes while expanded.
+    setCombinedData((prevData) => ({ ...prevData, ...newData }));
   }, [
     initialData,
     bookingDetails,
@@ -119,11 +152,17 @@ const ExpandedRowContent = ({
     paymentError,
   ]);
 
-  if (bookingLoading || (paymentLoading && paymentIdForQuery)) {
+  if (
+    bookingLoading ||
+    (paymentLoading && paymentIdForQuery && initialData?.payment)
+  ) {
     return <ExpandedContentSkeleton />;
   }
 
-  if (bookingError || (paymentError && paymentIdForQuery)) {
+  // Check error for payment query only if paymentIdForQuery was valid
+  const effectivePaymentError = paymentIdForQuery && initialData?.payment && paymentError;
+
+  if (bookingError || effectivePaymentError) {
     return (
       <div className="p-4 bg-red-50 text-red-800 rounded-lg">
         <BiErrorCircle className="inline-block mr-2" />
@@ -132,8 +171,9 @@ const ExpandedRowContent = ({
     );
   }
 
-  const getDateInfoForStatus = (payment, formattedFallbackDate) => {
-    if (!payment) {
+  const getDateInfoForStatus = (paymentData, fallbackDateString) => {
+    // Use paymentData which is combinedData.payment
+    if (!paymentData) {
       return { title: "Payment Date", dateValue: "--" };
     }
 
@@ -142,20 +182,25 @@ const ExpandedRowContent = ({
       paymentCompletedDate,
       paymentRefundedDate,
       refundRequestedDate,
-    } = payment;
+    } = paymentData; // Use paymentData directly
 
     let title = "Payment Date";
-    let dateValue =
-      paymentCompletedDate && formattedFallbackDate !== "--"
-        ? formatReadableDate(paymentCompletedDate)
-        : formattedFallbackDate || "--";
+    // Fallback date string is likely initialData.formattedPaymentCompletedDate or similar
+    // For consistency, format dates freshly if available
+    let dateValue = paymentCompletedDate
+      ? formatReadableDate(paymentCompletedDate)
+      : fallbackDateString && fallbackDateString !== "--"
+      ? fallbackDateString
+      : "--";
 
     switch (transactionStatus) {
       case "Completed":
         title = "Payment Date";
         dateValue = paymentCompletedDate
           ? formatReadableDate(paymentCompletedDate)
-          : formattedFallbackDate || "--";
+          : fallbackDateString && fallbackDateString !== "--"
+          ? fallbackDateString
+          : "--";
         break;
       case "Refunded":
         title = "Refund Date";
@@ -183,8 +228,11 @@ const ExpandedRowContent = ({
 
   const { title: paymentDateTitle, dateValue: paymentDateValue } =
     getDateInfoForStatus(
-      combinedData.payment,
-      combinedData.formattedPaymentCompletedDate
+      combinedData.payment, // Pass the payment object from combinedData
+      combinedData.payment?.paymentCompletedDate // Pass a raw date if available for fallback formatting
+        ? formatReadableDate(combinedData.payment.paymentCompletedDate)
+        : // or use a pre-formatted one from initialData if that's the design
+          initialData.formattedPaymentCompletedDate // Example fallback
     );
 
   return (
@@ -200,19 +248,25 @@ const ExpandedRowContent = ({
                 <div>
                   <p className="text-sm text-gray-500">Transaction ID</p>
                   <p className="font-medium">
-                    {combinedData.payment?.transactionReferenceNumber || "--"}
+                    {combinedData.payment?.transactionReferenceNumber ||
+                      combinedData.payment?.reference_number ||
+                      "--"}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Amount</p>
                   <p className="font-medium">
-                    {combinedData.payment?.amount ?? "--"}
+                    {typeof combinedData.payment?.amount === "number"
+                      ? `${combinedData.payment.amount.toLocaleString()} ${
+                          combinedData.payment?.currency || "PKR"
+                        }`
+                      : "--"}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Payment Status</p>
                   <div>
-                    <ExpandedStatusDisplay
+                    <ExpandedStatusDisplay // This component uses transactionStatusDisplay
                       transactionStatusDisplay={
                         combinedData.transactionStatusDisplay
                       }
@@ -242,12 +296,12 @@ const ExpandedRowContent = ({
             {(combinedData.payment?.transactionStatus === "Not Initiated" ||
               combinedData.payment?.transactionStatus === "Cancelled" ||
               combinedData.payment?.transactionStatus === "Failed") &&
-              combinedData._id && (
+              combinedData._id && ( // Ensure booking _id is present
                 <div className="mt-4 flex justify-end">
                   <PaymentButton
-                    bookingId={combinedData._id}
+                    bookingId={combinedData._id} // Pass the booking's MongoDB _id
                     status={combinedData.payment?.transactionStatus}
-                    onClick={onRedirectToPayment}
+                    onClick={() => onRedirectToPayment(combinedData._id)} // Ensure onClick calls with booking _id
                     isLoading={payingBookingId === combinedData._id}
                   />
                 </div>
@@ -271,11 +325,14 @@ const ExpandedRowContent = ({
                 <div>
                   <p className="text-sm text-gray-500">Booking ID</p>
                   <p className="font-medium">
-                    {combinedData.customerBookingId || "--"}
+                    {combinedData.customerBookingId ||
+                      combinedData.bookingId ||
+                      "--"}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Session Status</p>
+                  {/* 'status' on combinedData is the booking status */}
                   <p className="font-medium">{combinedData.status || "--"}</p>
                 </div>
               </div>
@@ -283,9 +340,8 @@ const ExpandedRowContent = ({
                 <div>
                   <p className="text-sm text-gray-500">Session Date & Time</p>
                   <p className="font-medium">
-                    {combinedData.formattedEventStartTime
-                      ? formatReadableDate(combinedData.formattedEventStartTime)
-                      : combinedData.eventStartTime
+                    {/* Use eventStartTime from combinedData, format it */}
+                    {combinedData.eventStartTime
                       ? formatReadableDate(combinedData.eventStartTime)
                       : "--"}
                   </p>
@@ -329,7 +385,8 @@ const ExpandedRowContent = ({
               </div>
             )}
             {combinedData.location?.type === "online" &&
-              combinedData.status === "Active" &&
+              (combinedData.status === "Active" ||
+                combinedData.status === "active") && // check for 'active' too
               combinedData.location?.join_url && (
                 <div className="mt-4 flex justify-end">
                   <a

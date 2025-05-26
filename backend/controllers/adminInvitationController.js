@@ -2,7 +2,7 @@ const Invitee = require("../models/Invitee");
 const asyncHandler = require("express-async-handler");
 const logger = require("../logs/logger");
 const crypto = require("crypto");
-const { myQueue, sendInvitationEmail } = require("../utils/myQueue");
+const { sendEmail } = require("../utils/myQueue");
 
 //@desc invite a user to register
 //@param valid admin jwt token
@@ -64,7 +64,7 @@ const inviteUser = asyncHandler(async (req, res) => {
 
     // Send invitation email
     try {
-      await myQueue.add("sendInvitation", {
+      await sendEmail("sendInvitation", {
         recipient: email,
         name: name,
         invitationUrl,
@@ -234,7 +234,7 @@ const resendInvitation = asyncHandler(async (req, res) => {
 
     try {
       // Send invitation email
-      await myQueue.add("sendInvitation", {
+      await sendEmail("sendInvitation", {
         recipient: invitee.email,
         name: invitee.name,
         invitationUrl,

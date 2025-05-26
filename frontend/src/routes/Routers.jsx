@@ -14,10 +14,11 @@ import Register from "../features/auth/Register";
 import Dashboard from "../pages/Dashboards/UserDashboard/DashboardNav";
 import AdminDashboard from "../pages/Dashboards/AdminDashboard/AdminDashNav";
 import NotFound from "../pages/404";
+import TermsAndConditions from "../pages/General/TermsAndConditions"; // Added import
 
 // Admin Dashboard Components
 import AdminMetrics from "../pages/Dashboards/AdminDashboard/AdminMetrics";
-import AdminBookings from "../pages/Dashboards/AdminDashboard/Bookings/AdminBookings";
+import AdminBookings from "../pages/Dashboards/AdminDashboard/Bookings/AdminBookings.jsx";
 import AdminUsers from "../pages/Dashboards/AdminDashboard/Users/AdminUsers";
 import SystemHealth from "../pages/Dashboards/AdminDashboard/SystemHealth";
 import UpcomingBookings from "../pages/Dashboards/AdminDashboard/UpcomingBookings";
@@ -33,6 +34,11 @@ const Routers = () => {
       <Route path="/verifyEmail" element={<EmailVerification />} />
       <Route path="/forgotPassword" element={<ForgotPassword />} />
       <Route path="/resetPassword" element={<ResetPassword />} />
+      <Route
+        path="/terms-and-conditions"
+        element={<TermsAndConditions />}
+      />{" "}
+      {/* Added route */}
       <Route element={<PersistLogin />}>
         <Route
           path="/dash"

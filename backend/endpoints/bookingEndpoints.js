@@ -13,4 +13,6 @@ router.use(verifyJWT);
 
 router.route("/").get(redisCaching(), bookingController.getActiveBookings);
 
+router.route("/:bookingId").get(redisCaching(), bookingController.getBooking);
+
 module.exports = router;

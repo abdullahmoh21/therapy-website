@@ -9,6 +9,7 @@ const logger = require("../logs/logger");
 const { invalidateCache } = require("../middleware/redisCaching");
 const {
   myQueue,
+  sendEmail,
   sendVerificationEmail,
   sendResetPasswordEmail,
 } = require("../utils/myQueue");
@@ -98,7 +99,7 @@ const resendEvLink = asyncHandler(async (req, res) => {
 
   // Add job to email queue
   try {
-    await myQueue.add("verifyEmail", emailJobData);
+    await sendEmail("verifyEmail", emailJobData);
   } catch (err) {
     logger.error(`Error sending email verification link`);
     return res.sendStatus(500);
@@ -180,7 +181,7 @@ const forgotPassword = asyncHandler(async (req, res) => {
   };
 
   try {
-    await myQueue.add("resetPassword", emailJobData);
+    await sendEmail("resetPassword", emailJobData);
   } catch (err) {
     logger.error("Error sending forgot password email");
     return res.sendStatus(500);
@@ -277,62 +278,113 @@ const updateMyUser = asyncHandler(async (req, res) => {
 //@access Private
 const getAllMyBookings = asyncHandler(async (req, res) => {
   const userId = new mongoose.Types.ObjectId(req.user.id);
-  const page = parseInt(req.query.page, 10) || 1;
+  let page = parseInt(req.query.page, 10) || 1;
+  if (page < 1) page = 1; // Ensure page is not less than 1
   const limit = parseInt(req.query.limit, 10) || 10;
-  const { search, status, startDate, endDate, date, location } = req.query;
+  const {
+    search,
+    transactionRef,
+    paymentStatus,
+    startDate,
+    endDate,
+    location,
+  } = req.query;
   const skip = (page - 1) * limit;
 
   const query = { userId };
-  if (status && ["Active", "Completed", "Cancelled"].includes(status)) {
-    query.status = status;
-  }
-  if (location && ["in-person", "online"].includes(location)) {
-    query.location = location;
-  }
 
-  if (date) {
-    const sd = new Date(date);
-    const nd = new Date(sd);
-    nd.setDate(nd.getDate() + 1);
-    query.eventStartTime = { $gte: sd, $lt: nd };
-  } else if (startDate && endDate) {
-    query.eventStartTime = {
-      $gte: new Date(startDate),
-      $lte: new Date(endDate),
-    };
-  } else if (startDate) {
-    query.eventStartTime = { $gte: new Date(startDate) };
-  } else if (endDate) {
-    query.eventStartTime = { $lte: new Date(endDate) };
-  }
-
+  // Search by Booking ID (customerBookingId)
   if (search) {
-    const orClauses = [];
-
     if (!isNaN(search)) {
-      orClauses.push({ bookingId: parseInt(search, 10) });
+      query.bookingId = parseInt(search, 10);
+    } else {
+      query.bookingId = -1; // No booking will have ID -1
     }
+  }
 
-    const payments = await Payment.find({
-      userId,
-      transactionReferenceNumber: { $regex: search, $options: "i" },
-    })
-      .select("_id")
-      .lean();
+  // Date filtering using startDate and endDate parameters
+  if (startDate && endDate) {
+    try {
+      const parsedStartDate = new Date(startDate);
+      const parsedEndDate = new Date(endDate);
 
-    if (payments.length > 0) {
-      const paymentIds = payments.map((p) => p._id);
-      orClauses.push({ paymentId: { $in: paymentIds } });
+      if (isNaN(parsedStartDate.getTime()) || isNaN(parsedEndDate.getTime())) {
+        return res
+          .status(400)
+          .json({ message: "Invalid date format provided." });
+      }
+
+      query.eventStartTime = { $gte: parsedStartDate, $lte: parsedEndDate };
+    } catch (e) {
+      logger.error(`Error parsing date parameters: ${e.message}`);
+      return res.status(400).json({ message: "Invalid date parameters." });
     }
+  }
 
-    if (orClauses.length > 0) {
-      query.$or = orClauses;
-    }
+  // Location filtering
+  if (location && (location === "online" || location === "in-person")) {
+    query["location.type"] = location;
   }
 
   const aggregatePipeline = [
-    { $match: query },
-    { $sort: { eventStartTime: 1 } },
+    { $match: query }, // Initial match on booking fields
+    {
+      $lookup: {
+        from: "payments",
+        let: { pid: "$paymentId" },
+        pipeline: [
+          { $match: { $expr: { $eq: ["$_id", "$$pid"] } } },
+          {
+            $project: {
+              _id: 1,
+              amount: 1,
+              transactionStatus: 1,
+              currency: 1,
+              transactionReferenceNumber: 1, // Add this field to projection
+            },
+          },
+        ],
+        as: "payment",
+      },
+    },
+    { $unwind: { path: "$payment", preserveNullAndEmptyArrays: true } },
+  ];
+
+  // Filter by payment transaction reference if provided
+  if (transactionRef) {
+    // Remove "T-" prefix if present
+    const searchRefNumber = transactionRef.startsWith("T-")
+      ? transactionRef.substring(2)
+      : transactionRef;
+
+    // Add a match stage for transaction reference number
+    aggregatePipeline.push({
+      $match: {
+        $or: [
+          { "payment.transactionReferenceNumber": searchRefNumber },
+          {
+            "payment.transactionReferenceNumber": new RegExp(
+              searchRefNumber,
+              "i"
+            ),
+          }, // Case insensitive search
+        ],
+      },
+    });
+
+    logger.debug(`Filtering by transaction reference: ${searchRefNumber}`);
+  }
+
+  // Filter by paymentStatus if provided
+  if (paymentStatus) {
+    aggregatePipeline.push({
+      $match: { "payment.transactionStatus": paymentStatus },
+    });
+  }
+
+  // Add sorting, $facet for pagination, and final $project
+  aggregatePipeline.push(
+    { $sort: { eventStartTime: -1 } },
     {
       $facet: {
         metadata: [{ $count: "totalBookings" }],
@@ -340,26 +392,18 @@ const getAllMyBookings = asyncHandler(async (req, res) => {
           { $skip: skip },
           { $limit: limit },
           {
-            $lookup: {
-              from: "payments",
-              let: { pid: "$paymentId" },
-              pipeline: [
-                { $match: { $expr: { $eq: ["$_id", "$$pid"] } } },
-                { $project: { _id: 1, amount: 1, transactionStatus: 1 } },
-              ],
-              as: "payment",
-            },
-          },
-          { $unwind: { path: "$payment", preserveNullAndEmptyArrays: true } },
-          {
             $project: {
               _id: 1,
               eventStartTime: 1,
+              eventEndTime: 1,
               bookingId: 1,
               status: 1,
-              "payment._id": 1,
-              "payment.amount": 1,
-              "payment.transactionStatus": 1,
+              eventName: 1,
+              location: 1,
+              notes: 1,
+              cancellation: 1,
+              createdAt: 1,
+              payment: 1,
             },
           },
         ],
@@ -368,11 +412,11 @@ const getAllMyBookings = asyncHandler(async (req, res) => {
     { $unwind: { path: "$metadata", preserveNullAndEmptyArrays: true } },
     {
       $project: {
-        totalBookings: "$metadata.totalBookings",
+        totalBookings: { $ifNull: ["$metadata.totalBookings", 0] },
         bookings: "$data",
       },
-    },
-  ];
+    }
+  );
 
   try {
     const [result] = await Booking.aggregate(aggregatePipeline).exec();
@@ -381,12 +425,11 @@ const getAllMyBookings = asyncHandler(async (req, res) => {
     const bookings = result?.bookings || [];
 
     logger.debug(
-      `Found ${bookings.length} bookings out of ${totalBookings} total`
+      `Found ${bookings.length} bookings out of ${totalBookings} total for page ${page} with filters: search='${search}', transactionRef='${transactionRef}', paymentStatus='${paymentStatus}', startDate='${startDate}', endDate='${endDate}', location='${location}'`
     );
 
-    // 9) Send response
     res.json({
-      page,
+      page: page,
       limit,
       totalBookings,
       totalPages: Math.ceil(totalBookings / limit),
@@ -398,54 +441,6 @@ const getAllMyBookings = asyncHandler(async (req, res) => {
   }
 });
 
-const getBooking = asyncHandler(async (req, res) => {
-  const { bookingId } = req.params;
-
-  if (!bookingId) {
-    return res.status(400).json({ message: "bookingId is required" });
-  }
-
-  const booking = await Booking.findOne({
-    userId: req.user.id,
-    _id: bookingId,
-  })
-    .lean()
-    .select(
-      "_id eventStartTime eventEndTime eventName status location cancellation"
-    )
-    .exec();
-
-  if (!booking) {
-    return res.status(404).json({ message: "No such booking found for user" });
-  }
-
-  res.json(booking);
-});
-
-const getPayment = asyncHandler(async (req, res) => {
-  const { paymentId } = req.params;
-
-  if (!paymentId) {
-    return res.status(400).json({ message: "bookingId is required" });
-  }
-
-  const payment = await Payment.findOne({
-    userId: req.user.id,
-    _id: paymentId,
-  })
-    .lean()
-    .select(
-      "_id transactionReferenceNumber amount currency transactionStatus paymentCompletedDate paymentRefundedDate refundRequestedDate"
-    )
-    .exec();
-
-  if (!payment) {
-    return res.status(404).json({ message: "No such Payment found for user" });
-  }
-
-  res.json(payment);
-});
-
 module.exports = {
   getMyData,
   updateMyUser,
@@ -454,6 +449,4 @@ module.exports = {
   forgotPassword,
   resetPassword,
   getAllMyBookings,
-  getBooking,
-  getPayment,
 };

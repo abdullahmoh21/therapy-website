@@ -31,26 +31,14 @@ router
 router
   .route("/resetPassword") //?token=tokenString
   .post(
-    expressJoiValidation.body(passwordSchema), //password is in the body
-    expressJoiValidation.query(tokenSchema), //token is in the URL
+    expressJoiValidation.body(passwordSchema),
+    expressJoiValidation.query(tokenSchema),
     userController.resetPassword
   );
 
-router.route("/forgotPassword").post(
-  (req, res, next) => {
-    console.log("Request received at /forgotPassword");
-    next();
-  },
-  expressJoiValidation.body(emailSchema),
-  (err, req, res, next) => {
-    if (err) {
-      console.error("Validation error:", err);
-      return res.status(400).json({ error: err.message });
-    }
-    next();
-  },
-  userController.forgotPassword
-);
+router
+  .route("/forgotPassword")
+  .post(expressJoiValidation.body(emailSchema), userController.forgotPassword);
 
 router.use(verifyJWT);
 
@@ -61,13 +49,6 @@ router
   .patch(expressJoiValidation.body(updateMyUser), userController.updateMyUser);
 
 router.route("/bookings").get(redisCaching(), userController.getAllMyBookings);
-
-router
-  .route("/bookings/:bookingId")
-  .get(redisCaching(), userController.getBooking);
-router
-  .route("/payments/:paymentId")
-  .get(redisCaching(), userController.getPayment);
 
 //formats any joi error into JSON for the client
 router.use((err, req, res, next) => {

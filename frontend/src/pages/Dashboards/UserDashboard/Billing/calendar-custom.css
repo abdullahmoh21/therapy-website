@@ -1,0 +1,172 @@
+/* Custom Calendar Styling */
+.calendar-custom .p-inputtext {
+  border-radius: 0.375rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  height: 38px; /* Match height with dropdowns */
+}
+
+.calendar-custom .p-button-icon {
+  color: #c45e3e;
+}
+
+.calendar-panel-custom {
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+  padding: 0.5rem;
+  border: 1px solid #e0c3b8 !important;
+  background-color: white !important;
+}
+
+.calendar-panel-custom .p-datepicker-header {
+  background-color: #ffede8;
+  border-bottom: 1px solid #e09e7a;
+  padding: 0.75rem;
+  border-top-left-radius: 0.375rem;
+  border-top-right-radius: 0.375rem;
+}
+
+.calendar-panel-custom .p-datepicker-title {
+  color: #bd704c;
+  font-weight: 600;
+}
+
+.calendar-panel-custom .p-datepicker-next,
+.calendar-panel-custom .p-datepicker-prev {
+  background-color: transparent;
+  color: #c45e3e;
+  border: 1px solid #e09e7a;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+}
+
+.calendar-panel-custom .p-datepicker-next:hover,
+.calendar-panel-custom .p-datepicker-prev:hover {
+  background-color: #e09e7a;
+  color: white;
+}
+
+.calendar-panel-custom .p-datepicker-calendar th {
+  color: #bd704c;
+  font-weight: 600;
+}
+
+.calendar-panel-custom .p-datepicker-calendar td {
+  padding: 0.3rem;
+}
+
+.calendar-panel-custom .p-datepicker-calendar td > span {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.calendar-panel-custom .p-datepicker-calendar td > span:hover {
+  background-color: #ffede8;
+}
+
+.calendar-panel-custom .p-datepicker-calendar td > span.p-highlight {
+  background-color: #e09e7a;
+  color: white;
+}
+
+.calendar-panel-custom .p-datepicker-calendar td.p-datepicker-today > span {
+  border: 1px solid #c45e3e;
+  color: #c45e3e;
+}
+
+.calendar-panel-custom
+  .p-datepicker-calendar
+  td.p-datepicker-today
+  > span.p-highlight {
+  background-color: #c45e3e;
+  color: white;
+}
+
+.calendar-panel-custom .p-datepicker-buttonbar {
+  border-top: 1px solid #e0c3b8;
+  padding: 0.75rem;
+}
+
+.calendar-panel-custom .p-datepicker-buttonbar .p-button {
+  background-color: #e09e7a;
+  border-color: #e09e7a;
+  color: white;
+  border-radius: 0.375rem;
+  transition: all 0.2s;
+  padding: 0.5rem 1rem;
+}
+
+.calendar-panel-custom .p-datepicker-buttonbar .p-button:hover {
+  background-color: #c88b6e;
+  border-color: #c88b6e;
+}
+
+/* Custom Dropdown Styling */
+.dropdown-custom .p-dropdown-label {
+  padding: 0.625rem 0.75rem;
+}
+
+/* Set consistent height for dropdowns */
+.dropdown-custom {
+  height: 38px; /* Consistent height */
+}
+
+.dropdown-panel-custom {
+  border-radius: 0.5rem !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+  border: 1px solid #e0c3b8 !important;
+  padding: 0.25rem 0 !important;
+  background-color: white !important;
+}
+
+.dropdown-panel-custom .p-dropdown-items {
+  padding: 0.25rem 0;
+}
+
+.dropdown-panel-custom .p-dropdown-item {
+  padding: 0.625rem 1rem;
+  color: #1e1e1e;
+  transition: all 0.2s;
+}
+
+.dropdown-panel-custom .p-dropdown-item:hover {
+  background-color: #ffede8;
+  color: #bd704c;
+}
+
+.dropdown-panel-custom .p-dropdown-item.p-highlight {
+  background-color: #e09e7a !important;
+  color: white !important;
+}
+
+/* Input fields general styling */
+.p-inputtext:focus {
+  border-color: #e09e7a !important;
+  box-shadow: 0 0 0 1px #e0c3b8 !important;
+}
+
+.p-dropdown:focus,
+.p-dropdown-focus {
+  border-color: #e09e7a !important;
+  box-shadow: 0 0 0 1px #e0c3b8 !important;
+}
+
+/* Fixed height for all filter inputs */
+.filter-input-height {
+  height: 38px !important;
+}
+
+/* For the input group styling */
+.p-inputgroup .p-inputgroup-addon {
+  height: 38px;
+  display: flex;
+  align-items: center;
+}
+
+.p-inputgroup .p-inputtext {
+  height: 38px;
+}

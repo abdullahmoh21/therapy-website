@@ -5,7 +5,7 @@ const Payment = require("../models/Payment");
 const Booking = require("../models/Booking");
 const logger = require("../logs/logger");
 const Config = require("../models/Config"); // Import Config model
-const { myQueue } = require("../utils/myQueue");
+const { sendEmail } = require("../utils/myQueue");
 const { invalidateCache } = require("../middleware/redisCaching");
 
 //production: change to main api
@@ -85,7 +85,7 @@ const handleSafepayWebhook = asyncHandler(async (req, res) => {
   //send email to user on refund
   if (payment.transactionStatus === "Refunded") {
     try {
-      await myQueue.add("refundConfirmation", { payment });
+      await sendEmail("refundConfirmation", { payment });
     } catch (error) {
       logger.error("Error sending refund confirmation email.");
       return res.sendStatus(500);
@@ -261,7 +261,7 @@ const refundRequest = asyncHandler(async (req, res) => {
     updatePaymentStatus: true, //worker will update payment status to 'Refund Requested'
   };
   try {
-    await myQueue.add("refundRequest", emailJobData);
+    await sendEmail("refundRequest", emailJobData);
   } catch (error) {
     logger.error(
       `Error adding refund request job to queue. Sending manually: ${error}`
@@ -275,8 +275,33 @@ const refundRequest = asyncHandler(async (req, res) => {
     .json({ message: "Refund request has been added to the queue " });
 });
 
+const getPayment = asyncHandler(async (req, res) => {
+  const { paymentId } = req.params;
+
+  if (!paymentId) {
+    return res.status(400).json({ message: "bookingId is required" });
+  }
+
+  const payment = await Payment.findOne({
+    userId: req.user.id,
+    _id: paymentId,
+  })
+    .lean()
+    .select(
+      "_id transactionReferenceNumber amount currency transactionStatus paymentCompletedDate paymentRefundedDate refundRequestedDate"
+    )
+    .exec();
+
+  if (!payment) {
+    return res.status(404).json({ message: "No such Payment found for user" });
+  }
+
+  res.json(payment);
+});
+
 module.exports = {
   handleSafepayWebhook,
   createPayment,
   refundRequest,
+  getPayment,
 };
