@@ -4,95 +4,6 @@ const logger = require("../logs/logger");
 const crypto = require("crypto");
 const { sendEmail } = require("../utils/myQueue");
 
-//@desc invite a user to register
-//@param valid admin jwt token
-//@route POST /admin/invite
-//@access Private(admin)
-const inviteUser = asyncHandler(async (req, res) => {
-  try {
-    const { email, name } = req.body;
-    const adminId = req.user.id;
-
-    if (!email) {
-      return res.status(400).json({ message: "Email is required" });
-    }
-
-    // Run duplicate checks in parallel
-    const [existingUser, activeInvitation] = await Promise.all([
-      User.findOne({ email }).lean().exec(),
-      Invitee.findOne({
-        email,
-        isUsed: false,
-        expiresAt: { $gt: Date.now() },
-      })
-        .lean()
-        .exec(),
-    ]);
-
-    // Handle duplicates
-    if (existingUser) {
-      return res
-        .status(409)
-        .json({ message: "User with this email already exists" });
-    }
-
-    // If there's already an active invitation, return its details
-    if (activeInvitation) {
-      return res.status(200).json({
-        message: "Invitation already exists for this email",
-        invitationId: activeInvitation._id,
-        expiresAt: activeInvitation.expiresAt,
-      });
-    }
-
-    // Generate invitation token
-    const token = crypto.randomBytes(20).toString("hex");
-
-    // Create new invitation record
-    const invitation = await Invitee.create({
-      email,
-      name: name || "",
-      token,
-      invitedBy: adminId,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-    });
-
-    // Generate invitation URL
-    const invitationUrl = `${
-      process.env.FRONTEND_URL
-    }/signup?invitation=${token}&email=${encodeURIComponent(email)}`;
-
-    // Send invitation email
-    try {
-      await sendEmail("sendInvitation", {
-        recipient: email,
-        name: name,
-        invitationUrl,
-      });
-    } catch (err) {
-      return res.sendStatus(500);
-    }
-
-    // Success response
-    res.status(201).json({
-      message: "Invitation sent successfully",
-      invitationId: invitation._id,
-      expiresAt: invitation.expiresAt,
-      invitationUrl: invitationUrl, // For development/testing
-    });
-  } catch (error) {
-    if (error.code === 11000) {
-      logger.error(`Duplicate key error: ${error.message}`);
-      return res
-        .status(409)
-        .json({ message: "An invitation for this email already exists." });
-    }
-
-    logger.error(`Error in inviteUser: ${error.message}`);
-    res.status(500).json({ message: "Error creating invitation" });
-  }
-});
-
 //@desc Get all invitations with filters
 //@param {Object} req with valid role, optional search, role filter
 //@route GET /admin/invitations
@@ -195,6 +106,96 @@ const deleteInvitation = asyncHandler(async (req, res) => {
   }
 });
 
+//@desc invite a user to register
+//@param valid admin jwt token
+//@route POST /admin/invite
+//@access Private(admin)
+const inviteUser = asyncHandler(async (req, res) => {
+  try {
+    const { email, name } = req.body;
+    const adminId = req.user.id;
+
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    // Run duplicate checks in parallel
+    const [existingUser, activeInvitation] = await Promise.all([
+      User.findOne({ email }).lean().exec(),
+      Invitee.findOne({
+        email,
+        isUsed: false,
+        expiresAt: { $gt: Date.now() },
+      })
+        .lean()
+        .exec(),
+    ]);
+
+    // Handle duplicates
+    if (existingUser) {
+      return res
+        .status(409)
+        .json({ message: "User with this email already exists" });
+    }
+
+    // If there's already an active invitation, return its details
+    if (activeInvitation) {
+      return res.status(200).json({
+        message: "Invitation already exists for this email",
+        invitationId: activeInvitation._id,
+        expiresAt: activeInvitation.expiresAt,
+      });
+    }
+
+    // Generate invitation token
+    const token = crypto.randomBytes(20).toString("hex");
+
+    // Create new invitation record
+    const invitation = await Invitee.create({
+      email,
+      name: name || "",
+      token,
+      invitedBy: adminId,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+    });
+
+    // Generate invitation URL
+    const invitationUrl = `${
+      process.env.FRONTEND_URL
+    }/signup?invitation=${token}&email=${encodeURIComponent(email)}`;
+
+    logger.debug(`Created the following invitation link: ${invitationUrl}`);
+    // Send invitation email
+    try {
+      await sendEmail("sendInvitation", {
+        recipient: email,
+        name: name,
+        link: invitationUrl,
+      });
+    } catch (err) {
+      return res.sendStatus(500);
+    }
+
+    // Success response
+    res.status(201).json({
+      message: "Invitation sent successfully",
+      invitationId: invitation._id,
+      expiresAt: invitation.expiresAt,
+      invitationUrl: invitationUrl, // For development/testing
+    });
+  } catch (error) {
+    if (error.code === 11000) {
+      logger.error(`Duplicate key error: ${error.message}`);
+      return res
+        .status(409)
+        .json({ message: "An invitation for this email already exists." });
+    }
+
+    logger.error(`Error in inviteUser: ${error.message}`);
+    res.status(500).json({ message: "Error creating invitation" });
+  }
+});
+
 //@desc resend invitation to user using invite ID
 //@param valid admin jwt token and invite ID
 //@route POST /admin/invite/:inviteId/resend
@@ -237,7 +238,7 @@ const resendInvitation = asyncHandler(async (req, res) => {
       await sendEmail("sendInvitation", {
         recipient: invitee.email,
         name: invitee.name,
-        invitationUrl,
+        link: invitationUrl,
       });
     } catch (e) {
       return res.sendStatus(500);

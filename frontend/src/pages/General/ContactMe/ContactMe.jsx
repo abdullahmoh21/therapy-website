@@ -7,6 +7,7 @@ import "react-toastify/dist/ReactToastify.css";
 import { InputText } from "primereact/inputtext";
 import { Dropdown } from "primereact/dropdown";
 import { Button } from "primereact/button";
+import { PrimeIcons } from "primereact/api";
 import { useContactMeMutation } from "../../../features/users/usersApiSlice";
 import { PhoneInput } from "react-international-phone";
 import { isValidNumber } from "libphonenumber-js";
@@ -80,9 +81,7 @@ const ContactMe = () => {
         message: data.message,
         type: data.requestType,
       }).unwrap();
-      toast.success("Message sent successfully!", {
-        icon: "pi pi-check",
-      });
+      toast.success("Message sent successfully!");
     } catch (error) {
       if (error.status >= 400 && error.status < 500) {
         toast.error("Client error: Failed to send message");

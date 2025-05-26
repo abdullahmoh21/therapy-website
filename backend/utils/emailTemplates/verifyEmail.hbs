@@ -1,88 +1,78 @@
-<!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Welcome to Our Clinic</title>
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f4f4f4;
-            margin: 0;
-            padding: 0;
-            color: #333;
-        }
-        .email-container {
-            max-width: 600px;
-            margin: 20px auto;
-            background-color: #ffffff;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-        .email-header {
-            background-color: #eb8e5f;
-            color: #ffffff;
-            padding: 20px;
-            text-align: center;
-            border-bottom: 1px solid #eb8e5f;
-        }
-        .email-body {
-            padding: 20px;
-            line-height: 1.5;
-            text-align: left;
-        }
-        .email-body h1 {
-            color: #DF9E7C;
-        }
-        .email-body p, .email-body h1 {
-            text-align: left;
-        }
-        a:not(.button-link) {
-            color: #DF9E7C;
-            text-decoration: underline;
-        }
-        .button-link {
-            display: block;
-            width: fit-content;
-            margin: 10px auto;
-            background-color: #eb8e5f;
-            color: #000000; 
-            padding: 10px 20px;
-            border-radius: 5px;
-            text-decoration: none;
-            border: none;
-            cursor: pointer;
-            text-align: center;
-        }
-        .footer {
-            background-color: #eb8e5f;
-            color: #ffffff;
-            text-align: center;
-            padding: 10px;
-            font-size: 14px;
-        }
+      body { font-family: Arial, sans-serif; background-color: #f9f9f9; margin:
+      0; padding: 0; color: #333; } .email-container { max-width: 600px; margin:
+      40px auto; background-color: #ffffff; border: 1px solid #eee; border-left:
+      4px solid #e27a82; border-radius: 8px; padding: 24px; } .header {
+      text-align: center; margin-bottom: 20px; } .header img { max-height: 40px;
+      display: block; margin: 0 auto 10px; } .fallback-logo { color: #e27a82;
+      font-weight: bold; font-size: 18px; } .title { font-size: 20px;
+      font-weight: bold; color: #e27a82; margin-bottom: 20px; text-align:
+      center; } .email-body { font-size: 16px; line-height: 1.5; } .button-link
+      { display: block; width: fit-content; margin: 20px auto; background-color:
+      #e27a82; color: #ffffff; padding: 12px 24px; border-radius: 6px;
+      text-decoration: none; text-align: center; font-size: 16px; }
+      .button-link:hover { background-color: #c86a67; } a:not(.button-link) {
+      color: #0066cc; text-decoration: underline; word-break: break-word; }
+      .footer { font-size: 13px; color: #777; text-align: center; margin-top:
+      40px; border-top: 1px solid #eee; padding-top: 16px; }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="email-container">
-        <div class="email-header">
-            <h2>Fatima's Therapy Services</h2>
+      <!-- Clickable Logo with Fallback -->
+      <div class="header">
+        <div style="height: 40px; margin-bottom: 10px; text-align: center">
+          <a
+            href="{{frontend_url}}"
+            target="_blank"
+            style="display: inline-block"
+          >
+            <img
+              src="{{frontend_url}}/logo.png"
+              alt="Fatima's Therapy Services"
+              style="max-height: 100%; display: block; margin: 0 auto"
+              onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\'color:#E27A82;font-size:18px;font-weight:bold;\'>Fatima's Therapy Services</div>';"
+            />
+          </a>
         </div>
-        <div class="email-body">
-            <h1>Welcome to Our Clinic</h1>
-            <p>Dear {{name}},</p>
-            <p>We're excited to have you on board. To get started, please activate your account by clicking the button below:</p>
-            <br>
-            <a href="{{link}}" target="_blank" class="button-link">Activate Account</a>
-            <br>
-            <p>This link will expire in one hour. If you did not make this request, please ignore this message.</p>
-        </div>
-        <div class="footer">
-            Regards,<br>
-            The Clinic Team<br>
-            <a href="https://www.fatimanaqvi.com">www.fatimanaqvi.com</a>
-        </div>
+      </div>
+
+      <!-- Title -->
+      <div class="title">Welcome to Our Clinic</div>
+
+      <!-- Message Body -->
+      <div class="email-body">
+        <p>Dear {{name}},</p>
+
+        <p>
+          We're excited to have you on board. To get started, please activate
+          your account by clicking the button below:
+        </p>
+
+        <a href="{{link}}" target="_blank" class="button-link">Activate Account</a>
+
+        <p>
+          This link will expire in one hour. If you did not make this request,
+          please ignore this message.
+        </p>
+
+        <p>
+          If you're having trouble with the button above, copy and paste this
+          link into your browser:
+        </p>
+        <p><a href="{{link}}" target="_blank">{{link}}</a></p>
+      </div>
+
+      <!-- Footer -->
+      <div class="footer">
+        Regards,<br />
+        The Clinic Team<br />
+      </div>
     </div>
-</body>
+  </body>
 </html>

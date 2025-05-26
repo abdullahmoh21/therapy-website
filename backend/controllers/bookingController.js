@@ -343,6 +343,10 @@ const getActiveBookings = asyncHandler(async (req, res) => {
   res.json(bookingsWithPaymentDetails);
 });
 
+//@desc returns a specific booking
+//@param {Object} req with valid email abd bookingId
+//@route GET /bookings:bookingId
+//@access Private
 const getBooking = asyncHandler(async (req, res) => {
   const { bookingId } = req.params;
 
@@ -367,9 +371,22 @@ const getBooking = asyncHandler(async (req, res) => {
   res.json(booking);
 });
 
+//@desc returns the current Cancellation Notice Period
+//@param {Object} req with valid JWT
+//@route GET /bookings/noticePeriod
+//@access Private
+const getNoticePeriod = asyncHandler(async (req, res) => {
+  const noticePeriod = await Config.getValue("cancelCutoffDays");
+  if (!noticePeriod) {
+    return res.sendStatus(503);
+  }
+  return res.status(200).json({ noticePeriod });
+});
+
 module.exports = {
   handleCalendlyWebhook,
   getActiveBookings,
   getNewBookingLink,
   getBooking,
+  getNoticePeriod,
 };

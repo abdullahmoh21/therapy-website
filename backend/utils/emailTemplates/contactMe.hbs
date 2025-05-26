@@ -3,37 +3,48 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <style>
-      body { font-family: Arial, sans-serif; color: #333; margin: 0; padding: 0;
-      } .container { background-color: #ECBEA7; padding: 20px; border-radius:
-      8px; max-width: 800px; margin: auto; } .header { color: #333; font-size:
-      18px; font-weight: bold; margin-bottom: 20px; } .details { margin-bottom:
-      20px; padding-left: 20px; /* Add indentation */ } .details h3 { margin: 0;
-      color: #333; padding-bottom: 10px; } .details p { margin: 5px 0; }
-      .details a { color: #0066cc; /* Link color */ text-decoration: none; }
-      .footer { color: #222; font-size: 14px; }
+      body { font-family: Arial, sans-serif; color: #333; background-color:
+      #ffffff; margin: 0; padding: 20px; } .container { background-color:
+      #ffffff; border: 1px solid #e5e5e5; border-left: 4px solid #e27a82;
+      padding: 24px; max-width: 700px; margin: auto; border-radius: 6px; }
+      .header { text-align: center; margin-bottom: 20px; } .header h1 {
+      font-size: 20px; font-weight: bold; color: #e27a82; margin-top: 10px; }
+      .details { margin-bottom: 20px; } .details p { margin: 10px 0; } .details
+      a { color: #0066cc; text-decoration: none; } .footer { font-size: 14px;
+      color: #555; border-top: 1px solid #eee; padding-top: 16px; text-align:
+      center; }
     </style>
   </head>
   <body>
     <div class="container">
+      <!-- Header with Logo + Fallback -->
       <div class="header">
-        New Inquiry from
-        {{name}}. Here are the details:
+        <div style="height: 40px; margin-bottom: 10px">
+          <img
+            src="{{frontend_url}}/logo.png"
+            alt="Fatima's Therapy Services"
+            class="logo"
+            style="max-height: 100%; display: block; margin: 0 auto"
+            onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\'color:#E27A82;font-size:18px;font-weight:bold;\'>Fatima's Therapy</div>';"
+          />
+        </div>
+        <h1>Inquiry Received</h1>
       </div>
+
+      <!-- Inquiry Details -->
       <div class="details">
+        <p><strong>Name:</strong> {{name}}</p>
         <p><strong>Inquiry Type:</strong> {{type}}</p>
         <p><strong>Email:</strong> <a href="mailto:{{email}}">{{email}}</a></p>
         <p><strong>Phone:</strong> {{phone}}</p>
-        <p><strong>Message:</strong> {{message}}</p>
-        <p><strong>Please respond to the inquiry as soon as possible.(Just click
-            reply to this email)</strong>
-          <br /></p>
-        <br />
+        <p><strong>Message:</strong><br />{{message}}</p>
+        <p><em>To respond, just hit “Reply” on this email.</em></p>
       </div>
+
+      <!-- Footer -->
       <div class="footer">
         Regards,<br />
         Your Server
-        <br />
-        <br />
       </div>
     </div>
   </body>

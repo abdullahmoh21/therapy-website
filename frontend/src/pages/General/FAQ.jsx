@@ -3,34 +3,58 @@ import Faq from "react-faq-component";
 import { motion } from "framer-motion"; // You'll need to install framer-motion
 
 // FAQ Data
-const data = {
+export const data = {
   title: "",
   rows: [
+    /* ────────────────────────────────────────────────────────────────── */
     {
-      title: "    How do I book an appointment?",
-      content: `If you are a new client, simply navigate to our booking page and book a free 15 minute consultation. Follow the prompts to create a new account. For existing clients, log in to your account to book a new appointment. `,
+      title: "    How do I create an account?",
+      content: `Start by booking a free 15-minute consultation with Fatima via this <a href="https://calendly.com/fatimamohsintherapy/consultation" target="_blank" rel="noopener noreferrer"><u>link</u></a>. If both you and Fatima decide to proceed, you'll receive an e-mail invitation to create your private dashboard account. Only invited clients can sign up.`,
     },
+    /* ────────────────────────────────────────────────────────────────── */
     {
-      title: "    What payment methods do you accept for appointment bookings?",
-      content: `We accept all major credit and debit cards for payments. You can securely enter your payment information during the booking process. Payment by Cash and Bank transfer are also available.`,
+      title: "    How do I book an appointment after I have an account?",
+      content: `Log in to your dashboard and pick an available slot from the calendar. Because you're already verified, booking is instantaneous—no upfront payment is required.`,
     },
+    /* ────────────────────────────────────────────────────────────────── */
     {
-      title:
-        "    Do I need to pay for my appointment upfront or after the session?",
-      content: `We require payment upfront to confirm your appointment. This helps us ensure that our therapists' time is respected and allows for seamless scheduling.`,
+      title: "    Do I need to pay for my appointment upfront?",
+      content: `No. You may pay online any time before your session (preferred),or bring cash / arrange a bank transfer at the time of the appointment.`,
     },
+    /* ────────────────────────────────────────────────────────────────── */
+    {
+      title: "    What payment methods do you accept for sessions?",
+      content: `Online payments: all major credit / debit cards processed securely via SafePay. Offline payments: cash or direct bank transfer during your visit.`,
+    },
+    /* ────────────────────────────────────────────────────────────────── */
+    {
+      title: "    What is your cancellation and refund policy?",
+      content: `You may cancel without penalty if you do so no later than the notice period displayed in your dashboard.  Cancellations made after that window and all no-shows are non-refundable. More info <a href="/terms-and-conditions" target="_blank" rel="noopener noreferrer"><u>here</u></a> `,
+    },
+    /* ────────────────────────────────────────────────────────────────── */
     {
       title: "    What happens if I miss my appointment?",
-      content: `If you need to cancel your appointment, please do so 72 hours before your booking. If you cancel after this, you will not be eligible for a refund. Additionally, if you have not paid the cancellation fee, you will need to do so before booking another session. Please contact us directly for more information.`,
+      content: `A missed session (no-show) is treated the same as a late cancellation: the session fee is non-refundable. You will need to settle this fee before booking another slot.`,
     },
+    /* ────────────────────────────────────────────────────────────────── */
     {
-      title: "    Can I get a refund if I need to cancel my appointment?",
-      content: `Our refund policy depends on the timing of your cancellation. If you cancel within 72 hours of your appointment, you are eligible to recieve a full refund.`,
+      title: "    Can I reschedule my appointment instead of cancelling?",
+      content: `Yes—if you reschedule before the required notice period no additional fee is charged and your existing payment (if any) simply moves to the new slot.`,
     },
+    /* ────────────────────────────────────────────────────────────────── */
     {
-      title: "    How long does an appointment typically last?",
-      content:
-        "Appointment durations may vary depending on the type of therapy session and individual needs. Generally, sessions last between 45 minutes to an hour. However, some specialized sessions or assessments may require longer durations.",
+      title: "    How long does a therapy session last?",
+      content: `Standard sessions run 45–60 minutes. Assessment or specialized sessions may be longer; any variance will be shown in the calendar slot before you confirm.`,
+    },
+    /* ────────────────────────────────────────────────────────────────── */
+    {
+      title: "    Are my personal and payment details secure?",
+      content: `Absolutely. Your dashboard is invitation-only, uses SSL encryption, and card payments are processed by SafePay in compliance with State Bank of Pakistan requirements. We never store full card numbers on our servers.`,
+    },
+    /* ────────────────────────────────────────────────────────────────── */
+    {
+      title: "    Do you offer online or in-person sessions?",
+      content: `Both. You can select your preference (video or in-person) while booking. If you choose in-person, the session will be held at Fatima's Lahore practice.`,
     },
   ],
 };
@@ -52,6 +76,7 @@ const config = {
   openOnload: 0,
   expandIcon: "+",
   collapseIcon: "-",
+  htmlParsing: true, // Enable HTML parsing
 };
 
 const FAQ = () => {

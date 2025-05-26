@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import logo from "../../assets/images/logo.png";
+import logo from "../../assets/images/logo.webp";
 import { Link } from "react-router-dom";
 import { BiMenu } from "react-icons/bi";
 import { IoMdClose } from "react-icons/io";

@@ -8,7 +8,7 @@ import { toast } from "react-toastify";
 import { useSelector } from "react-redux";
 import { selectCurrentUserId } from "../../../../features/auth/authSlice";
 import InvitedUsers from "./InvitedUsers";
-import { debounce } from "lodash/debounce";
+import debounce from "lodash/debounce";
 
 import {
   useGetAdminUsersQuery,

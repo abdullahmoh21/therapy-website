@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, NavLink, Outlet } from "react-router-dom";
 import { useLogoutMutation } from "../../../features/auth/authApiSlice";
 import { BiMenu, BiX, BiLoaderAlt } from "react-icons/bi";
-import logo from "../../../assets/images/logo.png";
+import logo from "../../../assets/images/logo.webp";
 
 const AdminDashboard = () => {
   const [logout, { isLoading: isLoggingOut }] = useLogoutMutation();

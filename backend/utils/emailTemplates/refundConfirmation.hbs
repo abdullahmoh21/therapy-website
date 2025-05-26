@@ -1,99 +1,85 @@
-<!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Refund Confirmation</title>
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f4f4f4;
-            margin: 0;
-            padding: 0;
-            color: #333;
-        }
-        .email-container {
-            max-width: 600px;
-            margin: 20px auto;
-            background-color: #ffffff;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-        .email-header {
-            background-color: #DF9E7C;
-            color: #ffffff;
-            padding: 20px;
-            text-align: center;
-            border-bottom: 1px solid #c87c5a;
-        }
-        .email-body {
-            padding: 20px;
-            line-height: 1.5;
-            text-align: left;
-        }
-        .email-body h1 {
-            color: #DF9E7C;
-        }
-        .email-body p, .email-body h1 {
-            text-align: left;
-        }
-        .email-body ul {
-            list-style-type: none;
-            padding: 0;
-        }
-        .email-body ul li {
-            margin-bottom: 10px;
-        }
-        .button-link {
-            display: block;
-            width: fit-content;
-            margin: 10px auto;
-            background-color: #DF9E7C;
-            color: #000000; /* Set text color to black */
-            padding: 10px 20px;
-            border-radius: 5px;
-            text-decoration: none;
-            border: none;
-            cursor: pointer;
-            text-align: center;
-        }
-        .button-link:hover {
-            background-color: #c87c5a;
-        }
-        .footer {
-            background-color: #DF9E7C;
-            color: #ffffff;
-            text-align: center;
-            padding: 10px;
-            font-size: 14px;
-        }
+      body { margin: 0; padding: 0; background-color: #f9f9f9; font-family:
+      Arial, sans-serif; color: #333; } .email-container { max-width: 600px;
+      margin: 40px auto; background-color: #ffffff; border: 1px solid #eee;
+      border-left: 4px solid #E27A82; border-radius: 8px; padding: 24px; }
+      .header { text-align: center; margin-bottom: 20px; } .header img {
+      max-height: 40px; display: block; margin: 0 auto 10px; } .fallback-logo {
+      color: #E27A82; font-weight: bold; font-size: 18px; } .title { font-size:
+      20px; font-weight: bold; color: #E27A82; margin-bottom: 20px; text-align:
+      center; } .email-body { font-size: 16px; line-height: 1.5; } .email-body
+      ul { list-style: none; padding: 0; } .email-body ul li { margin-bottom:
+      10px; } .email-body a { color: #0066cc; text-decoration: none; } .footer {
+      font-size: 13px; color: #777; text-align: center; margin-top: 40px;
+      border-top: 1px solid #eee; padding-top: 16px; }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="email-container">
-        <div class="email-header">
-            <h2>Fatima's Therapy Services</h2>
+      <!-- Clickable Logo with Fallback -->
+      <div class="header">
+        <div style="height: 40px; margin-bottom: 10px; text-align: center;">
+          <a
+            href="{{frontend_url}}"
+            target="_blank"
+            style="display: inline-block;"
+          >
+            <img
+              src="{{frontend_url}}/logo.png"
+              alt="Fatima's Therapy Services"
+              style="max-height: 100%; display: block; margin: 0 auto;"
+              onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\'color:#E27A82;font-size:18px;font-weight:bold;\'>Fatima&apos;s Therapy Services</div>';"
+            />
+          </a>
         </div>
-        <div class="email-body">
-            <h1>Refund Confirmation</h1>
-            <p>Dear {{name}},</p>
-            <p>Your refund for booking number <strong>{{bookingId}}</strong>, booked for <strong>{{eventDate}}</strong> at <strong>{{eventTime}}</strong> has been processed. It may take up to 10 days to show in your account.</p>
-            <ul>
-                <li><strong>Payment Amount:</strong> {{paymentAmount}} pkr</li>
-                <li><strong>Payment Status:</strong> {{paymentStatus}}</li>
-                <li><strong>Paid on:</strong> {{paymentCompleted}}</li>
-                <li><strong>Transaction Reference Number:</strong> {{transactionReferenceNumber}}</li>
-            </ul>
-            <p>If you have any questions or concerns, please do not hesitate to contact us at <a href="mailto:{{adminEmail}}">{{adminEmail}}</a>.</p>
-            <p>Thank you for your understanding and cooperation.</p>
-            <p>Sincerely,</p>
-            <p>Fatima's Therapy Services</p>
-        </div>
-        <div class="footer">
-            <p>&copy; {{currentYear}} Fatima's Therapy Services. All rights reserved.</p>
-        </div>
+      </div>
+
+      <!-- Title -->
+      <div class="title">Refund Confirmation</div>
+
+      <!-- Message -->
+      <div class="email-body">
+        <p>Dear {{name}},</p>
+        <p>
+          Your refund for booking number
+          <strong>{{bookingId}}</strong>, booked for
+          <strong>{{eventDate}}</strong>
+          at
+          <strong>{{eventTime}}</strong>
+          has been processed. It may take up to 10 days to reflect in your
+          account.
+        </p>
+
+        <ul>
+          <li><strong>Payment Amount:</strong> {{paymentAmount}} PKR</li>
+          <li><strong>Payment Status:</strong> {{paymentStatus}}</li>
+          <li><strong>Paid on:</strong> {{paymentCompleted}}</li>
+          <li><strong>Transaction Reference Number:</strong>
+            {{transactionReferenceNumber}}</li>
+        </ul>
+
+        <p>
+          If you have any questions or concerns, please feel free to reach out
+          to us at
+          <a href="mailto:{{adminEmail}}">{{adminEmail}}</a>.
+        </p>
+
+        <p>Thank you for your understanding and cooperation.</p>
+        <p>Sincerely,</p>
+        <p>Fatima's Therapy Services</p>
+      </div>
+
+      <!-- Footer -->
+      <div class="footer">
+        &copy;
+        {{currentYear}}
+        Fatima's Therapy Services. All rights reserved.
+      </div>
     </div>
-</body>
+  </body>
 </html>

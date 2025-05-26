@@ -1,71 +1,57 @@
-<!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Contact Confirmation</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #FFEDE8;
-            color: #333;
-            margin: 0;
-            padding: 20px;
-        }
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #FFFFFF;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        }
-        .header {
-            background-color: #E27A82;
-            color: #FFFFFF;
-            padding: 10px;
-            text-align: center;
-            border-radius: 8px 8px 0 0;
-        }
-        .content {
-            padding: 20px;
-        }
-        .footer {
-            background-color: #E09E7A;
-            color: #FFFFFF;
-            padding: 10px;
-            text-align: center;
-            border-radius: 0 0 8px 8px;
-        }
-        .btn {
-            display: inline-block;
-            padding: 10px 20px;
-            margin-top: 20px;
-            background-color: #E27A82;
-            color: #FFFFFF;
-            text-decoration: none;
-            border-radius: 5px;
-        }
-        .btn:hover {
-            background-color: #E09E7A;
-        }
+      body { margin: 0; padding: 20px; font-family: Arial, sans-serif;
+      background-color: #ffffff; color: #000000; } .container { max-width:
+      600px; margin: auto; background-color: #ffffff; border: 1px solid #ddd;
+      border-radius: 6px; overflow: hidden; } .header, .footer {
+      background-color: #000000; color: #ffffff; text-align: center; padding:
+      16px; } .logo { max-height: 40px; margin-bottom: 10px; } .content {
+      padding: 20px; color: #000000; background-color: #ffffff; } .btn {
+      display: inline-block; padding: 10px 20px; margin-top: 20px;
+      background-color: #000000; color: #ffffff; text-decoration: none;
+      border-radius: 4px; } @media (prefers-color-scheme: dark) { body {
+      background-color: #121212; color: #e0e0e0; } .container {
+      background-color: #1e1e1e; border-color: #333; } .content {
+      background-color: #1e1e1e; color: #e0e0e0; } .header, .footer {
+      background-color: #222; color: #e0e0e0; } .btn { background-color:
+      #e0e0e0; color: #000000; } }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="container">
-        <div class="header">
-            <h1>Inquiry Received</h1>
+      <div class="header">
+        <div style="height: 40px; margin-bottom: 10px">
+          <img
+            src="{{frontend_url}}/logo.png"
+            alt="Fatima's Therapy Services"
+            class="logo"
+            style="max-height: 100%; display: block; margin: 0 auto"
+            onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\'color:white;font-size:18px;\'>Your Therapy Practice</div>';"
+          />
         </div>
-        <div class="content">
-            <p>Dear {{name}},</p>
-            <p>Thank you for reaching out. We have received your inquiry and our admin will get back to you shortly.</p>
-            <p>If you have any further questions or need immediate assistance, please feel free to reply to this email or visit our website.</p>
-        </div>
-        <div class="footer">
-            <p>Best Regards,</p>
-            <p>Your Therapy Practice Team</p>
-            <a href="https://www.yourwebsite.com" class="btn">Visit Our Website</a>
-        </div>
+        <h1>Inquiry Received</h1>
+      </div>
+
+      <div class="content">
+        <p>Dear {{name}},</p>
+        <p>
+          Thank you for reaching out. We have received your inquiry and our
+          admin will get back to you shortly.
+        </p>
+        <p>
+          If you have any further questions or need immediate assistance, please
+          reply to this email or visit our website.
+        </p>
+      </div>
+      <div class="footer">
+        <p>Best Regards,</p>
+        <p>Your Therapy Practice Team</p>
+        <a href="{{frontend_url}}" class="btn">Visit Our Website</a>
+      </div>
     </div>
-</body>
+  </body>
 </html>

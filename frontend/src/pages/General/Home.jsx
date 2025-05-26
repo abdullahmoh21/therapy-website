@@ -1,5 +1,5 @@
 import React from "react";
-import fatima_hero from "../../assets/images/hero_5.png";
+import fatima_hero from "../../assets/images/hero.webp";
 import { NavLink } from "react-router-dom";
 import { motion } from "framer-motion";
 
@@ -21,20 +21,20 @@ const Home = () => {
       </section>
 
       <section className="bg-orangeBg lg:h-[650px] h-auto relative overflow-hidden px-4 md:px-0 py-8">
-        <div className="container mx-auto flex flex-col lg:flex-row items-center justify-between h-full relative">
+        <div className="container mx-auto flex flex-col lg:flex-row lg:items-stretch items-center justify-between h-full relative">
           {/* Hero Image */}
           <motion.div
             initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className="lg:w-1/2 w-full flex justify-end items-end mb-8 md:mb-0 h-full"
+            className="lg:w-1/2 w-full flex justify-center items-center mb-8 md:mb-0"
           >
-            <div className="relative w-full h-full lg:px-7 lg:py-7 ">
-              <div className="absolute inset-0 bg-lightPink opacity-20 transform translate-x-4 translate-y-4 -z-10 rounded-lg"></div>
+            <div className="relative inline-block w-auto lg:px-4 lg:py-4">
+              <div className="absolute inset-0 bg-lightPink opacity-20 -z-10 rounded-lg"></div>
               <img
                 src={fatima_hero}
                 alt="Fatima Mohsin Picture"
-                className="h-full w-auto object-contain object-bottom border-4 border-lightPink shadow-lg rounded-lg relative z-10"
+                className="max-h-[600px] w-auto object-contain object-bottom border-4 border-lightPink shadow-lg rounded-lg relative z-10"
               />
             </div>
           </motion.div>
@@ -44,9 +44,15 @@ const Home = () => {
             initial={{ opacity: 0, x: 30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
-            className="lg:w-1/2 w-full flex items-center text-textOnOrange lg:px-5 lg:pl-10 lg:py-6 h-full"
+            className="lg:w-1/2 w-full flex items-center text-textOnOrange  h-full"
           >
-            <div className="text-base md:text-lg text-justify bg-white bg-opacity-30 p-6 rounded-lg shadow-sm w-full h-full flex flex-col justify-between">
+            <div
+              className="text-base md:text-lg text-justify
+                bg-whiteBg backdrop
+                border-2 border-lightPink
+                p-6 lg:p-10 rounded-lg shadow-md
+                w-full h-full flex flex-col justify-between"
+            >
               <div>
                 <p className="mb-4">
                   Fatima Mohsin Naqvi is an internationally qualified

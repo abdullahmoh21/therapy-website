@@ -6,12 +6,12 @@ import {
   BiMenu,
   BiUser,
   BiCalendar,
-  BiCreditCard,
+  BiHistory,
   BiLogOut,
   BiX,
   BiLoaderAlt,
 } from "react-icons/bi";
-import logo from "../../../assets/images/logo.png";
+import logo from "../../../assets/images/logo.webp";
 
 import EditProfile from "./EditProfile";
 import MyBookings from "./MyBookings/MyBookings";
@@ -116,8 +116,8 @@ const Dashboard = () => {
     },
     {
       id: "Billing",
-      label: "Billing",
-      icon: <BiCreditCard className="mr-2" />,
+      label: "Past Bookings",
+      icon: <BiHistory className="mr-2" />,
     },
   ];
 
@@ -130,10 +130,10 @@ const Dashboard = () => {
           {navItems.map((item) => (
             <button
               key={item.id}
-              className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150 ${
+              className={`flex items-center px-4 py-3 rounded-md text-lg transition-colors duration-150 ${
                 activeTab === item.id
                   ? "bg-[#FDF0E9] text-[#c45e3e]"
-                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                  : "text-textColor hover:bg-gray-100"
               }`}
               onClick={() => setActiveTab(item.id)}
             >
@@ -142,14 +142,14 @@ const Dashboard = () => {
             </button>
           ))}
           <button
-            className="flex items-center px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors duration-150"
+            className="flex items-center px-4 py-3 rounded-md text-lg transition-colors duration-150 hover:bg-gray-100"
             onClick={toggleEditProfileModal}
           >
             <BiUser className="mr-2" />
             Edit Profile
           </button>
           <button
-            className="flex items-center justify-center px-3 py-2 bg-red-500 text-white rounded-md text-sm font-medium hover:bg-red-600 transition-colors duration-150 disabled:opacity-50"
+            className="flex items-center justify-center px-4 py-3 bg-red-500 text-white rounded-md text-lg font-medium hover:bg-red-600 transition-colors duration-150 disabled:opacity-50"
             onClick={handleLogout}
             disabled={isLoggingOut}
           >

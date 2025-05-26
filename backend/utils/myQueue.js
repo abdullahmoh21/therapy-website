@@ -12,7 +12,6 @@ const { checkRedisAvailability } = require("./redisClient");
 let myQueue = null;
 let queueWorker = null;
 
-// Initialize queue conditionally
 const initializeQueue = async () => {
   const redisAvailable = await checkRedisAvailability();
 
@@ -221,12 +220,14 @@ const sendVerificationEmail = async (job) => {
     const mailOptions = {
       from: "verification@fatimanaqvi.com",
       to: recipient,
-      subject: "Reset Password",
+      subject: "Verify Account",
       replyTo: "no-reply@fatimanaqvi.com",
-      template: "verifyEmail", // Name of the Handlebars template file (without .hbs extension)
+      template: "verifyEmail",
       context: {
         name,
         link,
+        frontend_url: process.env.FRONTEND_URL,
+        currentYear: new Date().getFullYear(),
       },
     };
     await transporter.sendMail(mailOptions);
@@ -249,10 +250,12 @@ const sendResetPasswordEmail = async (job) => {
       to: recipient,
       subject: "Reset Password",
       replyTo: "no-reply@fatimanaqvi.com",
-      template: "resetPassword", // Name of the Handlebars template file (without .hbs extension)
+      template: "resetPassword",
       context: {
         name,
         link,
+        frontend_url: process.env.FRONTEND_URL,
+        currentYear: new Date().getFullYear(),
       },
     };
 
@@ -345,6 +348,8 @@ const sendRefundRequest = async (job) => {
         transactionReferenceNumber: payment.transactionReferenceNumber,
         refundLink,
         cancelledWithin72Hours,
+        frontend_url: process.env.FRONTEND_URL,
+        currentYear: new Date().getFullYear(),
       },
     };
 
@@ -425,6 +430,7 @@ const sendRefundConfirmation = async (job) => {
         transactionReferenceNumber: payment.transactionReferenceNumber,
         adminEmail: adminEmail || "admin@fatimanaqvi.com",
         currentYear: new Date().getFullYear(),
+        frontend_url: process.env.FRONTEND_URL,
       },
     };
 
@@ -438,7 +444,6 @@ const sendRefundConfirmation = async (job) => {
 
 const sendContactMeEmail = async (job) => {
   try {
-    logger.debug("in contactMe worker");
     const { type, name, email, phone, message } = job.data;
 
     // Fetch admin email from config
@@ -457,7 +462,11 @@ const sendContactMeEmail = async (job) => {
       subject: "Thank you for contacting me",
       replyTo: "no-reply@fatimanaqvi.com",
       template: "contactMeConfirmation",
-      context: { name },
+      context: {
+        name,
+        frontend_url: process.env.FRONTEND_URL,
+        currentYear: new Date().getFullYear(),
+      },
     };
 
     // forward email to admin. Admin will contact the user directly
@@ -473,6 +482,8 @@ const sendContactMeEmail = async (job) => {
         type,
         phone,
         message,
+        frontend_url: process.env.FRONTEND_URL,
+        currentYear: new Date().getFullYear(),
       },
     };
 
@@ -489,10 +500,9 @@ const sendContactMeEmail = async (job) => {
 };
 
 const sendInvitationEmail = async (job) => {
-  logger.debug("in worker for invitation");
-
   try {
     const { recipient, link } = job.data;
+    logger.debug(`in worker for invitation with link:${link}`);
 
     // Mail options with Handlebars template
     const mailOptions = {
@@ -503,6 +513,8 @@ const sendInvitationEmail = async (job) => {
       template: "invite",
       context: {
         link,
+        frontend_url: process.env.FRONTEND_URL,
+        currentYear: new Date().getFullYear(),
       },
     };
     await transporter.sendMail(mailOptions);
@@ -516,15 +528,6 @@ const sendInvitationEmail = async (job) => {
 };
 
 module.exports = {
-  myQueue,
-  queueWorker,
   initializeQueue,
-  sendEmail: safeAdd, // Renamed from 'add: safeAdd'
-  sendVerificationEmail,
-  sendResetPasswordEmail,
-  sendRefundRequest,
-  sendRefundConfirmation,
-  sendContactMeEmail,
-  deleteDocuments,
-  sendInvitationEmail,
+  sendEmail: safeAdd,
 };

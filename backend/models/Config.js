@@ -1,9 +1,7 @@
 const mongoose = require("mongoose");
 const logger = require("../logs/logger");
-// Import redisClient when needed, not at module level
 const fs = require("fs");
 const path = require("path");
-// Path to local config cache binary file
 const LOCAL_CONFIG_FILE = path.join(__dirname, "../configLocalCache.bin");
 
 // Load local cache from binary file
@@ -41,6 +39,8 @@ const CONFIG_DEFAULTS = {
   sessionPrice: 8000,
   adminEmail: "abdullahmohsin21007@gmail.com",
   devEmail: "abdullahmohsin21007@gmail.com",
+  maxBookings: "3",
+  cancelCutoffDays: 2,
 };
 
 // Track error logged state to prevent log spam
@@ -85,9 +85,6 @@ const isRedisAvailable = () => {
   }
 };
 
-// Helper to get Redis cache key
-const getRedisCacheKey = (key) => `${CONFIG_CACHE_PREFIX}${key}`;
-
 // Method to get a specific config value
 configSchema.statics.getValue = async function (key) {
   try {
@@ -96,7 +93,9 @@ configSchema.statics.getValue = async function (key) {
       try {
         // Dynamically import redisClient to avoid circular dependency
         const redisClient = require("../utils/redisClient");
-        const cachedValue = await redisClient.get(getRedisCacheKey(key));
+        const cachedValue = await redisClient.get(
+          `${CONFIG_CACHE_PREFIX}${key}`
+        );
         if (cachedValue) {
           // Reset TTL on access
           await redisClient.expire(getRedisCacheKey(key), CONFIG_CACHE_TTL);

@@ -1,5 +1,5 @@
 import React from "react";
-import service_hero from "../../assets/images/servicesImage.png";
+import service_hero from "../../assets/images/servicesImage.webp";
 import { motion } from "framer-motion";
 
 const Services = () => {
@@ -133,7 +133,7 @@ const Services = () => {
       >
         <div className="flex flex-col lg:flex-row justify-end">
           <div className="flex flex-col justify-center lg:pr-[5px] lg:w-1/2 text-center lg:text-right px-4 lg:px-0">
-            <h1 className="orelega-one text-2xl md:text-3xl leading-tight text-orangeHeader pb-4 lg:pb-[90px]">
+            <h1 className="orelega-one text-4xl sm:text-5xl lg:text-5xl leading-tight text-orangeHeader pb-4 lg:pb-[90px]">
               Guiding you towards <br />
               a more fulfilling <br />
               future.

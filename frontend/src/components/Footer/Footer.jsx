@@ -1,7 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
 import {
-  FaMapMarkerAlt,
   FaPhoneAlt,
   FaEnvelope,
   FaLinkedin,
@@ -23,12 +22,7 @@ const Footer = () => {
           viewport={{ once: true }}
           className="flex flex-col items-center md:items-start md:ml-[100px] space-y-3"
         >
-          <div className="flex items-center pb-[5px] group">
-            <FaMapMarkerAlt className="text-textColor mr-3 text-xl transition-colors duration-300" />
-            <h1 className="text-center md:text-left">
-              208B, Street 5, Cavalry Ground, Lahore, Pakistan
-            </h1>
-          </div>
+          <div className="flex items-center pb-[5px] group"></div>
           <div className="flex items-center pb-[5px] group">
             <FaPhoneAlt className="text-textColor mr-3 text-xl transition-colors duration-300" />
             <a
@@ -62,7 +56,7 @@ const Footer = () => {
           <div className="flex flex-row justify-center w-full space-x-6">
             {/* Social links with enhanced styling */}
             <a
-              href="https://www.linkedin.com"
+              href="https://www.linkedin.com/in/fatima-naqvi312"
               target="_blank"
               rel="noopener noreferrer"
               className="text-textColor text-xl transform hover:scale-125 transition-all duration-300 "
@@ -70,7 +64,7 @@ const Footer = () => {
               <FaLinkedin className="text-textColor transition-colors duration-300" />
             </a>
             <a
-              href="https://www.twitter.com"
+              href="https://x.com/fatimamohsin_1"
               target="_blank"
               rel="noopener noreferrer"
               className="text-textColor text-xl transform hover:scale-125 transition-all duration-300 "
@@ -91,7 +85,7 @@ const Footer = () => {
       <div className="bg-orangeBg text-center py-4 text-textColor text-sm flex flex-col sm:flex-row justify-center items-center space-y-2 sm:space-y-0 sm:space-x-4">
         <p>© {currentYear} Fatima Mohsin Naqvi. All rights reserved.</p>
         <span className="hidden sm:inline">|</span>
-        <Link to="/terms-and-conditions" className="hover:underline">
+        <Link to="/terms-and-conditions" className="underline">
           Terms and Conditions
         </Link>
       </div>

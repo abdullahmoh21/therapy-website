@@ -19,11 +19,20 @@ export const bookingsApiSlice = apiSlice.injectEndpoints({
       },
       providesTags: (result, error, id) => [{ type: "Booking", id }],
     }),
+    getNoticePeriod: builder.query({
+      query: () => "/bookings/noticePeriod",
+      validateStatus: (response, result) => {
+        if (response.status === undefined) {
+          return false;
+        }
+        return response.status === 200 && !result.isError;
+      },
+    }),
     getMyActiveBookings: builder.query({
       query: () => "/bookings",
       validateStatus: (response, result) => {
         if (response.status === undefined) {
-          return fasle;
+          return false;
         }
         return response.status === 200 && !result.isError;
       },
@@ -72,6 +81,7 @@ export const bookingsApiSlice = apiSlice.injectEndpoints({
 
 export const {
   useGetBookingQuery,
+  useGetNoticePeriodQuery,
   useGetMyActiveBookingsQuery,
   useGetNewBookingLinkQuery,
   useGetCancellationUrlQuery,

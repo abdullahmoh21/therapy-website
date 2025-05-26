@@ -13,7 +13,6 @@ import {
   BiVideo,
   BiMapPin,
 } from "react-icons/bi";
-import { toast } from "react-toastify";
 import {
   useGetMyActiveBookingsQuery,
   useGetNewBookingLinkQuery,
@@ -24,6 +23,8 @@ import {
 } from "../../../../features/payments/paymentApiSlice";
 import { useGetMyUserQuery } from "../../../../features/users/usersApiSlice";
 import NoBooking from "./NoBooking";
+import DashboardHeader from "../../../../components/Dashboard/DashboardHeader";
+import { toast } from "react-toastify";
 
 const MyBookings = () => {
   const [bookings, setBookings] = useState([]);
@@ -33,6 +34,7 @@ const MyBookings = () => {
   const [loading, setLoading] = useState(false);
   const [refundError, setRefundError] = useState(null);
   const [userData, setUserData] = useState(null);
+  const [processingPaymentId, setProcessingPaymentId] = useState(null);
 
   const {
     data: bookingData,
@@ -96,10 +98,12 @@ const MyBookings = () => {
 
   const redirectToPayment = async (id) => {
     try {
+      setProcessingPaymentId(id);
       const res = await triggerGetPaymentLink({ bookingId: id }).unwrap();
       if (res.url) window.location.href = res.url;
     } catch (e) {
       console.error(e);
+      setProcessingPaymentId(null);
     }
   };
 
@@ -193,57 +197,15 @@ const MyBookings = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {userData && (
-        <div className="bg-gradient-to-r from-[#DF9E7A] to-[#C45E3E] text-white p-6 rounded-2xl shadow-md mb-8 flex flex-col sm:flex-row sm:justify-between sm:items-center">
-          <div className="mb-4 sm:mb-0">
-            <h1 className="text-3xl font-bold">Hey, {userData.name}!</h1>
-            <p className="opacity-90 mt-1">Here’s your upcoming schedule.</p>
-            <p className="opacity-70 text-sm mt-1">
-              Online payment is optional; you can also pay in cash during your
-              session.
-            </p>
-          </div>
-          <button
-            disabled={gettingBookingLink || maxReached}
-            onClick={() => {
-              if (maxReached) {
-                const maxNum =
-                  newBookingLinkError?.data?.maxAllowedBookings ?? null;
-                toast.error(
-                  maxNum
-                    ? `Only ${maxNum} active bookings allowed.`
-                    : newBookingLinkError?.data?.message ||
-                        "Booking limit reached."
-                );
-              } else if (bookingLink) {
-                window.location.href = bookingLink;
-              } else {
-                refetchBookingLink();
-              }
-            }}
-            className={`flex items-center space-x-2 bg-white text-[#DF9E7A] font-semibold px-5 py-3 rounded-full shadow hover:shadow-lg transition ${
-              gettingBookingLink || maxReached
-                ? "opacity-50 cursor-not-allowed"
-                : ""
-            }`}
-          >
-            {gettingBookingLink ? (
-              <BiLoaderAlt className="animate-spin text-xl" />
-            ) : maxReached ? (
-              <BiErrorCircle className="text-xl" />
-            ) : (
-              <BiCalendar className="text-xl" />
-            )}
-            <span>
-              {gettingBookingLink
-                ? "Loading..."
-                : maxReached
-                ? "Max Reached"
-                : "Book New Session"}
-            </span>
-          </button>
-        </div>
-      )}
+      <DashboardHeader
+        userData={userData}
+        showBookButton={true}
+        bookingLink={bookingLink}
+        gettingBookingLink={gettingBookingLink}
+        maxReached={maxReached}
+        newBookingLinkError={newBookingLinkError}
+        refetchBookingLink={refetchBookingLink}
+      />
 
       <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
         {bookings.map((b) => {
@@ -319,20 +281,26 @@ const MyBookings = () => {
                 <div className="p-6 bg-gray-50 flex flex-wrap gap-2">
                   {b.transactionStatus === "Not Initiated" && (
                     <button
-                      disabled={gettingPaymentLink}
+                      disabled={processingPaymentId !== null}
                       onClick={() => redirectToPayment(b._id)}
                       className={`flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-lg font-medium transition ${
-                        gettingPaymentLink
-                          ? "bg-green-300 cursor-not-allowed"
+                        processingPaymentId !== null
+                          ? processingPaymentId === b._id
+                            ? "bg-green-500 text-white cursor-not-allowed"
+                            : "bg-gray-300 text-gray-500 cursor-not-allowed"
                           : "bg-green-500 hover:bg-green-600 text-white"
                       }`}
                     >
-                      {gettingPaymentLink ? (
+                      {processingPaymentId === b._id ? (
                         <BiLoaderAlt className="animate-spin" />
                       ) : (
                         <BiDollarCircle />
                       )}
-                      <span>Pay</span>
+                      <span>
+                        {processingPaymentId === b._id
+                          ? "Processing..."
+                          : "Pay"}
+                      </span>
                     </button>
                   )}
 

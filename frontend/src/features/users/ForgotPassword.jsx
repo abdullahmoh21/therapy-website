@@ -3,8 +3,7 @@ import { useForgotPasswordMutation } from "./usersApiSlice";
 import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import logo from "../../assets/images/logo.png";
-const consultationUrl = import.meta.env.CALENDLY_BOOKING_PAGE;
+import logo from "../../assets/images/logo.webp";
 import Joi from "joi";
 
 const emailSchema = Joi.object({
@@ -69,7 +68,10 @@ const ForgotPassword = () => {
       </form>
       <p className="mt-4 text-center text-gray-500">
         Don't have an account?{" "}
-        <Link to={consultationUrl} className="text-[#E09E7C] underline">
+        <Link
+          to="https://calendly.com/fatimamohsintherapy/consultation"
+          className="text-[#E09E7C] underline"
+        >
           Book a free consultation
         </Link>
       </p>

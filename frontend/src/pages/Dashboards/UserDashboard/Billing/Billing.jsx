@@ -13,8 +13,8 @@ import BillingTable from "./BillingTable"; // Import BillingTable
 import {
   BiInfoCircle,
   BiErrorCircle,
-  BiSearch,
   BiFilterAlt,
+  BiSearch,
   BiRefresh,
 } from "react-icons/bi";
 import { Badge } from "primereact/badge";
@@ -58,7 +58,8 @@ const Billing = () => {
     queryParams.transactionRef = transactionRefSearch;
   }
 
-  if (selectedPaymentStatus) queryParams.paymentStatus = selectedPaymentStatus;
+  queryParams.paymentStatus = selectedPaymentStatus;
+
   if (selectedDate) {
     const date = new Date(selectedDate);
     // Create start of day (00:00:00)
@@ -104,11 +105,6 @@ const Billing = () => {
       }
       if (pastBookingsResponseData.pagination) {
         setTotalPages(pastBookingsResponseData.pagination.totalPages || 1);
-        // If API's current page is different from component's currentPage due to filters resetting,
-        // update component's currentPage. Backend now returns 1-indexed page.
-        if (pastBookingsResponseData.pagination.currentPage !== currentPage) {
-          setCurrentPage(pastBookingsResponseData.pagination.currentPage);
-        }
       }
     } else if (!isLoading && !isFetching && !isSuccess && !isError) {
       setBookingsData([]);
@@ -119,7 +115,7 @@ const Billing = () => {
     isLoading,
     isFetching,
     isError,
-    currentPage,
+    // Remove currentPage from dependencies to prevent effect from re-running when page changes
   ]);
 
   // Update the debounced function for bookingIdSearch to handle validation
@@ -129,20 +125,23 @@ const Billing = () => {
         // Clear search if empty
         setBookingIdSearch("");
         setBookingIdError(false); // Clear error when empty
-        if (currentPage !== 1) setCurrentPage(1);
+        // Only reset page if there was a previous search term
+        if (bookingIdSearch !== "") setCurrentPage(1);
       } else if (value.length >= 3) {
         // Only set search term if 3+ digits
         setBookingIdSearch(value);
         setBookingIdError(false); // Clear error when valid
-        if (currentPage !== 1) setCurrentPage(1);
+        // Only reset page if the search term actually changed
+        if (bookingIdSearch !== value) setCurrentPage(1);
       } else {
         // If input is less than 3 digits but not empty, show error
         setBookingIdSearch("");
         setBookingIdError(true); // Set error flag
-        if (currentPage !== 1) setCurrentPage(1);
+        // Only reset page if there was a previous search term
+        if (bookingIdSearch !== "") setCurrentPage(1);
       }
     }, 500),
-    [currentPage, bookingIdSearch]
+    [bookingIdSearch] // Remove currentPage dependency
   );
 
   // Update debounce function for transactionRef to handle validation
@@ -152,20 +151,23 @@ const Billing = () => {
         // Clear search if empty
         setTransactionRefSearch("");
         setTransactionRefError(false); // Clear error when empty
-        if (currentPage !== 1) setCurrentPage(1);
+        // Only reset page if there was a previous search term
+        if (transactionRefSearch !== "") setCurrentPage(1);
       } else if (value.length === 5) {
         // Only set search term if exactly 5 characters
         setTransactionRefSearch(value);
         setTransactionRefError(false); // Clear error when valid
-        if (currentPage !== 1) setCurrentPage(1);
+        // Only reset page if the search term actually changed
+        if (transactionRefSearch !== value) setCurrentPage(1);
       } else {
         // If not empty and not 5 chars, show error
         setTransactionRefSearch("");
         setTransactionRefError(true); // Set error flag
-        if (currentPage !== 1) setCurrentPage(1);
+        // Only reset page if there was a previous search term
+        if (transactionRefSearch !== "") setCurrentPage(1);
       }
     }, 500),
-    [currentPage, transactionRefSearch]
+    [transactionRefSearch] // Remove currentPage dependency
   );
 
   useEffect(() => {
@@ -183,14 +185,13 @@ const Billing = () => {
     };
   }, [transactionRefInput, debouncedSetTransactionRefSearch]);
 
-  // Generic handler to reset to page 1 when filters change (excluding bookingIdInput direct changes)
-  const handleFilterChange = useCallback(() => {
-    if (currentPage !== 1) {
+  // Generic handler to reset to page 1 when filters change
+  const handleFilterChange = useCallback((newValue, currentValue) => {
+    // Only reset to page 1 if the filter value actually changed
+    if (newValue !== currentValue) {
       setCurrentPage(1);
     }
-    // The query will refetch automatically due to queryParams changing
-    // because setBookingIdSearch, setSelectedPaymentStatus, etc., update queryParams dependencies.
-  }, [currentPage]);
+  }, []); // Remove currentPage dependency
 
   // Add an immediate validation function for Booking ID
   const handleBookingIdInputChange = (e) => {
@@ -219,19 +220,26 @@ const Billing = () => {
   };
 
   const handlePaymentStatusChange = (e) => {
-    setSelectedPaymentStatus(e.value);
-    handleFilterChange();
+    const newValue = e.value;
+    // Only reset page if value actually changed
+    handleFilterChange(newValue, selectedPaymentStatus);
+    setSelectedPaymentStatus(newValue);
   };
 
   const handleDateChange = (e) => {
-    setSelectedDate(e.value);
-    handleFilterChange();
+    const newValue = e.value;
+    // Only reset page if value actually changed
+    const currentDateString = selectedDate ? selectedDate.toISOString() : null;
+    const newDateString = newValue ? newValue.toISOString() : null;
+    handleFilterChange(newDateString, currentDateString);
+    setSelectedDate(newValue);
   };
 
   const handleLocationChange = (e) => {
-    // New handler for location
-    setSelectedLocation(e.value);
-    handleFilterChange();
+    const newValue = e.value;
+    // Only reset page if value actually changed
+    handleFilterChange(newValue, selectedLocation);
+    setSelectedLocation(newValue);
   };
 
   const clearFilters = () => {
@@ -249,6 +257,7 @@ const Billing = () => {
   };
 
   const handlePageChange = (page) => {
+    // Just set the page without any additional checks or side effects
     setCurrentPage(page);
     setExpandedRows({});
   };
@@ -375,8 +384,8 @@ const Billing = () => {
             <button
               className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
                 filtersVisible
-                  ? "bg-orangeBg text-white"
-                  : "bg-lightOrange text-textOnOrange hover:bg-orangeBg hover:text-white"
+                  ? "bg-lightPink text-white"
+                  : "bg-lightPink text-white"
               }`}
               onClick={() => setFiltersVisible(!filtersVisible)}
             >
@@ -390,7 +399,7 @@ const Billing = () => {
             </button>
 
             <button
-              className="flex items-center gap-2 px-4 py-2 bg-lightOrange text-textOnOrange rounded-md hover:bg-orangeBg hover:text-white transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-lightPink text-white rounded-md transition-colors"
               onClick={() => {
                 if (
                   currentPage !== 1 &&

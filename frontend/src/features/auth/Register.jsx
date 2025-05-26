@@ -5,11 +5,13 @@ import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useRegisterMutation } from "./authApiSlice";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, Link } from "react-router-dom";
+import { motion } from "framer-motion";
+import logo from "../../assets/images/logo.webp";
+import wave from "../../assets/images/wave.webp";
 
-//Data validation
+/* ------------------------- validation helpers ------------------------- */
 const validPhone = Joi.string().custom((value, helpers) => {
-  //default pakistan if no country code is provided
   const phoneNumber = parsePhoneNumberFromString(value, "PK");
   let phoneString = value;
   if (!phoneNumber) {
@@ -18,13 +20,10 @@ const validPhone = Joi.string().custom((value, helpers) => {
   if (!phoneNumber.isValid()) {
     return helpers.message("Invalid phone number. Format: +9234567890");
   }
-  // add +92. 03082182121 => +923082182121
   if (!value.startsWith("+")) {
-    //remove leading 0
     phoneString = value.replace(/^0/, "");
     phoneString = "+92" + phoneString;
   }
-  console.log(`phone no: ${value}`);
   return phoneString;
 }, "Phone number validation");
 
@@ -32,7 +31,6 @@ const schema = Joi.object({
   name: Joi.string().required().messages({
     "string.empty": "Full Name is required",
   }),
-  //joi browser does not support tlds so we set it to false
   email: Joi.string().email({ tlds: false }).required().messages({
     "string.email": "Invalid Email. Please enter a valid email address",
     "string.empty": "Email is required",
@@ -40,7 +38,6 @@ const schema = Joi.object({
   phone: validPhone.required().messages({
     "string.empty": "Phone number is required",
   }),
-  //password with at least 8 characters, one lowercase, one uppercase, one digit, and one special character
   password: Joi.string()
     .min(8)
     .required()
@@ -86,6 +83,7 @@ const schema = Joi.object({
   }),
 });
 
+/* ------------------------------ component ----------------------------- */
 const Register = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -100,209 +98,226 @@ const Register = () => {
     token: "",
   });
 
-  const [
-    register,
-    {
-      isSuccess: registered,
-      error: registerError,
-      isLoading: registerIsLoading,
-      status: registerStatus,
-    },
-  ] = useRegisterMutation();
+  const [register, { isLoading: registerIsLoading }] = useRegisterMutation();
 
   const urlParams = new URLSearchParams(location.search);
   const invitationToken = urlParams.get("invitation");
   const email = urlParams.get("email");
 
-  //on component mount, check for invitation token
+  /* -------- pre-fill email / token if present in invitation link ------- */
   useEffect(() => {
     if (invitationToken && email) {
-      setForm({
-        ...form,
-        email,
-        token: invitationToken,
-      });
-    } else {
-      // Redirect if no invitation token is present
-      toast.error("Valid invitation is required to register.");
-      setTimeout(() => {
-        navigate("/");
-      }, 3000);
+      setForm((prev) => ({ ...prev, email, token: invitationToken }));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm((prevState) => ({
-      ...prevState,
-      [name]: name === "phone" ? value.replace(/\s/g, "") : value, // Remove whitespace from phone number
+    setForm((prev) => ({
+      ...prev,
+      [name]: name === "phone" ? value.replace(/\s/g, "") : value,
     }));
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault(); // Prevent the default form submit
-    //data validation
+    e.preventDefault();
     const { error, value } = schema.validate(form);
     if (error?.details[0]?.message) {
       toast.error(error.details[0].message);
       return;
     }
     const { phone: phoneString } = value;
-    console.log(`phoneString in handleSubmit: ${phoneString}`);
     try {
-      // Send to backend
-      await register({ ...form, phone: phoneString }).unwrap(); //replace phone with correctly formatted phone number
+      await register({ ...form, phone: phoneString }).unwrap();
       toast.success(
         "Registration successful. Please check your email to verify your account."
       );
-      setTimeout(() => {
-        navigate("/signin");
-      }, 3000);
+      setTimeout(() => navigate("/signin"), 3000);
     } catch (err) {
-      console.log(err);
-      if (err.status === 400) {
-        toast.error(err.data.message);
-      } else if (err.status === 500) {
-        toast.error("An error occurred. Please try again later.");
-      } else if (err.status === 409) {
-        //could be phone or email so message is set in the backend
-        toast.error(err.data.message);
-      } else {
-        toast.error(
-          "Could not connect to the server. Please check your internet connection and try again."
-        );
-      }
+      /* -------- map error codes to friendly messages -------- */
+      const msg =
+        err?.data?.message ||
+        {
+          400: "Bad request",
+          409: "Conflict",
+          500: "Server error. Please try again later.",
+        }[err?.status] ||
+        "Could not connect. Please check your internet connection.";
+      toast.error(msg);
     }
   };
 
+  /* ----------------- Invitation missing: show info screen -------------- */
   if (!invitationToken || !email) {
     return (
-      <div className="flex justify-center items-center h-screen bg-gray-200">
-        <div className="bg-white p-10 rounded-lg shadow-md w-96 text-center">
-          <h1 className="text-2xl mb-4">Invalid Invitation</h1>
-          <p className="mb-4">
-            You need a valid invitation to create an account.
-          </p>
-          <p className="mb-4">
-            Please contact an administrator if you believe this is an error.
+      <div className="relative flex min-h-screen flex-col items-center justify-center bg-whiteBg overflow-hidden">
+        {/* wave background */}
+        <img
+          src={wave}
+          alt="decorative wave"
+          className="absolute bottom-0 left-0 w-full h-[260px] object-cover -z-10 pointer-events-none"
+        />
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="w-full max-w-[420px] bg-white p-10 rounded-3xl shadow-xl text-center"
+        >
+          <Link to="/" className="mb-6 inline-block">
+            <img src={logo} alt="logo" height={60} width={135} />
+          </Link>
+          <h1 className="mb-4 text-2xl font-bold text-orangeText">
+            Invitation Required
+          </h1>
+          <p className="mb-6 text-textColor">
+            You need a valid invitation to create an account. Please contact an
+            administrator if you believe this is an error.
           </p>
           <button
-            className="bg-blue-500 text-white p-2 rounded-md"
             onClick={() => navigate("/")}
+            className="rounded-full border-2 border-buttonTextBlack bg-orangeButton px-10 py-3 font-semibold text-buttonTextBlack shadow-md transition-transform duration-300 hover:scale-105 hover:bg-lightPink"
           >
-            Return to Home
+            Return Home
           </button>
-        </div>
+        </motion.div>
       </div>
     );
   }
 
+  /* ----------------------------- main form ----------------------------- */
   return (
-    <div className="flex justify-center items-center h-screen bg-gray-200">
-      <div className="bg-white p-10 rounded-lg shadow-md w-96">
-        <h2 className="text-2xl mb-4">Create your account</h2>
-        <form onSubmit={handleSubmit}>
-          <label className="block text-sm font-medium text-gray-700">
+    <div className="relative min-h-screen w-full overflow-hidden bg-gradient-to-b from-[#fff7f4] to-[#ffe5d5] flex items-center justify-center">
+      {/* background wave, sent behind content */}
+      <img
+        src={wave}
+        alt="decorative wave"
+        className="pointer-events-none absolute bottom-0 left-0 -z-10 h-[260px] w-full object-cover"
+      />
+
+      <motion.div
+        initial={{ opacity: 0, y: 25 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.7 }}
+        className="w-[92%] max-w-[500px] rounded-3xl bg-white/90 backdrop-blur-sm p-8 shadow-2xl"
+      >
+        <div className="mb-8 flex flex-col items-center">
+          <Link to="/" className="mb-4 inline-block">
+            <img src={logo} alt="logo" height={60} width={135} />
+          </Link>
+          <h1 className="text-center text-2xl font-bold leading-tight text-orangeText">
+            Create Your Account
+          </h1>
+        </div>
+
+        {/* make the form scroll if screen is tiny */}
+        <form
+          onSubmit={handleSubmit}
+          className="flex max-h-[65vh] flex-col gap-4 overflow-y-auto px-1"
+        >
+          {/* --- Full Name --- */}
+          <label className="flex flex-col text-sm font-medium text-textColor">
             Full Name
+            <input
+              className="mt-1 w-full border-b-2 border-textColor bg-transparent py-2 outline-none transition-colors focus:border-orangeText"
+              type="text"
+              name="name"
+              value={form.name}
+              onChange={handleChange}
+              required
+            />
           </label>
-          <input
-            className="border border-gray-300 p-2 w-full mb-3 rounded-md"
-            type="text"
-            name="name"
-            value={form.name}
-            onChange={handleChange}
-            required
-          />
-          <label className="block text-sm font-medium text-gray-700">
+
+          {/* --- Email --- */}
+          <label className="flex flex-col text-sm font-medium text-textColor">
             Email
+            <input
+              className="mt-1 w-full cursor-not-allowed border-b-2 border-textColor bg-transparent py-2 outline-none"
+              type="email"
+              name="email"
+              value={form.email}
+              readOnly
+            />
           </label>
-          <input
-            className="border border-gray-300 p-2 w-full mb-3 rounded-md"
-            type="email"
-            name="email"
-            value={form.email}
-            autoComplete="email"
-            onChange={handleChange}
-            readOnly
-          />
-          <label className="block text-sm font-medium text-gray-700">
+
+          {/* --- Phone --- */}
+          <label className="flex flex-col text-sm font-medium text-textColor">
             Phone
+            <input
+              className="mt-1 w-full border-b-2 border-textColor bg-transparent py-2 outline-none transition-colors focus:border-orangeText"
+              type="tel"
+              name="phone"
+              value={form.phone}
+              autoComplete="tel"
+              onChange={handleChange}
+              required
+            />
           </label>
-          <input
-            className="border border-gray-300 p-2 w-full mb-3 rounded-md"
-            type="tel"
-            name="phone"
-            value={form.phone}
-            autoComplete="tel"
-            onChange={handleChange}
-            required
-          />
-          <label className="block text-sm font-medium text-gray-700">
+
+          {/* --- Password --- */}
+          <label className="flex flex-col text-sm font-medium text-textColor">
             Password
+            <input
+              className="mt-1 w-full border-b-2 border-textColor bg-transparent py-2 outline-none transition-colors focus:border-orangeText"
+              type="password"
+              name="password"
+              autoComplete="new-password"
+              value={form.password}
+              onChange={handleChange}
+              onPaste={(e) => e.preventDefault()}
+              required
+            />
           </label>
-          <input
-            className="border border-gray-300 p-2 w-full mb-3 rounded-md"
-            type="password"
-            name="password"
-            value={form.password}
-            autoComplete="new-password"
-            onChange={handleChange}
-            onPaste={(e) => e.preventDefault()}
-            required
-          />
-          <label className="block text-sm font-medium text-gray-700">
+
+          {/* --- Confirm Password --- */}
+          <label className="flex flex-col text-sm font-medium text-textColor">
             Confirm Password
+            <input
+              className="mt-1 w-full border-b-2 border-textColor bg-transparent py-2 outline-none transition-colors focus:border-orangeText"
+              type="password"
+              name="confirmPassword"
+              value={form.confirmPassword}
+              autoComplete="new-password"
+              onChange={handleChange}
+              onPaste={(e) => e.preventDefault()}
+              required
+            />
           </label>
-          <input
-            className="border border-gray-300 p-2 w-full mb-3 rounded-md"
-            type="password"
-            name="confirmPassword"
-            value={form.confirmPassword}
-            autoComplete="new-password"
-            onChange={handleChange}
-            onPaste={(e) => e.preventDefault()}
-            required
-          />
-          <label className="block text-sm font-medium text-gray-700">
+
+          {/* --- Date of Birth --- */}
+          <label className="flex flex-col text-sm font-medium text-textColor">
             Date of Birth
+            <input
+              className="mt-1 w-full border-b-2 border-textColor bg-transparent py-2 outline-none transition-colors focus:border-orangeText"
+              type="date"
+              name="DOB"
+              value={form.DOB}
+              data-lpignore="true"
+              onChange={handleChange}
+              max={
+                new Date(new Date().setFullYear(new Date().getFullYear() - 11))
+                  .toISOString()
+                  .split("T")[0]
+              }
+              required
+            />
           </label>
-          <input
-            className="border border-gray-300 p-2 w-full mb-3 rounded-md lp-ignore"
-            type="date"
-            name="DOB"
-            value={form.DOB}
-            autoComplete="off"
-            data-lpignore="true"
-            onChange={handleChange}
-            max={
-              //  DOB's above 11 years old
-              new Date(new Date().setFullYear(new Date().getFullYear() - 11))
-                .toISOString()
-                .split("T")[0]
-            }
-            required
-          />
+
           <input type="hidden" name="token" value={form.token} />
+
           <button
-            className="bg-blue-500 text-white p-2 w-full rounded-md"
             type="submit"
+            className="mt-6 flex w-full items-center justify-center rounded-full border-2 border-buttonTextBlack bg-orangeButton py-3 font-semibold text-buttonTextBlack shadow-md transition-transform duration-300 hover:bg-lightPink"
           >
             {registerIsLoading ? (
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                }}
-              >
-                <div className="spinner"></div>
-              </div>
+              <div className="spinner h-5 w-5 animate-spin rounded-full border-4 border-t-transparent" />
             ) : (
               "Register"
             )}
           </button>
         </form>
-      </div>
+      </motion.div>
     </div>
   );
 };

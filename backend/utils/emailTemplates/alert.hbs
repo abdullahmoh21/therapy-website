@@ -1,103 +1,65 @@
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="x-ua-compatible" content="ie=edge" />
     <title>System Alert</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <style type="text/css">
-      @media screen { @font-face { font-family: 'Source Sans Pro'; font-style:
-      normal; font-weight: 400; src: local('Source Sans Pro Regular'),
-      local('SourceSansPro-Regular'),
-      url(https://fonts.gstatic.com/s/sourcesanspro/v10/ODelI1aHBYDBqgeIAH2zlBM0YzuT7MdOe03otPbuUS0.woff)
-      format('woff'); } @font-face { font-family: 'Source Sans Pro'; font-style:
-      normal; font-weight: 700; src: local('Source Sans Pro Bold'),
-      local('SourceSansPro-Bold'),
-      url(https://fonts.gstatic.com/s/sourcesanspro/v10/toadOcfmlt9b38dHJxOBGFkQc6VGVFSmCnC_l7QZG60.woff)
-      format('woff'); } } body, table, td, a { -ms-text-size-adjust: 100%;
-      -webkit-text-size-adjust: 100%; } body { font-family: 'Source Sans Pro',
-      Helvetica, Arial, sans-serif; height: 100% !important; margin: 0
-      !important; padding: 0 !important; width: 100% !important; } table {
-      border-collapse: collapse !important; } a { color: #1a82e2; } img {
-      height: auto; line-height: 100%; text-decoration: none; border: 0;
-      outline: none; }
+    <style>
+      body { margin: 0; padding: 0; background-color: #f9f9f9; } .container {
+      background-color: #ffffff; border: 1px solid #eee; border-left: 4px solid
+      #E27A82; border-radius: 8px; margin: 40px auto; padding: 20px; max-width:
+      600px; } .header { text-align: center; margin-bottom: 20px; } .header h2 {
+      margin: 10px 0 0; font-size: 20px; color: #E27A82; } .title {
+      background-color: #E27A82; color: #ffffff; text-align: center;
+      border-radius: 6px 6px 0 0; padding: 20px; font-size: 20px; } .message {
+      padding: 30px 20px; font-size: 16px; color: #444; line-height: 1.5; }
+      .button-container { text-align: center; margin: 30px 0; } .btn {
+      background-color: #E27A82; color: #ffffff; padding: 14px 28px; font-size:
+      16px; text-decoration: none; border-radius: 6px; display: inline-block; }
+      .footer { text-align: center; font-size: 12px; color: #999999; border-top:
+      1px solid #eee; padding: 20px; }
     </style>
   </head>
 
-  <body style="background-color: #e9ecef;">
-    <div style="background-color: #e9ecef; padding: 40px 0;">
-      <div
-        style="background-color: #ffffff; border-radius: 8px; margin: 0 auto; max-width: 600px; padding: 20px;"
-      >
-        <!-- Logo -->
-        <table border="0" cellpadding="0" cellspacing="0" width="100%">
-          <tr>
-            <td align="center" style="padding: 25px 0;">
-              <h2 style="color: #333333; margin: 0;">Fatima Mohsin Therapy</h2>
-            </td>
-          </tr>
-        </table>
+  <body>
+    <div class="container">
+      <!-- Logo & Fallback -->
+      <div class="header">
+        <div style="height: 40px; margin-bottom: 10px;">
+          <img
+            src="{{frontend_url}}/logo.png"
+            alt="Fatima's Therapy Services"
+            style="max-height: 100%; display: block; margin: 0 auto;"
+            onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\'color:#E27A82;font-size:18px;font-weight:bold;\'>Fatima&apos;s Therapy Services</div>';"
+          />
+        </div>
+        <h2>Fatima Mohsin Therapy</h2>
+      </div>
 
-        <!-- Title -->
-        <table border="0" cellpadding="0" cellspacing="0" width="100%">
-          <tr>
-            <td
-              align="center"
-              bgcolor="#1a82e2"
-              style="border-radius: 6px 6px 0 0; padding: 25px; color: #ffffff;"
-            >
-              <h1 style="margin: 0; font-size: 22px;">{{title}}</h1>
-            </td>
-          </tr>
-        </table>
+      <!-- Title -->
+      <div class="title">
+        {{title}}
+      </div>
 
-        <!-- Message -->
-        <table border="0" cellpadding="0" cellspacing="0" width="100%">
-          <tr>
-            <td style="padding: 30px;">
-              <p
-                style="margin: 0; font-size: 16px; line-height: 1.5; color: #51545E;"
-              >{{message}}</p>
+      <!-- Message -->
+      <div class="message">
+        <p>{{message}}</p>
 
-              {{#if actionText}}
-                <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                  <tr>
-                    <td align="center" style="padding: 30px 0;">
-                      <table border="0" cellpadding="0" cellspacing="0">
-                        <tr>
-                          <td
-                            align="center"
-                            bgcolor="#1a82e2"
-                            style="border-radius: 6px;"
-                          >
-                            <a
-                              href="{{actionLink}}"
-                              target="_blank"
-                              style="display: inline-block; padding: 16px 36px; font-size: 16px; color: #ffffff; text-decoration: none; border-radius: 6px;"
-                            >{{actionText}}</a>
-                          </td>
-                        </tr>
-                      </table>
-                    </td>
-                  </tr>
-                </table>
-              {{/if}}
-            </td>
-          </tr>
-        </table>
+        {{#if actionText}}
+          <div class="button-container">
+            <a
+              href="{{actionLink}}"
+              target="_blank"
+              class="btn"
+            >{{actionText}}</a>
+          </div>
+        {{/if}}
+      </div>
 
-        <!-- Footer -->
-        <table border="0" cellpadding="0" cellspacing="0" width="100%">
-          <tr>
-            <td
-              align="center"
-              style="padding: 20px; font-size: 12px; color: #999999;"
-            >
-              <p style="margin: 0;">&copy;
-                {{currentYear}}
-                Fatima Mohsin Therapy. All rights reserved.</p>
-            </td>
-          </tr>
-        </table>
+      <!-- Footer -->
+      <div class="footer">
+        Regards,<br />
+        Your Server<br />
       </div>
     </div>
   </body>

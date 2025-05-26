@@ -95,9 +95,7 @@ const userSchema = Joi.alternatives().try(schemaWithToken, schemaWithEvents);
 //for route /auth
 const loginSchema = Joi.object({
   email: Joi.string().email().required(),
-  password: Joi.string()
-    .pattern(new RegExp("^[a-zA-Z0-9#$%^&*()_+!]{8,30}$"))
-    .required(),
+  password: Joi.string().required(),
 });
 
 // for route: /users/updateMyUser

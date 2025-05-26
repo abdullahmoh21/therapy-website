@@ -13,11 +13,11 @@ export default defineConfig({
             id.includes("node_modules/react") ||
             id.includes("node_modules/react-dom")
           ) {
-            return "react-core"; // React-specific chunk
+            return "react-core";
           }
 
-          if (id.includes("node_modules")) {
-            return "vendor"; // Other node_modules
+          if (id.includes("node_modules/chart.js")) {
+            return "admin-dashboard";
           }
 
           if (id.includes("src/pages/Dashboards/AdminDashboard")) {
@@ -36,6 +36,10 @@ export default defineConfig({
             id.includes("src/pages/LoadingPage.jsx")
           ) {
             return "public-site";
+          }
+
+          if (id.includes("node_modules")) {
+            return "vendor";
           }
         },
       },

@@ -1,113 +1,118 @@
-<!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Refund Request Notification</title>
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f4f4f4;
-            margin: 0;
-            padding: 0;
-            color: #333;
-        }
-        .email-container {
-            max-width: 600px;
-            margin: 20px auto;
-            background-color: #ffffff;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-        .email-header {
-            background-color: #EB8E5F;
-            color: #ffffff;
-            padding: 20px;
-            text-align: center;
-            border-bottom: 1px solid #d48d6a;
-        }
-        .email-body {
-            padding: 20px;
-            line-height: 1.5;
-        }
-        .email-footer {
-            background-color: #EB8E5F;
-            color: #ffffff;
-            text-align: center;
-            padding: 10px;
-            font-size: 0.8em;
-            border-top: 1px solid #d48d6a;
-        }
-        a {
-            color: #EB8E5F;
-            text-decoration: none;
-        }
-        a:hover {
-            color: #d48d6a;
-            text-decoration: underline;
-        }
-        .button-link {
-            display: block;
-            width: fit-content;
-            margin: 10px auto;
-            background-color: #EB8E5F;
-            color: #ffffff;
-            padding: 10px 20px;
-            border-radius: 5px;
-            text-decoration: none;
-            border: none;
-            cursor: pointer;
-        }
-        .button-link:hover {
-            background-color: #d48d6a;
-            color: #ffffff;
-        }
-        .refund-details {
-            background-color: #ffcccb;
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 5px;
-        }
+      body { font-family: Arial, sans-serif; background-color: #f9f9f9; margin:
+      0; padding: 0; color: #333; } .email-container { max-width: 600px; margin:
+      40px auto; background-color: #ffffff; border: 1px solid #eee; border-left:
+      4px solid #e27a82; border-radius: 8px; padding: 24px; } .header {
+      text-align: center; margin-bottom: 20px; } .header img { max-height: 40px;
+      display: block; margin: 0 auto 10px; } .fallback-logo { color: #e27a82;
+      font-weight: bold; font-size: 18px; } .title { font-size: 20px;
+      font-weight: bold; color: #e27a82; text-align: center; margin-bottom:
+      20px; } .email-body { font-size: 16px; line-height: 1.5; } ol {
+      padding-left: 18px; margin-top: 10px; margin-bottom: 20px; } .email-body
+      ol li { margin-bottom: 10px; } .button-link { display: block; width:
+      fit-content; margin: 20px auto; background-color: #e27a82; color: #ffffff;
+      padding: 12px 24px; border-radius: 6px; text-decoration: none; text-align:
+      center; font-size: 16px; } .button-link:hover { background-color: #c86a67;
+      } .footer { font-size: 13px; color: #777; text-align: center; margin-top:
+      40px; border-top: 1px solid #eee; padding-top: 16px; } a { color: #e27a82;
+      text-decoration: none; } a:hover { text-decoration: underline; color:
+      #c86a67; }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="email-container">
-        <div class="email-header">
-            <h1>Fatima's Therapy Services</h1>
+      <!-- Logo with fallback -->
+      <div class="header">
+        <div style="height: 40px; margin-bottom: 10px; text-align: center">
+          <a
+            href="{{frontend_url}}"
+            target="_blank"
+            style="display: inline-block"
+          >
+            <img
+              src="{{frontend_url}}/logo.png"
+              alt="Fatima's Therapy Services"
+              style="max-height: 100%; display: block; margin: 0 auto"
+              onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\'color:#E27A82;font-size:18px;font-weight:bold;\'>Fatima's Therapy Services</div>';"
+            />
+          </a>
         </div>
-        <div class="email-body">
-            <p>Dear Admin,</p>
-            <p>{{name}} has submitted a refund request. The cancellation policy requires cancellations to be made within a specific time frame, and this user has adhered to the policy's conditions. Here are the details of the request:</p>
-            <ol>
-                <li><strong>User Email:</strong> {{userEmail}}</li>
-                <li><strong>Booking ID:</strong> {{bookingId}}</li>
-                <li><strong>Event Date and Time:</strong> {{eventDate}} at {{eventTime}}</li>
-                <li><strong>Cancelled within policy period?</strong> {{cancelledWithinPolicyPeriod}}</li>
-                <li><strong>Payment Amount:</strong> {{paymentAmount}} PKR</li>
-                <li><strong>Payment Status:</strong> {{paymentStatus}} on {{paymentCompleted}}</li>
-                <li><strong>Transaction Reference Number:</strong> {{transactionReferenceNumber}}</li>
-            </ol>
-            <div class="refund-details">
-                <p>
-                    Please follow these steps to review the payment and process the refund:
-                </p>
-                <ol>
-                    <li>Decide whether to approve or reject the refund request (most likely should)</li>
-                    <li>Click the button below to review the payment on Safepay's website (Search by order ID).</li>
-                    <li>If you approve the refund request, press the refund button on the Safepay payment details page.</li>
-                    <li>If you reject the refund request, please contact the user directly to resolve the issue.</li>
-                    <li>[ATTENTION] Ensure that the transaction reference number matches the details provided.</li>
-                </ol>
-            </div>
-            <a href="{{refundLink}}" class="button-link">Review Payment</a>
-            <p>If you have any questions or need further information, please contact us directly.</p>
-        </div>
-        <div class="email-footer">
-            Regards,<br>
-            The Finance Team<br>
-            <a href="https://www.fatimanaqvi.com">www.fatimanaqvi.com</a>
-        </div>
+      </div>
+
+      <!-- Title -->
+      <div class="title">Refund Request Received</div>
+
+      <!-- Message Body -->
+      <div class="email-body">
+        <p>Dear Admin,</p>
+
+        <p>
+          {{name}}
+          has submitted a refund request. The cancellation policy requires
+          cancellations to be made within a specific time frame, and this user
+          has adhered to the policy's conditions. Here are the details:
+        </p>
+
+        <ol>
+          <li><strong>User Email:</strong> {{userEmail}}</li>
+          <li><strong>Booking ID:</strong> {{bookingId}}</li>
+          <li>
+            <strong>Event Date and Time:</strong>
+            {{eventDate}}
+            at
+            {{eventTime}}
+          </li>
+          <li>
+            <strong>Cancelled within policy period?</strong>
+            {{cancelledWithinPolicyPeriod}}
+          </li>
+          <li><strong>Payment Amount:</strong> {{paymentAmount}} PKR</li>
+          <li>
+            <strong>Payment Status:</strong>
+            {{paymentStatus}}
+            on
+            {{paymentCompleted}}
+          </li>
+          <li>
+            <strong>Transaction Reference Number:</strong>
+            {{transactionReferenceNumber}}
+          </li>
+        </ol>
+
+        <p>Please follow these steps to review and process the refund:</p>
+
+        <ol>
+          <li>Review and decide to approve or reject the refund.</li>
+          <li>
+            Click the button below to open the payment on Safepay (search by
+            order ID).
+          </li>
+          <li>
+            If approved, click the refund button on Safepay’s payment details
+            page.
+          </li>
+          <li>If rejected, contact the user directly with a response.</li>
+          <li>
+            <strong>[ATTENTION]</strong>
+            Ensure the transaction reference matches the details above.
+          </li>
+        </ol>
+
+        <a href="{{refundLink}}" class="button-link">Review Payment</a>
+
+        <p>If you have any questions, feel free to reach out.</p>
+      </div>
+
+      <!-- Footer -->
+      <div class="footer">
+        Regards,<br />
+        Your Server<br />
+      </div>
     </div>
-</body>
+  </body>
 </html>

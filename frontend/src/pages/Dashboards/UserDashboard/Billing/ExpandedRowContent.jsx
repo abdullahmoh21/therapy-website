@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from "react";
 import {
-  useGetBookingQuery, // This should be from bookingApiSlice, ensure correct import path
-} from "../../../../features/bookings/bookingApiSlice"; // Corrected path assumption
+  useGetBookingQuery,
+} from "../../../../features/bookings/bookingApiSlice";
 import {
-  useGetPaymentQuery, // This should be from paymentApiSlice
-} from "../../../../features/payments/paymentApiSlice"; // Corrected path assumption
+  useGetPaymentQuery,
+} from "../../../../features/payments/paymentApiSlice";
 import PaymentButton from "./PaymentButton";
 import ExpandedContentSkeleton from "./ExpandedContentSkeleton";
-import { BiErrorCircle, BiVideo } from "react-icons/bi";
+import { BiErrorCircle, BiVideo, BiLoaderAlt, BiDollarCircle } from "react-icons/bi";
 import ExpandedStatusDisplay from "./ExpandedStatusDisplay";
 import { getStatusDisplay } from "./billingUtils"; // Make sure this util is robust
 
@@ -46,7 +46,7 @@ const formatLocation = (locationData) => {
 };
 
 const ExpandedRowContent = ({
-  data: initialData, // initialData is a booking object from the list
+  data: initialData,
   onRedirectToPayment,
   payingBookingId,
 }) => {
@@ -296,14 +296,25 @@ const ExpandedRowContent = ({
             {(combinedData.payment?.transactionStatus === "Not Initiated" ||
               combinedData.payment?.transactionStatus === "Cancelled" ||
               combinedData.payment?.transactionStatus === "Failed") &&
-              combinedData._id && ( // Ensure booking _id is present
+              combinedData._id && (
                 <div className="mt-4 flex justify-end">
-                  <PaymentButton
-                    bookingId={combinedData._id} // Pass the booking's MongoDB _id
-                    status={combinedData.payment?.transactionStatus}
-                    onClick={() => onRedirectToPayment(combinedData._id)} // Ensure onClick calls with booking _id
-                    isLoading={payingBookingId === combinedData._id}
-                  />
+                  <button
+                    onClick={() => onRedirectToPayment(combinedData._id)}
+                    disabled={payingBookingId === combinedData._id}
+                    className="inline-flex items-center justify-center bg-blue-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 disabled:opacity-70 disabled:cursor-not-allowed"
+                  >
+                    {payingBookingId === combinedData._id ? (
+                      <>
+                        <BiLoaderAlt className="animate-spin mr-2 h-5 w-5" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <BiDollarCircle className="mr-2 h-5 w-5" />
+                        Make Payment
+                      </>
+                    )}
+                  </button>
                 </div>
               )}
           </div>

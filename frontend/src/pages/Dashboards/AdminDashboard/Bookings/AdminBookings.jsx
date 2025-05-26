@@ -20,7 +20,8 @@ import {
 import { toast } from "react-toastify";
 import Pagination from "../../../../components/pagination";
 import ConfirmationModal from "../../../../components/confirmationModal";
-import { debounce } from "lodash/debounce";
+import debounce from "lodash/debounce";
+
 import { format } from "date-fns";
 import { ProgressSpinner } from "primereact/progressspinner";
 import BookingDetailsDialog from "./BookingDetailsDialog";

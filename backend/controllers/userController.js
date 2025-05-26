@@ -77,7 +77,7 @@ const resendEvLink = asyncHandler(async (req, res) => {
     user.emailVerified.encryptedToken &&
     user.emailVerified.expiresIn > Date.now()
   ) {
-    link = `${FRONTEND_URL}/verifyEmail?token=${decrypt(
+    link = `${process.env.FRONTEND_URL}/verifyEmail?token=${decrypt(
       user.emailVerified.encryptedToken
     )}`;
     user.emailVerified.expiresIn = Date.now() + 3600000; // reset expiry
@@ -87,7 +87,7 @@ const resendEvLink = asyncHandler(async (req, res) => {
     user.emailVerified.encryptedToken = encrypt(newToken);
     user.emailVerified.expiresIn = Date.now() + 3600000; // 1 hour
     await user.save();
-    link = `${FRONTEND_URL}/verifyEmail?token=${newToken}`;
+    link = `${process.env.FRONTEND_URL}/verifyEmail?token=${newToken}`;
   }
 
   // Prepare email job data
@@ -127,7 +127,9 @@ const verifyEmail = asyncHandler(async (req, res) => {
 
   if (!user) {
     logger.error(`Invalid or expired verification token: ${token}`);
-    return res.status(400).send("Invalid or expired verification token");
+    return res
+      .status(400)
+      .json({ message: "Invalid or expired verification token" });
   }
 
   console.log("Email verified!!");
@@ -172,7 +174,7 @@ const forgotPassword = asyncHandler(async (req, res) => {
     );
   }
 
-  const link = `${FRONTEND_URL}/resetPassword?token=${resetToken}`; //production: change to domain
+  const link = `${process.env.FRONTEND_URL}/resetPassword?token=${resetToken}`; //production: change to domain
 
   let emailJobData = {
     name: user.name,
@@ -423,10 +425,6 @@ const getAllMyBookings = asyncHandler(async (req, res) => {
 
     const totalBookings = result?.totalBookings || 0;
     const bookings = result?.bookings || [];
-
-    logger.debug(
-      `Found ${bookings.length} bookings out of ${totalBookings} total for page ${page} with filters: search='${search}', transactionRef='${transactionRef}', paymentStatus='${paymentStatus}', startDate='${startDate}', endDate='${endDate}', location='${location}'`
-    );
 
     res.json({
       page: page,
