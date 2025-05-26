@@ -7,5 +7,5 @@ configLocalCache.bin
 invalidationRequests.bin
 dump/
 node_modules/
-logs/
 .history/
+*.log
