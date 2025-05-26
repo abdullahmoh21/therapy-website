@@ -21,6 +21,7 @@ COPY backend ./
 
 # Copy frontend build to backend public dir
 COPY --from=frontend-builder /tmp/frontend/dist ./public
+VOLUME /usr/src/app/public
 
 EXPOSE 3200
 CMD ["npm", "start"]
