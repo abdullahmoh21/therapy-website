@@ -8,52 +8,52 @@ export const data = {
   rows: [
     /* ────────────────────────────────────────────────────────────────── */
     {
-      title: "    How do I create an account?",
+      title: "How do I create an account?",
       content: `Start by booking a free 15-minute consultation with Fatima via this <a href="https://calendly.com/fatimamohsintherapy/consultation" target="_blank" rel="noopener noreferrer"><u>link</u></a>. If both you and Fatima decide to proceed, you'll receive an e-mail invitation to create your private dashboard account. Only invited clients can sign up.`,
     },
     /* ────────────────────────────────────────────────────────────────── */
     {
-      title: "    How do I book an appointment after I have an account?",
+      title: "How do I book an appointment after I have an account?",
       content: `Log in to your dashboard and pick an available slot from the calendar. Because you're already verified, booking is instantaneous—no upfront payment is required.`,
     },
     /* ────────────────────────────────────────────────────────────────── */
     {
-      title: "    Do I need to pay for my appointment upfront?",
+      title: "Do I need to pay for my appointment upfront?",
       content: `No. You may pay online any time before your session (preferred),or bring cash / arrange a bank transfer at the time of the appointment.`,
     },
     /* ────────────────────────────────────────────────────────────────── */
     {
-      title: "    What payment methods do you accept for sessions?",
+      title: "What payment methods do you accept for sessions?",
       content: `Online payments: all major credit / debit cards processed securely via SafePay. Offline payments: cash or direct bank transfer during your visit.`,
     },
     /* ────────────────────────────────────────────────────────────────── */
     {
-      title: "    What is your cancellation and refund policy?",
+      title: "What is your cancellation and refund policy?",
       content: `You may cancel without penalty if you do so no later than the notice period displayed in your dashboard.  Cancellations made after that window and all no-shows are non-refundable. More info <a href="/terms-and-conditions" target="_blank" rel="noopener noreferrer"><u>here</u></a> `,
     },
     /* ────────────────────────────────────────────────────────────────── */
     {
-      title: "    What happens if I miss my appointment?",
+      title: "What happens if I miss my appointment?",
       content: `A missed session (no-show) is treated the same as a late cancellation: the session fee is non-refundable. You will need to settle this fee before booking another slot.`,
     },
     /* ────────────────────────────────────────────────────────────────── */
     {
-      title: "    Can I reschedule my appointment instead of cancelling?",
+      title: "Can I reschedule my appointment instead of cancelling?",
       content: `Yes—if you reschedule before the required notice period no additional fee is charged and your existing payment (if any) simply moves to the new slot.`,
     },
     /* ────────────────────────────────────────────────────────────────── */
     {
-      title: "    How long does a therapy session last?",
+      title: "How long does a therapy session last?",
       content: `Standard sessions run 45–60 minutes. Assessment or specialized sessions may be longer; any variance will be shown in the calendar slot before you confirm.`,
     },
     /* ────────────────────────────────────────────────────────────────── */
     {
-      title: "    Are my personal and payment details secure?",
+      title: "Are my personal and payment details secure?",
       content: `Absolutely. Your dashboard is invitation-only, uses SSL encryption, and card payments are processed by SafePay in compliance with State Bank of Pakistan requirements. We never store full card numbers on our servers.`,
     },
     /* ────────────────────────────────────────────────────────────────── */
     {
-      title: "    Do you offer online or in-person sessions?",
+      title: "Do you offer online or in-person sessions?",
       content: `Both. You can select your preference (video or in-person) while booking. If you choose in-person, the session will be held at Fatima's Lahore practice.`,
     },
   ],
@@ -67,7 +67,7 @@ const styles = {
   rowTitleTextSize: "22px",
   rowContentTextSize: "19px",
   rowContentPaddingRight: "30px",
-  rowContentPaddingLeft: "30px",
+  rowContentPaddingLeft: "0px",
 };
 // FAQ Config
 const config = {

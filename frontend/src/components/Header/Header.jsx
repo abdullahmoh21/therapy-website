@@ -61,106 +61,108 @@ const Header = () => {
 
   return (
     <>
-      <Sticky enabled={true} top={0} innerZ={500} activeClass="sticky_header">
-        <header
-          className={`py-3 transition-all duration-300 ${
-            scrolled
-              ? "bg-white shadow-md"
-              : "bg-whiteBg border-b border-lightOrange"
-          }`}
-        >
-          <div className="container mx-auto px-4 flex justify-between items-center relative">
-            {/* Logo */}
-            <div className="flex-shrink-0">
-              <Link to="/#home" className="flex items-center">
-                <motion.img
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.3 }}
-                  src={logo}
-                  alt="logo"
-                  className="h-16 md:h-20 w-auto object-contain"
-                />
-              </Link>
-            </div>
+      <div className="header-container">
+        <Sticky enabled={true} top={0} innerZ={100} activeClass="sticky_header">
+          <header
+            className={`py-3 transition-all duration-300 ${
+              scrolled
+                ? "bg-white shadow-md"
+                : "bg-whiteBg border-b border-lightOrange"
+            }`}
+          >
+            <div className="container mx-auto px-4 flex justify-between items-center relative">
+              {/* Logo */}
+              <div className="flex-shrink-0">
+                <Link to="/#home" className="flex items-center">
+                  <motion.img
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.3 }}
+                    src={logo}
+                    alt="logo"
+                    className="h-16 md:h-20 w-auto object-contain"
+                  />
+                </Link>
+              </div>
 
-            {/* Desktop navigation */}
-            <nav className="hidden md:flex items-center justify-center flex-1 ml-10">
-              <ul className="flex items-center gap-6">
-                {NavLinks.map((link, index) => (
-                  <motion.li
-                    key={index}
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: index * 0.1 }}
-                  >
-                    <a
-                      href={link.path}
-                      className={`text-textColor text-[16px] font-medium py-2 px-4 rounded-full border border-transparent hover:bg-orangeBg hover:border-orangeBg/90 transition-colors duration-300`}
+              {/* Desktop navigation */}
+              <nav className="hidden md:flex items-center justify-center flex-1 ml-10">
+                <ul className="flex items-center gap-6">
+                  {NavLinks.map((link, index) => (
+                    <motion.li
+                      key={index}
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: index * 0.1 }}
                     >
-                      {link.display}
-                    </a>
-                  </motion.li>
-                ))}
-              </ul>
-            </nav>
+                      <a
+                        href={link.path}
+                        className={`text-textColor text-[16px] font-medium py-2 px-4 rounded-full border border-transparent hover:bg-orangeBg hover:border-orangeBg/90 transition-colors duration-300`}
+                      >
+                        {link.display}
+                      </a>
+                    </motion.li>
+                  ))}
+                </ul>
+              </nav>
 
-            {/* Right side buttons container */}
-            <div className="flex-shrink-0 hidden md:flex items-center gap-3">
-              {/* Contact Me button moved here */}
-              <motion.button
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3, delay: 0.3 }}
-                onClick={togglePopup}
-                className="h-10 text-buttonTextBlack text-[16px] text-bold font-medium py-0 px-6 bg-orangeButton rounded-full shadow-sm hover:bg-lightPink hover:shadow-md transition-colors duration-300 flex items-center justify-center"
-              >
-                Contact Me
-              </motion.button>
+              {/* Right side buttons container */}
+              <div className="flex-shrink-0 hidden md:flex items-center gap-3">
+                {/* Contact Me button moved here */}
+                <motion.button
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3, delay: 0.3 }}
+                  onClick={togglePopup}
+                  className="h-10 text-buttonTextBlack text-[16px] text-bold font-medium py-0 px-6 bg-orangeButton rounded-full shadow-sm hover:bg-lightPink hover:shadow-md transition-colors duration-300 flex items-center justify-center"
+                >
+                  Contact Me
+                </motion.button>
 
-              {/* Sign in / Dashboard button */}
-              <motion.div
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3, delay: 0.4 }}
-              >
-                {token ? (
-                  <Link
-                    to="/dash"
-                    className="h-10 text-buttonTextBlack text-[16px] font-medium py-0 px-6 bg-orangeButton rounded-full shadow-sm hover:bg-lightPink hover:shadow-md transition-colors duration-300 flex items-center justify-center"
-                  >
-                    Dashboard
-                  </Link>
-                ) : (
-                  <Link
-                    to="/signin"
-                    className="h-10 text-buttonTextBlack text-[16px] font-medium py-0 px-6 bg-orangeButton rounded-full shadow-sm hover:bg-lightPink hover:shadow-md transition-colors duration-300 flex items-center justify-center"
-                  >
-                    Sign In
-                  </Link>
-                )}
-              </motion.div>
+                {/* Sign in / Dashboard button */}
+                <motion.div
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3, delay: 0.4 }}
+                >
+                  {token ? (
+                    <Link
+                      to="/dash"
+                      className="h-10 text-buttonTextBlack text-[16px] font-medium py-0 px-6 bg-orangeButton rounded-full shadow-sm hover:bg-lightPink hover:shadow-md transition-colors duration-300 flex items-center justify-center"
+                    >
+                      Dashboard
+                    </Link>
+                  ) : (
+                    <Link
+                      to="/signin"
+                      className="h-10 text-buttonTextBlack text-[16px] font-medium py-0 px-6 bg-orangeButton rounded-full shadow-sm hover:bg-lightPink hover:shadow-md transition-colors duration-300 flex items-center justify-center"
+                    >
+                      Sign In
+                    </Link>
+                  )}
+                </motion.div>
+              </div>
+
+              {/* Mobile Menu Button */}
+              <div className="md:hidden">
+                <button
+                  onClick={toggleMenu}
+                  className="p-2 rounded-full transition-colors duration-300"
+                  aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+                >
+                  {isMenuOpen ? (
+                    <IoMdClose className="w-6 h-6" />
+                  ) : (
+                    <BiMenu className="w-6 h-6" />
+                  )}
+                </button>
+              </div>
             </div>
+          </header>
+        </Sticky>
+      </div>
 
-            {/* Mobile Menu Button */}
-            <div className="md:hidden">
-              <button
-                onClick={toggleMenu}
-                className="p-2 rounded-full transition-colors duration-300"
-                aria-label={isMenuOpen ? "Close menu" : "Open menu"}
-              >
-                {isMenuOpen ? (
-                  <IoMdClose className="w-6 h-6" />
-                ) : (
-                  <BiMenu className="w-6 h-6" />
-                )}
-              </button>
-            </div>
-          </div>
-        </header>
-      </Sticky>
-
-      {/* Mobile Menu Overlay */}
+      {/* Mobile Menu Overlay with adjusted z-index */}
       <AnimatePresence>
         {isMenuOpen && (
           <motion.div
@@ -168,13 +170,13 @@ const Header = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+            className="fixed inset-0 bg-black bg-opacity-50 z-[500] md:hidden"
             onClick={toggleMenu}
           />
         )}
       </AnimatePresence>
 
-      {/* Mobile Dropdown menu */}
+      {/* Mobile Dropdown menu with highest z-index */}
       <AnimatePresence>
         {isMenuOpen && (
           <motion.div
@@ -182,7 +184,7 @@ const Header = () => {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: "100%", opacity: 0 }}
             transition={{ type: "tween", duration: 0.3 }}
-            className="fixed top-0 right-0 w-[80%] h-full bg-whiteBg shadow-lg md:hidden z-50"
+            className="fixed top-0 right-0 w-[80%] h-full bg-whiteBg shadow-lg md:hidden z-[600]"
           >
             <div className="flex flex-col h-full overflow-y-auto">
               {/* Close button and logo */}
@@ -270,11 +272,10 @@ const Header = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50 p-4"
+            className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-70 md:p-4 z-[1020]" // Removed p-4 for mobile
             onClick={(e) => {
-              // Only allow closing by clicking outside on desktop
-              const isDesktop = window.innerWidth >= 768; // Tailwind's 'md' breakpoint
-              if (isDesktop && e.target === e.currentTarget) {
+              // Only close when clicking outside
+              if (e.target === e.currentTarget) {
                 togglePopup();
               }
             }}
@@ -284,19 +285,21 @@ const Header = () => {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               transition={{ duration: 0.3 }}
-              className="bg-white rounded-xl shadow-xl relative max-w-lg w-full mx-auto"
-              style={{ maxHeight: "80vh", overflowY: "auto" }}
+              className="bg-whiteBg md:rounded-xl md:shadow-xl relative w-full h-full md:max-w-lg md:h-auto md:mt-0" // Changed bg-white to bg-whiteBg
+              style={{ maxHeight: "100vh", md: { maxHeight: "calc(100vh - 80px)" }, overflowY: "auto" }} // Full viewport height on mobile
               onClick={(e) => e.stopPropagation()}
             >
+              {/* Add close button that's always visible */}
               <button
                 onClick={togglePopup}
-                className="absolute top-4 right-4 z-10 p-2 rounded-full hover:bg-black/20 transition-colors duration-300 text-gray-600"
+                className="absolute top-4 right-4 z-10 p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors duration-300 text-gray-700" // Adjusted top/right for consistency
                 aria-label="Close"
               >
-                <IoMdClose className="w-5 h-5" />
+                <IoMdClose className="w-6 h-6" />
               </button>
-              <div className="p-6">
-                <ContactMe />
+              {/* Adjusted padding for mobile full screen */}
+              <div className="p-6 pt-16 md:pt-10 md:p-6 h-full overflow-y-auto">
+                <ContactMe closePopup={togglePopup} />
               </div>
             </motion.div>
           </motion.div>

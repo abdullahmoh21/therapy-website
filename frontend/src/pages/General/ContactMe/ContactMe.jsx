@@ -92,7 +92,7 @@ const ContactMe = () => {
   };
 
   return (
-    <div className="p-6 max-w-lg mx-auto bg-whiteBg rounded-md shadow-md">
+    <div className="w-full h-full bg-whiteBg md:p-6 md:max-w-lg md:mx-auto md:rounded-md md:shadow-md">
       <h2 className="orelega-one text-[30px] text-center mb-4 text-lightPink">
         Contact Me
       </h2>
@@ -241,6 +241,8 @@ const ContactMe = () => {
           className={`w-32 p-2 bg-lightPink text-white rounded-full mx-auto block ${
             isLoading ? "pi pi-spin pi-spinner" : ""
           }`}
+          // Add mb-6 for spacing at the bottom on mobile when it's full screen
+          style={{ marginBottom: "1.5rem" }}
         >
           {isLoading ? "Sending..." : "Send"}
         </Button>
