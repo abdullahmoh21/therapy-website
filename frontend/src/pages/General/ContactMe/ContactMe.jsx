@@ -92,7 +92,7 @@ const ContactMe = () => {
   };
 
   return (
-    <div className="w-full h-full bg-whiteBg md:p-6 md:max-w-lg md:mx-auto md:rounded-md md:shadow-md">
+    <div className="w-full h-full bg-whiteBg md:p-6 md:max-w-lg md:mx-auto md:rounded-md">
       <h2 className="orelega-one text-[30px] text-center mb-4 text-lightPink">
         Contact Me
       </h2>
@@ -190,11 +190,11 @@ const ContactMe = () => {
                 id="requestType"
                 {...field}
                 options={requestTypes}
-                className={`w-full p-2 bg-white border rounded ${
+                className={`w-full p-2 bg-white border rounded z-[810] ${
                   errors.requestType ? "border-red-500" : "border-gray-300"
                 }`}
                 itemTemplate={(option) => (
-                  <div className="p-2 bg-white text-center shadow-md hover:bg-gray-100">
+                  <div className="p-2 bg-white text-center hover:bg-gray-100">
                     {option.label}
                   </div>
                 )}
