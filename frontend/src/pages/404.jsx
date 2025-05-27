@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import dog from "../assets/images/maggie.png";
+import dog from "../assets/images/maggie.webp";
 
 const NotFound = () => {
   return (
