@@ -1,8 +1,8 @@
 // backend/scripts/seedAdmin.js
-import mongoose from "mongoose";
-import dotenv from "dotenv";
-import bcrypt from "bcrypt";
-import User from "../models/User.js";
+const mongoose = require("mongoose");
+const dotenv = require("dotenv");
+const bcrypt = require("bcrypt");
+const User = require("../models/User");
 
 dotenv.config();
 
