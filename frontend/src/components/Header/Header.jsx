@@ -272,7 +272,7 @@ const Header = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-70 md:p-4 z-[1020]" // Removed p-4 for mobile
+            className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-70 md:p-4 z-[700]" // Removed p-4 for mobile
             onClick={(e) => {
               // Only close when clicking outside
               if (e.target === e.currentTarget) {
@@ -286,7 +286,11 @@ const Header = () => {
               exit={{ scale: 0.9, opacity: 0 }}
               transition={{ duration: 0.3 }}
               className="bg-whiteBg md:rounded-xl md:shadow-xl relative w-full h-full md:max-w-lg md:h-auto md:mt-0" // Changed bg-white to bg-whiteBg
-              style={{ maxHeight: "100vh", md: { maxHeight: "calc(100vh - 80px)" }, overflowY: "auto" }} // Full viewport height on mobile
+              style={{
+                maxHeight: "100vh",
+                md: { maxHeight: "calc(100vh - 80px)" },
+                overflowY: "auto",
+              }} // Full viewport height on mobile
               onClick={(e) => e.stopPropagation()}
             >
               {/* Add close button that's always visible */}
