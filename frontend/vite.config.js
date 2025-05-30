@@ -27,7 +27,7 @@ export default defineConfig({
             id.includes("src/pages/404.jsx") ||
             id.includes("src/pages/LoadingPage.jsx")
           ) {
-            return "public-site";
+            return "common";
           }
 
           if (id.includes("node_modules")) {

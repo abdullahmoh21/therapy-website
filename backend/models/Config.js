@@ -32,7 +32,12 @@ function saveLocalCache(cache = {}) {
 
 // Config cache constants
 const CONFIG_CACHE_PREFIX = "config:";
-const CONFIG_CACHE_TTL = 30 * 60; // 30 minutes in seconds
+// Removing TTL - configs will never expire
+
+// Helper function to get Redis cache key (was missing)
+function getRedisCacheKey(key) {
+  return `${CONFIG_CACHE_PREFIX}${key}`;
+}
 
 // Default values for critical configs when DB/Redis are unavailable
 const CONFIG_DEFAULTS = {
@@ -93,13 +98,10 @@ configSchema.statics.getValue = async function (key) {
       try {
         // Dynamically import redisClient to avoid circular dependency
         const redisClient = require("../utils/redisClient");
-        const cachedValue = await redisClient.get(
-          `${CONFIG_CACHE_PREFIX}${key}`
-        );
+        const cachedValue = await redisClient.get(getRedisCacheKey(key));
         if (cachedValue) {
-          // Reset TTL on access
-          await redisClient.expire(getRedisCacheKey(key), CONFIG_CACHE_TTL);
           return JSON.parse(cachedValue);
+          // No longer resetting TTL since we want permanent caching
         }
       } catch (redisError) {
         logger.error(
@@ -138,11 +140,10 @@ configSchema.statics.getValue = async function (key) {
       if (isRedisAvailable()) {
         try {
           const redisClient = require("../utils/redisClient");
+          // Store without expiry (permanent)
           await redisClient.set(
             getRedisCacheKey(key),
-            JSON.stringify(config.value),
-            "EX",
-            CONFIG_CACHE_TTL
+            JSON.stringify(config.value)
           );
         } catch (redisCacheError) {
           logger.error(
@@ -181,11 +182,10 @@ configSchema.statics.setValue = async function (key, value) {
     if (isRedisAvailable() && result) {
       try {
         const redisClient = require("../utils/redisClient");
+        // Store without expiry (permanent)
         await redisClient.set(
           getRedisCacheKey(key),
-          JSON.stringify(result.value),
-          "EX",
-          CONFIG_CACHE_TTL
+          JSON.stringify(result.value)
         );
         logger.debug(`Updated Redis cache for config ${key}`);
       } catch (redisError) {
@@ -292,21 +292,19 @@ configSchema.statics.initializeConfig = async function () {
           // Cache the new value if Redis is available
           if (isRedisAvailable()) {
             const redisClient = require("../utils/redisClient");
+            // Store without expiry (permanent)
             await redisClient.set(
               getRedisCacheKey(item.key),
-              JSON.stringify(item.value),
-              "EX",
-              CONFIG_CACHE_TTL
+              JSON.stringify(item.value)
             );
           }
         } else if (isRedisAvailable()) {
           // Cache existing values in Redis
           const redisClient = require("../utils/redisClient");
+          // Store without expiry (permanent)
           await redisClient.set(
             getRedisCacheKey(item.key),
-            JSON.stringify(existing.value),
-            "EX",
-            CONFIG_CACHE_TTL
+            JSON.stringify(existing.value)
           );
         }
       } catch (err) {

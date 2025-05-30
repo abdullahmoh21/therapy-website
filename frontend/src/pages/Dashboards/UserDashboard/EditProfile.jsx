@@ -104,13 +104,13 @@ const EditProfile = ({ user, onUserUpdate }) => {
 
   return (
     <form onSubmit={handleSubmit}>
-      <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">
+      <h2 className="text-2xl font-bold mb-6 text-center text-textColor">
         Edit Your Details
       </h2>
       <div className="space-y-5">
         <div>
           <label
-            className="block text-sm font-medium text-gray-700 mb-1"
+            className="block text-sm font-medium text-textColor mb-1"
             htmlFor="name"
           >
             Name:
@@ -127,7 +127,7 @@ const EditProfile = ({ user, onUserUpdate }) => {
         </div>
         <div>
           <label
-            className="block text-sm font-medium text-gray-700 mb-1"
+            className="block text-sm font-medium text-textColor mb-1"
             htmlFor="phone"
           >
             Phone:
@@ -150,7 +150,7 @@ const EditProfile = ({ user, onUserUpdate }) => {
         </div>
         <div>
           <label
-            className="block text-sm font-medium text-gray-700 mb-1"
+            className="block text-sm font-medium text-textColor mb-1"
             htmlFor="DOB"
           >
             Date of Birth:
@@ -168,7 +168,7 @@ const EditProfile = ({ user, onUserUpdate }) => {
         </div>
         <div>
           <label
-            className="block text-sm font-medium text-gray-700 mb-1"
+            className="block text-sm font-medium text-textColor mb-1"
             htmlFor="email"
           >
             Email:

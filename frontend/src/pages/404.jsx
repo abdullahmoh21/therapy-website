@@ -10,21 +10,21 @@ const NotFound = () => {
         </h1>
 
         <h2 className="orelega-one text-3xl md:text-4xl text-lightPink mb-6">
-          Well, fuck
+          Well, shit
         </h2>
 
-        <p className="text-lg md:text-xl text-gray-700 mb-4 max-w-2xl mx-auto">
-          Either you typo’d the URL, or I tried to deploy without coffee again.
+        <p className="text-lg md:text-xl text-textColor max-w-2xl mx-auto">
+          Either you typo’d the URL, or I tried to deploy without my chai again.
         </p>
 
-        <p className="text-md text-gray-600 mb-10 max-w-xl mx-auto">
+        <p className="text-md text-textColor mb-8 max-w-xl mx-auto">
           If landing on this dead end stirs up <em>anything</em>, jot it down
           for your next therapy session. My unpaid hours don’t include emotional
           support.
         </p>
 
         <div className="flex flex-col items-center mb-10">
-          <p className="text-md text-gray-600 mb-4">
+          <p className="text-md text-textColor   mb-4">
             Since you’re here anyway, meet Maggie—the real boss around here.
           </p>
           <img

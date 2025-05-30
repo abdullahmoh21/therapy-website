@@ -35,7 +35,7 @@ const ForgotPassword = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-[#FFEEE8]">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-[#FFEEE8] lg:pb-14">
       <Link to="/">
         <img
           src={logo}
@@ -56,7 +56,7 @@ const ForgotPassword = () => {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="Enter your email"
-          className="w-full px-3 py-2 mb-4 text-gray-700 border border-[#E09E7C] rounded-lg focus:outline-none focus:shadow-outline"
+          className="w-full px-3 py-2 mb-4 text-textColor border border-[#E09E7C] rounded-lg focus:outline-none focus:shadow-outline"
         />
         <button
           type="submit"
@@ -66,12 +66,9 @@ const ForgotPassword = () => {
           {isLoading ? "Sending..." : "Continue"}
         </button>
       </form>
-      <p className="mt-4 text-center text-gray-500">
+      <p className="mt-4 text-center text-textColor">
         Don't have an account?{" "}
-        <Link
-          to="https://calendly.com/fatimamohsintherapy/consultation"
-          className="text-[#E09E7C] underline"
-        >
+        <Link to="/consultation" className="text-[#c45e3e] underline">
           Book a free consultation
         </Link>
       </p>

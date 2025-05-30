@@ -70,7 +70,7 @@ const AdminDashboard = () => {
                 `px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150 ${
                   isActive
                     ? "bg-[#FDF0E9] text-[#c45e3e]"
-                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                    : "text-textColor hover:bg-gray-100"
                 }`
               }
             >
@@ -92,7 +92,7 @@ const AdminDashboard = () => {
 
         <button
           onClick={toggleMenu}
-          className="text-gray-600 hover:text-gray-900 lg:hidden"
+          className="text-textColor hover:text-gray-900 lg:hidden"
         >
           <BiMenu className="w-6 h-6" />
         </button>
@@ -108,7 +108,7 @@ const AdminDashboard = () => {
           <img src={logo} alt="logo" className="h-16 w-auto" />
           <button
             onClick={toggleMenu}
-            className="text-gray-500 hover:text-gray-700"
+            className="text-textColor hover:text-gray-700"
           >
             <BiX className="w-6 h-6" />
           </button>

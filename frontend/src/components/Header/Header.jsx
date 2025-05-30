@@ -296,7 +296,7 @@ const Header = () => {
               {/* Add close button that's always visible */}
               <button
                 onClick={togglePopup}
-                className="absolute top-4 right-4 z-10 p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors duration-300 text-gray-700" // Adjusted top/right for consistency
+                className="absolute top-4 right-4 z-10 p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors duration-300 text-textColor" // Adjusted top/right for consistency
                 aria-label="Close"
               >
                 <IoMdClose className="w-6 h-6" />
