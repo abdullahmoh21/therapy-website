@@ -19,6 +19,7 @@ import {
   FaUndo,
 } from "react-icons/fa";
 import { SiRedis } from "react-icons/si";
+import LoadingPage from "../../../pages/LoadingPage";
 
 const StatusIndicator = ({ status }) => {
   let icon;
@@ -163,17 +164,7 @@ const SystemHealth = () => {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex justify-center items-center p-10">
-        <ProgressSpinner
-          style={{ width: "50px", height: "50px" }}
-          strokeWidth="8"
-        />
-        <span className="ml-4 text-lg text-gray-600">
-          Loading System Health...
-        </span>
-      </div>
-    );
+    return <LoadingPage />;
   }
 
   if (isError) {

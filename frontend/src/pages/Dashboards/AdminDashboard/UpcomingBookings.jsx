@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-const useGetAllBookingsQuery = () => {};
+// import { useGetAllBookingsQuery } from "../../../features/admin/adminApiSlice";
 import {
   BiCalendar,
   BiTime,
@@ -12,6 +12,7 @@ import {
   BiLoaderAlt,
 } from "react-icons/bi";
 import { ProgressSpinner } from "primereact/progressspinner";
+import LoadingPage from "../../../pages/LoadingPage";
 
 // Mock data for development/testing
 const mockTodayBookings = [
@@ -202,16 +203,7 @@ const UpcomingBookings = () => {
     activeTab === "today" ? todayBookings : upcomingBookings;
 
   if (isLoading) {
-    return (
-      <div className="flex justify-center items-center min-h-[300px]">
-        <ProgressSpinner
-          style={{ width: "50px", height: "50px" }}
-          strokeWidth="8"
-          fill="var(--surface-ground)"
-          animationDuration=".5s"
-        />
-      </div>
-    );
+    return <LoadingPage />;
   }
 
   if (isError) {

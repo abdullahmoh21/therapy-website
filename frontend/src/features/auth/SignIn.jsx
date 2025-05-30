@@ -233,7 +233,7 @@ const Login = () => {
               </span>
               <span className="text-[#c45e3e]">
                 <u>
-                  <Link to="/consultation">Book A Session</Link>
+                  <Link to="/consultation">Book a free consultation</Link>
                 </u>
               </span>{" "}
             </div>

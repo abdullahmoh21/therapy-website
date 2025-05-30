@@ -4,6 +4,7 @@ import { useResetPasswordMutation } from "./usersApiSlice";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Joi from "joi";
+import logo from "../../assets/images/logo.webp";
 
 const tokenSchema = Joi.object({
   token: Joi.string().length(40).required(), //making sure length is 40. Validation done in backend
@@ -109,15 +110,23 @@ const ResetPassword = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
-      <form onSubmit={handleSubmit} noValidate className="w-80">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-[#FFEEE8] lg:pb-14">
+      <img src={logo} alt="Logo" className="mb-6 w-32" />
+      <p className="mb-4 text-center text-[#E09E7C]">
+        Enter your new password below
+      </p>
+      <form
+        onSubmit={handleSubmit}
+        noValidate
+        className="w-80 bg-white p-6 rounded-lg shadow-lg"
+      >
         <input
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Enter new password"
           autoComplete="new-password"
-          className="w-full px-3 py-2 mb-4 text-gray-700 border rounded-lg focus:outline-none focus:shadow-outline"
+          className="w-full px-3 py-2 mb-4 text-textColor border border-[#E09E7C] rounded-lg focus:outline-none focus:shadow-outline"
         />
         <input
           type="password"
@@ -125,25 +134,14 @@ const ResetPassword = () => {
           onChange={(e) => setConfirmPassword(e.target.value)}
           placeholder="Confirm new password"
           autoComplete="new-password"
-          className="w-full px-3 py-2 mb-4 text-gray-700 border rounded-lg focus:outline-none focus:shadow-outline"
+          className="w-full px-3 py-2 mb-4 text-textColor border border-[#E09E7C] rounded-lg focus:outline-none focus:shadow-outline"
         />
         <button
           type="submit"
-          className="w-full px-3 py-2 text-white bg-blue-500 rounded hover:bg-blue-600 focus:outline-none focus:shadow-outline"
+          disabled={isLoading}
+          className="w-full px-3 py-2 text-white bg-[#E09E7C] rounded-lg hover:bg-[#E27A82] focus:outline-none focus:shadow-outline"
         >
-          {isLoading ? (
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-              }}
-            >
-              <div className="spinner"></div>
-            </div>
-          ) : (
-            "Reset Password"
-          )}
+          {isLoading ? "Resetting..." : "Reset Password"}
         </button>
       </form>
     </div>

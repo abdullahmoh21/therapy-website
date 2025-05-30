@@ -21,9 +21,7 @@ router
 router.use(verifyJWT);
 
 router.route("/").get(redisCaching(), bookingController.getActiveBookings);
-router
-  .route("/noticePeriod")
-  .get(redisCaching(), bookingController.getNoticePeriod);
+
 router
   .route("/:bookingId")
   .get(validateObjectId, redisCaching(), bookingController.getBooking);
