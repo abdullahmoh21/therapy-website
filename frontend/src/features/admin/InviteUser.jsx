@@ -58,7 +58,7 @@ const InviteUser = () => {
         <div className="mb-4">
           <label
             htmlFor="email"
-            className="block text-sm font-medium text-gray-700 mb-1"
+            className="block text-sm font-medium text-textColor mb-1"
           >
             Email Address *
           </label>
@@ -75,7 +75,7 @@ const InviteUser = () => {
         <div className="mb-6">
           <label
             htmlFor="name"
-            className="block text-sm font-medium text-gray-700 mb-1"
+            className="block text-sm font-medium text-textColor mb-1"
           >
             Name (Optional)
           </label>

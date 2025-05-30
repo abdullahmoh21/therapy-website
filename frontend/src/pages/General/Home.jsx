@@ -76,7 +76,7 @@ const Home = () => {
               </div>
               <div className="flex justify-center pt-4">
                 <NavLink
-                  to="https://calendly.com/fatimamohsintherapy/consultation"
+                  to="/consultation"
                   className="inline-block py-3 px-10 bg-orangeButton text-buttonTextBlack border-2 border-black font-semibold rounded-full hover:bg-lightPink transition-all duration-300 transform hover:scale-105 shadow-md"
                 >
                   Schedule a consultation

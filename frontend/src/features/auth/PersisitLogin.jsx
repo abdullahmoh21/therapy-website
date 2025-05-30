@@ -5,6 +5,7 @@ import usePersist from "../../hooks/usePersist";
 import { useSelector } from "react-redux";
 import { selectCurrentToken } from "./authSlice";
 import { useNavigate } from "react-router-dom";
+import LoadingPage from "../../pages/LoadingPage"; // Import the LoadingPage component
 
 const PersistLogin = () => {
   const [persist] = usePersist();
@@ -48,7 +49,7 @@ const PersistLogin = () => {
   } else if (isLoading) {
     //persist: yes, token: no
     console.log("loading");
-    content = <p>Loading...</p>;
+    content = <LoadingPage />;
   } else if (isError) {
     //persist: yes, token: no
     console.log("no token found. redirecting to signin");

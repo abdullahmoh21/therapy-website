@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from "react";
-import {
-  useGetBookingQuery,
-} from "../../../../features/bookings/bookingApiSlice";
-import {
-  useGetPaymentQuery,
-} from "../../../../features/payments/paymentApiSlice";
+import { useGetBookingQuery } from "../../../../features/bookings/bookingApiSlice";
+import { useGetPaymentQuery } from "../../../../features/payments/paymentApiSlice";
 import PaymentButton from "./PaymentButton";
 import ExpandedContentSkeleton from "./ExpandedContentSkeleton";
-import { BiErrorCircle, BiVideo, BiLoaderAlt, BiDollarCircle } from "react-icons/bi";
+import {
+  BiErrorCircle,
+  BiVideo,
+  BiLoaderAlt,
+  BiDollarCircle,
+} from "react-icons/bi";
 import ExpandedStatusDisplay from "./ExpandedStatusDisplay";
 import { getStatusDisplay } from "./billingUtils"; // Make sure this util is robust
 
@@ -160,7 +161,8 @@ const ExpandedRowContent = ({
   }
 
   // Check error for payment query only if paymentIdForQuery was valid
-  const effectivePaymentError = paymentIdForQuery && initialData?.payment && paymentError;
+  const effectivePaymentError =
+    paymentIdForQuery && initialData?.payment && paymentError;
 
   if (bookingError || effectivePaymentError) {
     return (

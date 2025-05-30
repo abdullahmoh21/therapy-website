@@ -189,6 +189,7 @@ const ContactMe = () => {
               <Dropdown
                 id="requestType"
                 {...field}
+                x
                 options={requestTypes}
                 className={`w-full p-2 bg-white border rounded z-[810] ${
                   errors.requestType ? "border-red-500" : "border-gray-300"

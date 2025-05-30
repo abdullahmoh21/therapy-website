@@ -136,8 +136,7 @@ const Login = () => {
               Account Not Verified
             </h2>
             <p className="text-sm text-[#4b4b4b] mb-6">
-              Please check your email for a verification link before
-              continuing.
+              Please check your email for a verification link before continuing.
             </p>
             <button
               onClick={handleResendVerification}
@@ -234,9 +233,7 @@ const Login = () => {
               </span>
               <span className="text-[#c45e3e]">
                 <u>
-                  <Link to="https://calendly.com/fatimamohsintherapy/consultation">
-                    Book A Session
-                  </Link>
+                  <Link to="/consultation">Book a free consultation</Link>
                 </u>
               </span>{" "}
             </div>

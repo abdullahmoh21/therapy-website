@@ -335,11 +335,11 @@ const Billing = () => {
   ) {
     return (
       <div className="text-center p-10 bg-white rounded-lg shadow-md">
-        <BiInfoCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-        <h3 className="text-xl font-semibold text-gray-700">
+        <BiInfoCircle className="w-12 h-12 text-textColor mx-auto mb-4" />
+        <h3 className="text-xl font-semibold text-textColor">
           No Booking History
         </h3>
-        <p className="text-gray-500">You haven't made any bookings yet.</p>
+        <p className="text-textColor">You haven't made any bookings yet.</p>
       </div>
     );
   }
@@ -372,8 +372,10 @@ const Billing = () => {
   return (
     <div className="max-w-7xl mx-auto">
       <header className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Billing & Payments</h1>
-        <p className="mt-1 text-gray-600">
+        <h1 className="text-2xl font-bold text-textColor">
+          Billing & Payments
+        </h1>
+        <p className="mt-1 text-textColor">
           View and manage your payment history and session details
         </p>
       </header>
@@ -438,7 +440,7 @@ const Billing = () => {
                 <div>
                   <label
                     htmlFor="bookingIdSearch"
-                    className="block text-sm font-medium text-gray-700 mb-2"
+                    className="block text-sm font-medium text-textColor mb-2"
                   >
                     Booking ID
                   </label>
@@ -466,7 +468,7 @@ const Billing = () => {
                 <div>
                   <label
                     htmlFor="transactionRefSearch"
-                    className="block text-sm font-medium text-gray-700 mb-2"
+                    className="block text-sm font-medium text-textColor mb-2"
                   >
                     Transaction Reference
                   </label>
@@ -499,7 +501,7 @@ const Billing = () => {
               <div className="filter-group">
                 <label
                   htmlFor="paymentStatusFilter"
-                  className="block text-sm font-medium text-gray-700 mb-2"
+                  className="block text-sm font-medium text-textColor mb-2"
                 >
                   Payment Status
                 </label>
@@ -518,7 +520,7 @@ const Billing = () => {
               <div className="filter-group">
                 <label
                   htmlFor="locationFilter"
-                  className="block text-sm font-medium text-gray-700 mb-2"
+                  className="block text-sm font-medium text-textColor mb-2"
                 >
                   Location
                 </label>
@@ -537,7 +539,7 @@ const Billing = () => {
               <div className="filter-group">
                 <label
                   htmlFor="dateFilter"
-                  className="block text-sm font-medium text-gray-700 mb-2"
+                  className="block text-sm font-medium text-textColor mb-2"
                 >
                   Session Date
                 </label>

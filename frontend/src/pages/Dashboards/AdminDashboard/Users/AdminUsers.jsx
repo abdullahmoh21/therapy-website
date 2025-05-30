@@ -16,6 +16,7 @@ import {
   useDeleteUserMutation,
   useUpdateUserMutation,
 } from "../../../../features/admin/adminApiSlice";
+import LoadingPage from "../../../../pages/LoadingPage";
 
 import {
   BiSearch,
@@ -315,17 +316,9 @@ const AdminUsers = () => {
     return <InvitedUsers onSwitchToUsers={() => setShowInvitedUsers(false)} />;
   }
 
+  // Replace simple loading indicators with LoadingPage
   if (isLoading) {
-    return (
-      <div className="flex justify-center items-center min-h-[300px]">
-        <ProgressSpinner
-          style={{ width: "50px", height: "50px" }}
-          strokeWidth="8"
-          fill="var(--surface-ground)"
-          animationDuration=".5s"
-        />
-      </div>
-    );
+    return <LoadingPage />;
   }
 
   return (

@@ -23,7 +23,7 @@ import ConfirmationModal from "../../../../components/confirmationModal";
 import debounce from "lodash/debounce";
 
 import { format } from "date-fns";
-import { ProgressSpinner } from "primereact/progressspinner";
+import LoadingPage from "../../../../pages/LoadingPage";
 import BookingDetailsDialog from "./BookingDetailsDialog";
 
 // Import the booking RTK Query hooks
@@ -292,16 +292,7 @@ const AdminBookings = () => {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex justify-center items-center min-h-[300px]">
-        <ProgressSpinner
-          style={{ width: "50px", height: "50px" }}
-          strokeWidth="8"
-          fill="var(--surface-ground)"
-          animationDuration=".5s"
-        />
-      </div>
-    );
+    return <LoadingPage />;
   }
 
   return (

@@ -14,7 +14,8 @@ import Register from "../features/auth/Register";
 import Dashboard from "../pages/Dashboards/UserDashboard/DashboardNav";
 import AdminDashboard from "../pages/Dashboards/AdminDashboard/AdminDashNav";
 import NotFound from "../pages/404";
-import TermsAndConditions from "../pages/General/TermsAndConditions"; // Added import
+import TermsAndConditions from "../pages/General/TermsAndConditions";
+import ConsultationLanding from "../pages/General/ConsultationLanding";
 
 // Admin Dashboard Components
 import AdminMetrics from "../pages/Dashboards/AdminDashboard/AdminMetrics";
@@ -34,6 +35,7 @@ const Routers = () => {
       <Route path="/verifyEmail" element={<EmailVerification />} />
       <Route path="/forgotPassword" element={<ForgotPassword />} />
       <Route path="/resetPassword" element={<ResetPassword />} />
+      <Route path="/consultation" element={<ConsultationLanding />} />
       <Route
         path="/terms-and-conditions"
         element={<TermsAndConditions />}

@@ -19,7 +19,7 @@ const BillingFilters = ({
         <div className="flex-grow">
           <div className="relative">
             <span className="p-input-icon-left w-full flex items-center">
-              <BiSearch className="pi pi-search absolute left-3 text-gray-400 z-10" />
+              <BiSearch className="pi pi-search absolute left-3 text-textColor z-10" />
               <InputText
                 value={filters.search}
                 onChange={onSearchChange}

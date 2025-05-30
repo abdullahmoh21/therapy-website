@@ -163,10 +163,7 @@ const Dashboard = () => {
           </button>
         </nav>
 
-        <button
-          onClick={toggleMenu}
-          className="text-gray-600 hover:text-gray-900 lg:hidden"
-        >
+        <button onClick={toggleMenu} className="text-textColor lg:hidden">
           <BiMenu className="w-6 h-6" />
         </button>
       </header>
@@ -179,10 +176,7 @@ const Dashboard = () => {
       >
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <img src={logo} alt="logo" className="h-16 w-auto" />
-          <button
-            onClick={toggleMenu}
-            className="text-gray-500 hover:text-gray-700"
-          >
+          <button onClick={toggleMenu} className="text-textColor">
             <BiX className="w-6 h-6" />
           </button>
         </div>
@@ -193,7 +187,7 @@ const Dashboard = () => {
               className={`w-full flex items-center px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150 ${
                 activeTab === item.id
                   ? "bg-[#FDF0E9] text-[#c45e3e]"
-                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                  : "text-textColor hover:bg-gray-100"
               }`}
               onClick={() => {
                 setActiveTab(item.id);
@@ -205,7 +199,7 @@ const Dashboard = () => {
             </button>
           ))}
           <button
-            className="w-full flex items-center px-4 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors duration-150"
+            className="w-full flex items-center px-4 py-2 rounded-md text-sm font-medium text-textColor hover:bg-gray-100 transition-colors duration-150"
             onClick={() => {
               toggleEditProfileModal();
               toggleMenu();
@@ -249,7 +243,7 @@ const Dashboard = () => {
         >
           <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-lg relative">
             <button
-              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-2xl"
+              className="absolute top-3 right-3 text-gray-400 hover:text-textColor text-2xl"
               onClick={toggleEditProfileModal}
               aria-label="Close"
             >
