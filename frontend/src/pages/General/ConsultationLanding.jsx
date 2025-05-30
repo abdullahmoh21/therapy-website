@@ -14,11 +14,42 @@ const ConsultationLanding = () => {
   const fullName = decodeURIComponent(
     params.get("invitee_full_name") || "Valued Client"
   );
-  const rawStart = params.get("event_start_time");
-  const rawEnd = params.get("event_end_time");
+  
+  // Get contact information
+  const email = decodeURIComponent(params.get("invitee_email") || "");
+  const phone = decodeURIComponent(
+    params.get("text_reminder_number") || params.get("answer_1") || ""
+  ).trim();
+  
+  // Fix date parsing by properly decoding URI components
+  const rawStart = params.get("event_start_time") ? 
+    decodeURIComponent(params.get("event_start_time")).replace(' ', '+') : null;
+  const rawEnd = params.get("event_end_time") ? 
+    decodeURIComponent(params.get("event_end_time")).replace(' ', '+') : null;
 
-  const startDate = rawStart ? new Date(rawStart) : null;
-  const endDate = rawEnd ? new Date(rawEnd) : null;
+  // Add error handling for date parsing
+  let startDate = null;
+  let endDate = null;
+  
+  try {
+    startDate = rawStart ? new Date(rawStart) : null;
+    // Validate the date is valid
+    if (startDate && startDate.toString() === "Invalid Date") {
+      startDate = null;
+    }
+  } catch (error) {
+    console.error("Error parsing start date:", error);
+  }
+  
+  try {
+    endDate = rawEnd ? new Date(rawEnd) : null;
+    // Validate the date is valid
+    if (endDate && endDate.toString() === "Invalid Date") {
+      endDate = null;
+    }
+  } catch (error) {
+    console.error("Error parsing end date:", error);
+  }
 
   const formattedDate =
     startDate &&
@@ -384,6 +415,20 @@ const ConsultationLanding = () => {
                   Fatima Mohsin Naqvi
                 </p>
               </div>
+              
+              {email && (
+                <div className="bg-whiteBg p-4 rounded-lg flex-1 min-w-[200px]">
+                  <p className="text-orangeText font-medium mb-1">Your Email</p>
+                  <p className="text-lg font-medium break-all">{email}</p>
+                </div>
+              )}
+              
+              {phone && (
+                <div className="bg-whiteBg p-4 rounded-lg flex-1 min-w-[200px]">
+                  <p className="text-orangeText font-medium mb-1">Your Phone</p>
+                  <p className="text-lg font-medium">{phone}</p>
+                </div>
+              )}
             </div>
           </motion.div>
 

@@ -118,6 +118,7 @@ app.use("/api/bookings", require("./endpoints/bookingEndpoints"));
 app.use("/api/payments", require("./endpoints/paymentEndpoints"));
 app.use("/api/admin", require("./endpoints/adminEndpoints"));
 app.use("/api/contactMe", require("./endpoints/contactMeEndpoints"));
+app.use("/api/config", require("./endpoints/configEndpoints"));
 
 // Global error handler
 app.use(errorHandler);

@@ -1,8 +1,35 @@
 import React from "react";
 import service_hero from "../../assets/images/servicesImage.webp";
 import { motion } from "framer-motion";
+import { useGetSessionPriceQuery } from "../../features/bookings/bookingApiSlice";
 
 const Services = () => {
+  const {
+    data: sessionPrice,
+    isLoading,
+    isSuccess,
+    isError,
+  } = useGetSessionPriceQuery();
+
+  // Function to render price based on API state
+  const renderPrice = () => {
+    if (isLoading) {
+      return (
+        <p className="text-textColor blur-sm animate-pulse">
+          Per Session Rate: Loading... pkr, 60 Minutes
+        </p>
+      );
+    } else if (isSuccess && sessionPrice) {
+      return (
+        <p className="text-textColor">
+          Per Session Rate: {sessionPrice} pkr, 60 Minutes
+        </p>
+      );
+    } else if (isError) {
+      return <p className="text-textColor">60 Minutes</p>;
+    }
+  };
+
   return (
     <>
       {/* ------ Heading------- */}
@@ -39,10 +66,8 @@ const Services = () => {
               <br />
               Psychotherapy
             </h1>
-            <p className="hidden md:block text-textColor">ONLINE & IN PERSON</p>
-            <p className="text-textColor">
-              Per Session Rate: 8000 pkr, 60 MINUTES
-            </p>
+            <p className="hidden md:block text-textColor">Online & In Person</p>
+            {renderPrice()}
             <div className="w-16 h-1 bg-lightPink mx-auto md:mx-0 my-3 hidden md:block"></div>
           </div>
 
@@ -71,10 +96,8 @@ const Services = () => {
               <br />
               Psychotherapy
             </h1>
-            <p className="hidden md:block text-textColor">ONLINE & IN PERSON</p>
-            <p className="text-textColor">
-              Per Session Rate: 8000 pkr, 60 MINUTES
-            </p>
+            <p className="hidden md:block text-textColor">Online & In Person</p>
+            {renderPrice()}
             <div className="w-16 h-1 bg-lightPink mx-auto md:mx-0 my-3 hidden md:block"></div>
           </div>
 
@@ -104,10 +127,8 @@ const Services = () => {
               <br />
               Psychotherapy
             </h1>
-            <p className="hidden md:block text-textColor">ONLINE & IN PERSON</p>
-            <p className="text-textColor">
-              Per Session Rate: 8000 pkr, 60 MINUTES
-            </p>
+            <p className="hidden md:block text-textColor">Online & In Person</p>
+            {renderPrice()}
             <div className="w-16 h-1 bg-lightPink mx-auto md:mx-0 my-3 hidden md:block"></div>
           </div>
 
@@ -133,7 +154,7 @@ const Services = () => {
       >
         <div className="flex flex-col lg:flex-row justify-end">
           <div className="flex flex-col justify-center lg:pr-[5px] lg:w-1/2 text-center lg:text-right px-4 lg:px-0">
-            <h1 className="orelega-one text-4xl sm:text-5xl lg:text-5xl leading-tight text-orangeHeader pb-4 lg:pb-[90px]">
+            <h1 className="orelega-one text-4xl sm:text-5xl lg:text-5xl leading-tight text-orangeHeader pb-4 lg:pb-[90px] lg:mr-5 lg:leading-[50px]">
               Guiding you towards <br />
               a more fulfilling <br />
               future.

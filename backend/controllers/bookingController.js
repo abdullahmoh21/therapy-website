@@ -7,9 +7,9 @@ const User = require("../models/User");
 const Booking = require("../models/Booking");
 const Payment = require("../models/Payment");
 const TemporaryBooking = require("../models/TemporaryBooking");
-const Config = require("../models/Config"); // Import Config model
+const Config = require("../models/Config");
 const ShortUniqueId = require("short-unique-id");
-const uid = new ShortUniqueId({ length: 5 }); //for generating transaction reference number
+const uid = new ShortUniqueId({ length: 5 });
 const jwt = require("jsonwebtoken");
 
 //@desc handles Calendly webhook events
@@ -58,7 +58,10 @@ const handleCalendlyWebhook = asyncHandler(async (req, res) => {
       cancellationDate,
     });
     return res.status(200).end();
-  } else if (calendlyEvent == "invitee.created") {
+  } else if (
+    calendlyEvent == "invitee.created" &&
+    eventName == "1 Hour Session"
+  ) {
     // 1) Verify JWT in utm_content
     let decoded;
     try {
@@ -371,22 +374,9 @@ const getBooking = asyncHandler(async (req, res) => {
   res.json(booking);
 });
 
-//@desc returns the current Cancellation Notice Period
-//@param {Object} req with valid JWT
-//@route GET /bookings/noticePeriod
-//@access Private
-const getNoticePeriod = asyncHandler(async (req, res) => {
-  const noticePeriod = await Config.getValue("cancelCutoffDays");
-  if (!noticePeriod) {
-    return res.sendStatus(503);
-  }
-  return res.status(200).json({ noticePeriod });
-});
-
 module.exports = {
   handleCalendlyWebhook,
   getActiveBookings,
   getNewBookingLink,
   getBooking,
-  getNoticePeriod,
 };
