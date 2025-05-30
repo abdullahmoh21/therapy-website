@@ -21,9 +21,9 @@ services:
       context: ./frontend
       dockerfile: frontend.Dockerfile
     ports:
-      - "80:80" # HTTP  → letsencrypt challenge + redirect
-      - "443:443" # ⚠️ HTTPS → your TLS site
-    volumes: # ⚠️ give nginx access to certs & ACME webroot
+      - "80:80"
+      - "443:443"
+    volumes:
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - /var/www/certbot:/var/www/certbot:ro
       - /etc/letsencrypt/options-ssl-nginx.conf:/etc/letsencrypt/options-ssl-nginx.conf:ro
