@@ -1,6 +1,7 @@
 const Payment = require("../models/Payment");
 const asyncHandler = require("express-async-handler");
 const logger = require("../logs/logger");
+const { invalidateCache } = require("../middleware/redisCaching");
 
 //@desc returns all payments
 //@param valid admin jwt token
@@ -61,79 +62,65 @@ const getAllPayments = asyncHandler(async (req, res) => {
     res.status(500).json({ message: "Failed to retrieve payments" });
   }
 });
-
-//@desc edit any payment details
-//@param valid admin jwt token
-//@route PATCH /admin/payments
-//@access Private(admin)
-const updatePayment = asyncHandler(async (req, res) => {
-  const { paymentId, ...updateData } = req.body;
+//@desc marks payment as completed with cash payment
+//@param valid user jwt token and payment id
+//@route POST /admin/payments/:paymentId/paid
+//@access Private (admin)
+const markAsPaid = asyncHandler(async (req, res) => {
+  const { paymentId } = req.params;
 
   if (!paymentId) {
     return res.status(400).json({ message: "Payment ID is required" });
   }
 
-  // Define allowed fields for update
-  const allowedUpdates = ["transactionStatus", "notes"]; // Add other fields as needed
-  const updates = {};
-  for (const key in updateData) {
-    if (allowedUpdates.includes(key)) {
-      updates[key] = updateData[key];
-    }
-  }
-
-  if (Object.keys(updates).length === 0) {
-    return res
-      .status(400)
-      .json({ message: "No valid fields provided for update" });
-  }
-
-  try {
-    const payment = await Payment.findByIdAndUpdate(paymentId, updates, {
-      new: true,
-      runValidators: true,
-    });
-
-    if (!payment) {
-      return res.status(404).json({ message: "Payment not found" });
-    }
-
-    res.status(200).json({
-      message: "Payment updated successfully",
-      payment,
-    });
-  } catch (error) {
-    logger.error(`Error updating payment: ${error.message}`);
-    res.status(500).json({ message: "Failed to update payment" });
-  }
-});
-
-//@desc marks a payment as paid in cash
-//@param valid payment _id
-//@route POST /payments/:ref
-//@access Private(admin)
-const markCashPaid = asyncHandler(async (req, res) => {
-  const { paymentId } = req.url;
-  if (!paymentId) {
-    return res
-      .status(400)
-      .json({ message: "No transaction reference provided" });
-  }
-  const payment = Payment.findOne({ _id: paymentId }).exec();
+  // Find the payment document
+  const payment = await Payment.findById(paymentId);
   if (!payment) {
-    return res.status(404).json({ message: "No such payment found" });
+    return res.status(404).json({ message: "Payment not found" });
   }
-  payment.paymentMethod = "Cash";
-  payment.netAmountReceived = payment.amount;
-  payment.feePaid = 0;
-  payment.transactionStatus = "Completed";
-  payment.paymentCompletedDate = new Date();
 
-  return res.status(200).send();
+  // Check if payment is already completed
+  if (payment.transactionStatus === "Completed") {
+    return res
+      .status(204)
+      .json({ message: "Payment is already marked as completed" });
+  }
+
+  // Update the payment document
+  payment.transactionStatus = "Completed";
+  payment.paymentMethod = "Cash";
+  payment.paymentCompletedDate = new Date();
+  payment.netAmountReceived = payment.amount; // For cash, net amount is the full amount
+  payment.feePaid = 0; // No processing fee for cash
+
+  if (payment?.errorMessage) {
+    payment.errorMessage = "";
+  }
+
+  // Save the updated payment document
+  await payment.save();
+
+  if (payment.userId) {
+    invalidateCache("/bookings", payment.userId);
+    invalidateCache(`/payments/${payment._id}`, payment.userId);
+  }
+
+  logger.info(
+    `Payment ${paymentId} marked as completed via cash by admin ${req.user.id}`
+  );
+
+  return res.status(200).json({
+    message: "Payment marked as completed successfully",
+    payment: {
+      _id: payment._id,
+      transactionStatus: payment.transactionStatus,
+      paymentMethod: payment.paymentMethod,
+      paymentCompletedDate: payment.paymentCompletedDate,
+    },
+  });
 });
 
 module.exports = {
   getAllPayments,
-  updatePayment,
-  markCashPaid,
+  markAsPaid,
 };
