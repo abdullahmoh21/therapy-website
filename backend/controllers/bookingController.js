@@ -6,7 +6,6 @@ const { invalidateCache } = require("../middleware/redisCaching");
 const User = require("../models/User");
 const Booking = require("../models/Booking");
 const Payment = require("../models/Payment");
-const TemporaryBooking = require("../models/TemporaryBooking");
 const Config = require("../models/Config");
 const ShortUniqueId = require("short-unique-id");
 const uid = new ShortUniqueId({ length: 5 });
@@ -191,7 +190,8 @@ async function createBooking({
   payment.bookingId = booking._id;
   await Promise.all([booking.save(), payment.save()]);
 
-  await Promise.all([invalidateCache("/bookings", userId)]);
+  await invalidateCache("/bookings", userId);
+  await invalidateCache("/admin/bookings");
 }
 
 async function cancelBooking({
@@ -214,8 +214,6 @@ async function cancelBooking({
 
   await booking.save();
   await invalidateCache("/bookings", booking.userId);
-
-  logger.info(`Booking cancelled locally for email ${booking.email}`);
 }
 
 async function deleteEvent(eventURI, reasonText = "No user found") {

@@ -70,7 +70,7 @@ const resendEvLink = asyncHandler(async (req, res) => {
   if (user.emailVerified.state) {
     return res.status(400).json({ message: "Email already verified" });
   }
-
+  logger.debug(`attempting to send ev link for: ${user.email}`);
   let link;
   // Check if token exists and not expired, else generate new token
   if (
@@ -89,6 +89,7 @@ const resendEvLink = asyncHandler(async (req, res) => {
     await user.save();
     link = `${process.env.FRONTEND_URL}/verifyEmail?token=${newToken}`;
   }
+  logger.debug(`link: ${link}`);
 
   // Prepare email job data
   const emailJobData = {
@@ -115,27 +116,35 @@ const resendEvLink = asyncHandler(async (req, res) => {
 const verifyEmail = asyncHandler(async (req, res) => {
   const { token } = req.body;
   if (!token) return res.status(400).send("Invalid request");
+
+  logger.info(
+    `Attempting to verify email with token: ${token.substring(0, 6)}...`
+  );
   const encryptedToken = encrypt(token);
+  logger.debug(`Encrypted token: ${encryptedToken.substring(0, 10)}...`);
 
   const user = await User.findOne(
     {
       "emailVerified.encryptedToken": encryptedToken,
       "emailVerified.expiresIn": { $gt: Date.now() }, //not expired
     },
-    "emailVerified,"
+    "emailVerified email"
   );
 
   if (!user) {
-    logger.error(`Invalid or expired verification token: ${token}`);
+    logger.error(
+      `Invalid or expired verification token: ${token.substring(0, 6)}...`
+    );
     return res
       .status(400)
       .json({ message: "Invalid or expired verification token" });
   }
+  if (user.emailVerified.state == true) {
+    return res.status(204).send();
+  }
 
-  console.log("Email verified!!");
-  user.emailVerified.state = true; //set email verified to true
-  user.emailVerified.hash = "";
-  user.emailVerified.expiresIn = undefined;
+  logger.info(`Email verified for user: ${user.email}!`);
+  user.emailVerified.state = true;
   await user.save();
 
   res.status(200).json({ message: "Email Verified!" });
@@ -260,10 +269,29 @@ const updateMyUser = asyncHandler(async (req, res) => {
       return obj;
     }, {});
 
+  // Check if phone number is being updated
+  if (updates.phone) {
+    // Check if phone number already exists for another user
+    const existingUser = await User.findOne({
+      phone: updates.phone,
+      _id: { $ne: userId }, // Exclude current user
+    });
+
+    if (existingUser) {
+      logger.debug(`Duplicate phone number detected: ${updates.phone}`);
+      return res.status(409).json({
+        message:
+          "This phone number is already registered with another account.",
+      });
+    }
+  }
+
   const updatedUser = await User.findOneAndUpdate({ _id: userId }, updates, {
     new: true,
     runValidators: true,
-  }).select("_id email phone role DOB name");
+  })
+    .select("_id email phone role DOB name")
+    .lean();
 
   if (!updatedUser) {
     return res.status(404).json({ message: "User not found" });

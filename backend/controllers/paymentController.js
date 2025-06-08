@@ -288,7 +288,7 @@ const getPayment = asyncHandler(async (req, res) => {
   })
     .lean()
     .select(
-      "_id transactionReferenceNumber amount currency transactionStatus paymentCompletedDate paymentRefundedDate refundRequestedDate"
+      "_id transactionReferenceNumber paymentMethod amount currency transactionStatus paymentCompletedDate paymentRefundedDate refundRequestedDate"
     )
     .exec();
 
