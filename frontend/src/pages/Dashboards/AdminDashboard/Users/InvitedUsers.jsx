@@ -10,9 +10,9 @@ import {
   FaSpinner,
   FaUsers,
   FaSync,
-  FaExclamationTriangle,
   FaEnvelope,
 } from "react-icons/fa";
+import { BiPlus } from "react-icons/bi";
 import Pagination from "../../../../components/pagination";
 import ConfirmationModal from "../../../../components/confirmationModal";
 import { toast } from "react-toastify";
@@ -39,7 +39,7 @@ const showErrorToast = (message) => {
   });
 };
 
-const InvitedUsers = ({ onSwitchToUsers }) => {
+const InvitedUsers = ({ onSwitchToUsers, onInviteUser }) => {
   // State for filters and pagination
   const [filters, setFilters] = useState({ search: "", role: "" });
   const [currentPage, setCurrentPage] = useState(1);
@@ -143,12 +143,9 @@ const InvitedUsers = ({ onSwitchToUsers }) => {
       const result = await deleteInvitation(invitationToDelete).unwrap();
       showSuccessToast(result?.message || "Invitation deleted successfully");
 
-      // Close the modal after a delay
-      setTimeout(() => {
-        setShowDeleteModal(false);
-        setInvitationToDelete(null);
-      }, 500);
-
+      // Close the modal
+      setShowDeleteModal(false);
+      setInvitationToDelete(null);
       refetch();
     } catch (err) {
       console.error("Error deleting invitation:", err);
@@ -156,6 +153,8 @@ const InvitedUsers = ({ onSwitchToUsers }) => {
       // Special case: If it's a parsing error but status is 200, it was actually successful
       if (err?.status === "PARSING_ERROR" && err?.originalStatus === 200) {
         showSuccessToast("Invitation deleted successfully");
+        setShowDeleteModal(false);
+        setInvitationToDelete(null);
         refetch();
       } else {
         showErrorToast(err?.data?.message || "Failed to delete invitation");
@@ -242,16 +241,11 @@ const InvitedUsers = ({ onSwitchToUsers }) => {
       {/* Controls and Table Container */}
       <div className="bg-gradient-to-br from-white to-primaryColor/30 rounded-lg shadow-sm p-6 mb-6">
         {/* Header and Controls */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-          <div className="flex flex-col">
-            <h2 className="text-xl font-bold text-headingColor">
-              Invited Users
-            </h2>
-            <p className="text-sm text-textColor mt-1">
-              Manage pending invitations
-            </p>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+        <div className="flex flex-col space-y-4 mb-6">
+          <h2 className="text-xl font-bold text-headingColor">Invited Users</h2>
+          <p className="text-sm text-textColor">Manage pending invitations</p>
+
+          <div className="flex flex-wrap items-center gap-3">
             {/* Search Bar */}
             <div className="relative flex-1 min-w-[200px]">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -269,7 +263,7 @@ const InvitedUsers = ({ onSwitchToUsers }) => {
             {/* Switch to Users button */}
             <button
               onClick={onSwitchToUsers}
-              className="flex items-center px-4 py-2 bg-white text-primaryColor border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-all duration-200"
+              className="flex items-center px-4 py-2 bg-white text-[#c45e3e] border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-all duration-200"
             >
               <FaUsers className="mr-2" /> Active Users
             </button>
@@ -318,7 +312,28 @@ const InvitedUsers = ({ onSwitchToUsers }) => {
                 </div>
               )}
             </div>
+
+            {/* Invite User Button - moved to same line */}
+            <button
+              onClick={onInviteUser}
+              className="flex items-center px-4 py-2 bg-[#DF9E7A] text-white rounded-lg hover:bg-[#c45e3e] transition-colors"
+            >
+              <BiPlus className="mr-2" /> Invite User
+            </button>
           </div>
+        </div>
+
+        {/* Table Information */}
+        <div className="mb-4">
+          <span className="text-gray-600">
+            Showing{" "}
+            <span className="font-medium">
+              {data?.invitations?.length || 0}
+            </span>{" "}
+            of{" "}
+            <span className="font-medium">{data?.totalInvitations || 0}</span>{" "}
+            invitations
+          </span>
         </div>
 
         {/* Invitations Table */}
