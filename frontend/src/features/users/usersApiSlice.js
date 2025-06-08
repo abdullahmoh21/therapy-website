@@ -103,7 +103,10 @@ export const usersApiSlice = apiSlice.injectEndpoints({
           console.error("Response status is undefined", response);
           return false;
         }
-        return response.status === 200 && !result.isError;
+        return (
+          (response.status === 200 || response.status === 201) &&
+          !result.isError
+        );
       },
     }),
     resendEmailVerification: builder.mutation({

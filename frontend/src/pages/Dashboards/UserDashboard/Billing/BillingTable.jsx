@@ -126,7 +126,7 @@ const BillingTable = ({
         className="p-datatable-sm"
         onRowClick={(e) => {
           // Allow clicking row to expand
-          if (e.originalEvent.target.closest("button, a")) return; // Don't toggle if click was on a button/link
+          if (e.originalEvent.target.closest("button, a")) return;
           onRowToggle(e.data);
         }}
         rowClassName="cursor-pointer hover:bg-gray-50"
@@ -149,24 +149,13 @@ const BillingTable = ({
         <Column
           field="customerBookingId" // This is booking.bookingId (numeric) from transformResponse
           header="Booking ID"
-          sortable
           style={{ minWidth: "10rem" }}
           headerClassName="bg-gray-50 text-gray-600 text-xs uppercase font-medium px-4 py-3"
           bodyClassName="px-4 py-3 text-sm text-gray-700"
         />
         <Column
-          field="eventName" // Added eventName column
-          header="Event Name"
-          sortable
-          style={{ minWidth: "14rem" }}
-          headerClassName="bg-gray-50 text-gray-600 text-xs uppercase font-medium px-4 py-3"
-          bodyClassName="px-4 py-3 text-sm text-gray-700"
-          body={(rowData) => rowData.eventName || "--"}
-        />
-        <Column
           field="formattedEventStartTime" // This is pre-formatted
           header="Session Date/Time"
-          sortable
           sortField="eventStartTime" // Sort by actual date object if possible
           style={{ minWidth: "14rem" }}
           headerClassName="bg-gray-50 text-gray-600 text-xs uppercase font-medium px-4 py-3"
@@ -176,7 +165,6 @@ const BillingTable = ({
           field="status" // This is booking.status
           header="Booking Status"
           body={bookingStatusBodyTemplate}
-          sortable
           style={{ minWidth: "12rem" }}
           headerClassName="bg-gray-50 text-gray-600 text-xs uppercase font-medium px-4 py-3"
           bodyClassName="px-4 py-3 text-sm text-gray-700"
@@ -185,7 +173,6 @@ const BillingTable = ({
           // field="payment.transactionStatus" // Sort by actual payment transaction status
           header="Payment Status"
           body={statusBodyTemplate} // Uses rowData.transactionStatusDisplay
-          sortable
           sortField="payment.transactionStatus" // Correct sort field
           style={{ minWidth: "12rem" }}
           headerClassName="bg-gray-50 text-gray-600 text-xs uppercase font-medium px-4 py-3"
@@ -195,7 +182,6 @@ const BillingTable = ({
           field="payment.amount" // Field for sorting
           header="Amount"
           body={amountBodyTemplate} // Custom body for formatting
-          sortable
           style={{ minWidth: "10rem" }}
           headerClassName="bg-gray-50 text-gray-600 text-xs uppercase font-medium px-4 py-3"
           bodyClassName="px-4 py-3 text-sm text-gray-700"
