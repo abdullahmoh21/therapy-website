@@ -1,9 +1,10 @@
 import React from "react";
-import fatima_hero from "../../assets/images/hero.webp";
+import fatima_hero from "../../assets/images/hero.webp"; // 7, 9(no pipe+filter = 0 / np pipe= 0f)
 import { NavLink } from "react-router-dom";
 import { motion } from "framer-motion";
 
 const Home = () => {
+  const [imageLoaded, setImageLoaded] = React.useState(false);
   return (
     <>
       <section id="home" className="bg-whiteBg py-4 px-4 md:px-0 shadow-md">
@@ -27,14 +28,24 @@ const Home = () => {
             initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className="lg:w-1/2 w-full flex justify-center items-center mb-8 md:mb-0"
+            className="lg:w-1/2 w-full flex justify-center items-center mb-8 md:mb-0 lg:h-full"
           >
-            <div className="relative inline-block w-auto lg:px-4 lg:py-4">
+            <div className="relative inline-block w-auto lg:h-full lg:flex lg:items-center">
               <div className="absolute inset-0 bg-lightPink opacity-20 -z-10 rounded-lg"></div>
+
+              {/* Skeleton Loader */}
+              {!imageLoaded && (
+                <div className="animate-pulse w-[300px] h-[450px] lg:h-full lg:w-auto bg-lightPink rounded-lg shadow-inner border-2 border-lightPink" />
+              )}
+
               <img
                 src={fatima_hero}
                 alt="Fatima Mohsin Picture"
-                className="max-h-[600px] w-auto object-contain object-bottom border-4 border-lightPink shadow-lg rounded-lg relative z-10"
+                className={`max-h-[450px] lg:max-h-none lg:h-full w-auto object-contain object-bottom lg:object-cover border-4 border-lightPink shadow-lg rounded-lg relative z-10 transition-opacity duration-300 ${
+                  imageLoaded ? "opacity-100" : "opacity-0"
+                }`}
+                onLoad={() => setImageLoaded(true)}
+                onError={() => setImageLoaded(true)} // Prevent permanent skeleton on fail
               />
             </div>
           </motion.div>
@@ -49,7 +60,7 @@ const Home = () => {
             <div
               className="text-base md:text-lg text-justify
                 bg-whiteBg backdrop
-                border-2 border-lightPink
+                border-4 border-lightPink
                 p-6 lg:p-10 rounded-lg shadow-md
                 w-full h-full flex flex-col justify-between"
             >

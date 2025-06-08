@@ -23,7 +23,7 @@ import {
 } from "../../../../features/payments/paymentApiSlice";
 import { useGetMyUserQuery } from "../../../../features/users/usersApiSlice";
 import NoBooking from "./NoBooking";
-import DashboardHeader from "../../../../components/Dashboard/DashboardHeader";
+import DashboardHeader from "./MyBookingHeader";
 import { toast } from "react-toastify";
 
 const MyBookings = () => {
@@ -42,6 +42,7 @@ const MyBookings = () => {
     isSuccess: bookingsLoaded,
     isError: isBookingError,
     error: bookingFetchError,
+    refetch: refetchBookings,
   } = useGetMyActiveBookingsQuery();
 
   const {
@@ -59,6 +60,30 @@ const MyBookings = () => {
 
   const [sendRefundRequest, { isLoading: sendingRefundRequest }] =
     useSendRefundRequestMutation();
+
+  // Check for Calendly redirect URL parameters
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+
+    // Check if this is a Calendly redirect
+    if (
+      urlParams.has("assigned_to") &&
+      urlParams.has("event_type_uuid") &&
+      urlParams.has("event_start_time")
+    ) {
+      // Show a toast notification
+      toast.success(
+        "Booking successfully created! Refreshing your bookings..."
+      );
+
+      // Refetch bookings data since a new booking might have been created
+      refetchBookings();
+
+      // Clean the URL without reloading the page
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
+  }, [refetchBookings]);
 
   useEffect(() => {
     if (bookingData?.ids) {
@@ -191,6 +216,7 @@ const MyBookings = () => {
       <NoBooking
         Bookinglink={bookingLink}
         gettingBookingLink={gettingBookingLink}
+        userData={userData}
       />
     );
   }
@@ -396,9 +422,26 @@ const MyBookings = () => {
             <div className="mb-6 p-4 bg-gray-50 rounded-lg text-sm text-gray-700">
               {selectedBooking.transactionStatus === "Completed" ? (
                 checkRefundEligibility(selectedBooking) ? (
-                  <p className="flex items-center text-green-700">
-                    <BiCheckCircle className="mr-2" /> Eligible for full refund.
-                  </p>
+                  <div className="p-3 bg-green-50 border-l-4 border-green-400 rounded">
+                    <div className="flex items-start">
+                      <BiCheckCircle className="text-green-500 mt-0.5 mr-2 text-lg flex-shrink-0" />
+                      <div>
+                        <p className="font-medium text-green-700">
+                          Eligible for full refund
+                        </p>
+                        <ul className="mt-2 text-sm text-gray-600 space-y-1">
+                          <li>• Admin will be notified once you cancel</li>
+                          <li>
+                            • Your refund will be initiated within 1–2 business
+                            days
+                          </li>
+                          <li>
+                            • You'll receive a confirmation email when processed
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
                 ) : (
                   <p className="flex items-center text-orange-600">
                     <BiInfoCircle className="mr-2" /> Too late for refund.
@@ -411,7 +454,7 @@ const MyBookings = () => {
                 </p>
               ) : (
                 <p className="flex items-center">
-                  <BiInfoCircle className="mr-2" /> This is a free consult.
+                  <BiInfoCircle className="mr-2" /> This is a free consultation.
                 </p>
               )}
             </div>

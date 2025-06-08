@@ -46,7 +46,7 @@ const About = () => {
             viewport={{ once: true }}
             className="h-auto bg-orangeBg border rounded-3xl lg:mx-[80px] p-[30px] shadow-md"
           >
-            <p className="text-[18px] leading-[28px] text-textOnOrange">
+            <p className="text-base md:text-lg text-textOnOrange">
               Welcome! I'm Fatima Mohsin Naqvi, an internationally qualified
               psychotherapist with a Master's degree in Counseling for Mental
               Health and Wellness from New York University (NYU). My journey in
@@ -55,7 +55,7 @@ const About = () => {
               settings, including private practice, hospitals, schools, and
               mental health organizations.
             </p>
-            <p className="text-[18px] leading-[28px] text-textOnOrange pt-[10px]">
+            <p className="text-base md:text-lg text-textOnOrange pt-[10px]">
               Choosing to begin therapy is a significant step, and finding the
               right therapist is crucial. I am dedicated to providing
               compassionate, professional, and individualized care to each of my
@@ -125,7 +125,7 @@ const About = () => {
             viewport={{ once: true }}
             className="h-auto bg-orangeBg border rounded-3xl lg:mx-[80px] p-[30px] shadow-md"
           >
-            <p className="text-[18px] leading-[28px] text-textOnOrange">
+            <p className="text-base md:text-lg text-textOnOrange">
               I believe that effective therapy is a collaborative process, one
               where the client and therapist work together to achieve the best
               outcomes. My approach is rooted in the following principles:
@@ -136,7 +136,7 @@ const About = () => {
                 whileInView={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.3, delay: 0.5 }}
                 viewport={{ once: true }}
-                className="mb-[10px]"
+                className="mb-[10px] text-base md:text-lg"
               >
                 <strong>Person-Centered Therapy:</strong> At the heart of my
                 practice is a person-centered approach, which emphasizes
@@ -149,7 +149,7 @@ const About = () => {
                 whileInView={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.3, delay: 0.6 }}
                 viewport={{ once: true }}
-                className="mb-[10px]"
+                className="mb-[10px] text-base md:text-lg"
               >
                 <strong>Tailored Interventions:</strong> While I am proficient
                 in Cognitive Behavioral Therapy (CBT) and Psychodynamic Therapy,
@@ -162,7 +162,7 @@ const About = () => {
                 whileInView={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.3, delay: 0.7 }}
                 viewport={{ once: true }}
-                className="mb-[10px]"
+                className="mb-[10px] text-base md:text-lg"
               >
                 <strong>Relational Work:</strong> I am passionate about
                 relational work, which involves understanding and improving the

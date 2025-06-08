@@ -64,8 +64,8 @@ const styles = {
   titleTextColor: "#c45e3e",
   rowTitleColor: "#c45e3e",
   rowContentColor: "#68554f",
-  rowTitleTextSize: "22px",
-  rowContentTextSize: "19px",
+  rowTitleTextSize: "18px", // Reduced from 22px
+  rowContentTextSize: "16px", // Reduced from 19px to match text-base
   rowContentPaddingRight: "30px",
   rowContentPaddingLeft: "0px",
 };
@@ -131,7 +131,7 @@ const FAQ = () => {
           viewport={{ once: true }}
           className="text-center mt-12"
         >
-          <p className="text-textColor mb-6">
+          <p className="text-base md:text-lg text-textColor mb-6">
             Still have questions? Feel free to reach out.
           </p>
           <button

@@ -26,7 +26,7 @@ const Services = () => {
         </p>
       );
     } else if (isError) {
-      return <p className="text-textColor">60 Minutes</p>;
+      return <p className="text-textColor">60 MINUTES</p>;
     }
   };
 
@@ -62,8 +62,7 @@ const Services = () => {
         >
           <div className="Service flex-1 max-w-[400px] text-center md:text-left">
             <h1 className="orelega-one text-2xl md:text-3xl leading-tight text-orangeHeader pb-[5px]">
-              Individual
-              <br />
+              Individual <br className="hidden md:block" />
               Psychotherapy
             </h1>
             <p className="hidden md:block text-textColor">Online & In Person</p>
@@ -72,7 +71,7 @@ const Services = () => {
           </div>
 
           <div className="Service-description flex-1 max-w-[600px] flex items-center">
-            <p className="text-[22.5px] md:text-[20px] text-textColor text-justify">
+            <p className="text-base md:text-lg text-textColor text-justify">
               Individual psychotherapy is a one-on-one session between the
               therapist and the client, focusing on personal issues and mental
               health concerns. It aims to help clients understand their
@@ -92,8 +91,7 @@ const Services = () => {
         >
           <div className="Service flex-1 max-w-[400px] text-center md:text-left">
             <h1 className="orelega-one text-2xl md:text-3xl leading-tight text-orangeHeader pb-[5px]">
-              Adolescent
-              <br />
+              Adolescent <br className="hidden md:block" />
               Psychotherapy
             </h1>
             <p className="hidden md:block text-textColor">Online & In Person</p>
@@ -102,7 +100,7 @@ const Services = () => {
           </div>
 
           <div className="Service-description flex-1 max-w-[600px] flex items-center">
-            <p className="text-[22.5px] md:text-[20px] text-textColor text-justify">
+            <p className="text-base md:text-lg text-textColor text-justify">
               Adolescent psychotherapy provides a supportive environment for
               teenagers to explore their thoughts and feelings, addressing
               issues unique to their developmental stage. This type of therapy
@@ -123,8 +121,7 @@ const Services = () => {
         >
           <div className="Service flex-1 max-w-[400px] text-center md:text-left">
             <h1 className="orelega-one text-2xl md:text-3xl leading-tight text-orangeHeader pb-[5px]">
-              Couples
-              <br />
+              Couples <br className="hidden md:block" />
               Psychotherapy
             </h1>
             <p className="hidden md:block text-textColor">Online & In Person</p>
@@ -133,7 +130,7 @@ const Services = () => {
           </div>
 
           <div className="Service-description flex-1 max-w-[600px] flex items-center">
-            <p className="text-[22.5px] md:text-[20px] text-textColor text-justify">
+            <p className="text-base md:text-lg text-textColor text-justify">
               Couples psychotherapy is designed to help partners improve their
               relationship dynamics and resolve conflicts. Through guided
               sessions, couples learn effective communication skills, understand
@@ -153,14 +150,14 @@ const Services = () => {
         className="relative main-bg pt-[20px] md:pt-[80px]"
       >
         <div className="flex flex-col lg:flex-row justify-end">
-          <div className="flex flex-col justify-center lg:pr-[5px] lg:w-1/2 text-center lg:text-right px-4 lg:px-0">
-            <h1 className="orelega-one text-4xl sm:text-5xl lg:text-5xl leading-tight text-orangeHeader pb-4 lg:pb-[90px] lg:mr-5 lg:leading-[50px]">
+          <div className="flex flex-col order-1 justify-center lg:pr-[5px] lg:w-1/2 text-left px-4 lg:px-6 lg: text-right lg:px-0">
+            <h1 className="hidden md:block orelega-one text-4xl sm:text-5xl lg:text-5xl leading-tight text-orangeHeader pb-[20px] lg:pb-[90px] lg:mr-5 lg:leading-[50px]">
               Guiding you towards <br />
               a more fulfilling <br />
               future.
             </h1>
           </div>
-          <div className="w-full lg:w-1/2">
+          <div className="w-full order-2 lg:w-1/2">
             <img
               src={service_hero}
               alt="Service Image"

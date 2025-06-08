@@ -17,6 +17,7 @@ import {
   FaSave,
   FaEdit,
   FaUndo,
+  FaMicrochip,
 } from "react-icons/fa";
 import { SiRedis } from "react-icons/si";
 import LoadingPage from "../../../pages/LoadingPage";
@@ -225,7 +226,15 @@ const SystemHealth = () => {
               <StatusIndicator status={server?.status} />
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Uptime:</span>
+              <span className="text-gray-600 flex items-center">
+                Uptime:
+                <span
+                  className="ml-1 cursor-help text-gray-400"
+                  title="The amount of time the server has been running continuously without restarts."
+                >
+                  <FaInfoCircle size={12} />
+                </span>
+              </span>
               <span className="font-medium">
                 {formatUptime(server?.uptime || 0)}
               </span>
@@ -252,7 +261,64 @@ const SystemHealth = () => {
               <span className="text-gray-600">Status:</span>
               <StatusIndicator status={redis?.status} />
             </div>
-            {/* Add more Redis stats if available */}
+
+            {redis?.info && Object.keys(redis.info).length > 0 && (
+              <div className="mt-4 space-y-3 border-t pt-3">
+                <h3 className="text-sm font-semibold text-gray-700">
+                  Redis Details
+                </h3>
+
+                {redis.info.keys !== undefined && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 flex items-center">
+                      Keys:
+                      <span
+                        className="ml-1 cursor-help text-gray-400"
+                        title="The number of cached items currently stored in Redis. Each key represents a separate piece of cached data."
+                      >
+                        <FaInfoCircle size={12} />
+                      </span>
+                    </span>
+                    <span className="font-medium">{redis.info.keys}</span>
+                  </div>
+                )}
+
+                {redis.info.connected_clients !== undefined && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Connected Clients:</span>
+                    <span className="font-medium">
+                      {redis.info.connected_clients}
+                    </span>
+                  </div>
+                )}
+
+                {redis.info.used_memory !== undefined && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 flex items-center">
+                      Memory Used:
+                      <span
+                        className="ml-1 cursor-help text-gray-400"
+                        title="The amount of RAM currently being used by Redis to store cached data and for internal operations."
+                      >
+                        <FaInfoCircle size={12} />
+                      </span>
+                    </span>
+                    <span className="font-medium">
+                      {Math.round(
+                        (parseInt(redis.info.used_memory) / 1024 / 1024) * 100
+                      ) / 100}{" "}
+                      MB
+                    </span>
+                  </div>
+                )}
+
+                {redis.dockerized && (
+                  <div className="mt-2 text-xs text-blue-600 flex items-center">
+                    <FaInfoCircle className="mr-1" /> Running in Docker
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -285,17 +351,41 @@ const SystemHealth = () => {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Objects:</span>
+                  <span className="text-gray-600 flex items-center">
+                    Objects:
+                    <span
+                      className="ml-1 cursor-help text-gray-400"
+                      title="The total number of documents (records) stored across all collections in the database."
+                    >
+                      <FaInfoCircle size={12} />
+                    </span>
+                  </span>
                   <span className="font-medium">{database.stats.objects}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Data Size:</span>
+                  <span className="text-gray-600 flex items-center">
+                    Data Size:
+                    <span
+                      className="ml-1 cursor-help text-gray-400"
+                      title="The actual size of the data stored in the database, not including indexes or allocated but unused space."
+                    >
+                      <FaInfoCircle size={12} />
+                    </span>
+                  </span>
                   <span className="font-medium">
                     {database.stats.dataSizeMB} MB
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Storage Size:</span>
+                  <span className="text-gray-600 flex items-center">
+                    Storage Size:
+                    <span
+                      className="ml-1 cursor-help text-gray-400"
+                      title="The total size allocated for database storage, including used and reserved space. This is typically larger than Data Size due to MongoDB's pre-allocation strategy."
+                    >
+                      <FaInfoCircle size={12} />
+                    </span>
+                  </span>
                   <span className="font-medium">
                     {database.stats.storageSizeMB} MB
                   </span>
@@ -310,6 +400,51 @@ const SystemHealth = () => {
         </div>
       </div>
 
+      {/* CPU Information */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden mb-8">
+        <div className="p-4 bg-gray-50 border-b border-gray-200 flex items-center">
+          <FaMicrochip className="text-[#DF9E7A] mr-2" />
+          <h2 className="text-lg font-semibold text-gray-800">CPU</h2>
+        </div>
+        <div className="p-5 space-y-3">
+          <div className="flex justify-between">
+            <span className="text-gray-600">Model:</span>
+            <span className="font-medium text-sm truncate max-w-[200px]">
+              {healthData?.cpu?.model}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-600">Cores:</span>
+            <span className="font-medium">{healthData?.cpu?.count}</span>
+          </div>
+          <div className="mt-3">
+            <h3 className="text-sm font-semibold mb-2 flex items-center">
+              Load Average
+              <span
+                className="ml-1 cursor-help text-gray-400"
+                title="The average system load over different time periods. Load represents the number of processes using or waiting for CPU time. Values exceeding your CPU core count indicate your system is under stress."
+              >
+                <FaInfoCircle size={12} />
+              </span>
+            </h3>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="bg-gray-50 p-2 rounded text-center">
+                <div className="text-xs text-gray-500">1 min</div>
+                <div className="font-semibold">{healthData?.cpu?.load1}</div>
+              </div>
+              <div className="bg-gray-50 p-2 rounded text-center">
+                <div className="text-xs text-gray-500">5 min</div>
+                <div className="font-semibold">{healthData?.cpu?.load5}</div>
+              </div>
+              <div className="bg-gray-50 p-2 rounded text-center">
+                <div className="text-xs text-gray-500">15 min</div>
+                <div className="font-semibold">{healthData?.cpu?.load15}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Memory Usage */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden mb-8">
         <div className="p-4 bg-gray-50 border-b border-gray-200 flex items-center">
@@ -319,30 +454,54 @@ const SystemHealth = () => {
         <div className="p-5">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="p-3 bg-gray-50 rounded-lg">
-              <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+              <div className="text-xs text-gray-500 uppercase tracking-wider mb-1 flex items-center">
                 Process RSS
+                <span
+                  className="ml-1 cursor-help text-gray-400"
+                  title="Resident Set Size - the actual amount of physical memory used by the Node.js process, including code, heap, and external memory."
+                >
+                  <FaInfoCircle size={10} />
+                </span>
               </div>
               <div className="text-xl font-semibold">{memory?.rssMB} MB</div>
             </div>
             <div className="p-3 bg-gray-50 rounded-lg">
-              <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+              <div className="text-xs text-gray-500 uppercase tracking-wider mb-1 flex items-center">
                 Heap Total
+                <span
+                  className="ml-1 cursor-help text-gray-400"
+                  title="The total memory allocated for JavaScript objects in the Node.js process. This is the V8 engine's memory allocation."
+                >
+                  <FaInfoCircle size={10} />
+                </span>
               </div>
               <div className="text-xl font-semibold">
                 {memory?.heapTotalMB} MB
               </div>
             </div>
             <div className="p-3 bg-gray-50 rounded-lg">
-              <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+              <div className="text-xs text-gray-500 uppercase tracking-wider mb-1 flex items-center">
                 Heap Used
+                <span
+                  className="ml-1 cursor-help text-gray-400"
+                  title="The amount of heap memory actually being used by JavaScript objects. If this grows continuously, it may indicate a memory leak."
+                >
+                  <FaInfoCircle size={10} />
+                </span>
               </div>
               <div className="text-xl font-semibold">
                 {memory?.heapUsedMB} MB
               </div>
             </div>
             <div className="p-3 bg-gray-50 rounded-lg">
-              <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+              <div className="text-xs text-gray-500 uppercase tracking-wider mb-1 flex items-center">
                 External
+                <span
+                  className="ml-1 cursor-help text-gray-400"
+                  title="Memory used by C++ objects bound to JavaScript objects, such as buffers. This memory is not managed by V8's garbage collector."
+                >
+                  <FaInfoCircle size={10} />
+                </span>
               </div>
               <div className="text-xl font-semibold">
                 {memory?.externalMB} MB
