@@ -5,8 +5,7 @@ const User = require("../models/User");
 const Invitee = require("../models/Invitee");
 const Booking = require("../models/Booking");
 const Payment = require("../models/Payment");
-const TemporaryBooking = require("../models/TemporaryBooking");
-const Config = require("../models/Config"); // Import Config model
+const Config = require("../models/Config");
 const { checkRedisAvailability } = require("./redisClient");
 
 let myQueue = null;
@@ -193,8 +192,8 @@ const deleteDocuments = async (job) => {
       case "Payment":
         modelInstance = Payment;
         break;
-      case "TemporaryBooking":
-        modelInstance = TemporaryBooking;
+      case "Invitee":
+        modelInstance = Invitee;
         break;
       default:
         logger.error(`Unknown model: ${model}`);

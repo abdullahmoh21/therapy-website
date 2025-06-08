@@ -41,6 +41,10 @@ const userSchema = new Schema(
     DOB: {
       type: Date,
     },
+    lastLoginAt: {
+      type: Date,
+      default: null,
+    },
     bookingTokenJTI: {
       type: String,
     },
