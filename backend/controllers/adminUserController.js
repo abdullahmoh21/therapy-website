@@ -3,6 +3,9 @@ const asyncHandler = require("express-async-handler");
 const logger = require("../logs/logger");
 const Booking = require("../models/Booking");
 const Payment = require("../models/Payment");
+const { invalidateCache } = require("../middleware/redisCaching");
+const Joi = require("joi");
+const { emailSchema } = require("../utils/validation/ValidationSchemas");
 
 //@desc Get all users
 //@param {Object} req with valid role
@@ -41,9 +44,9 @@ const getAllUsers = asyncHandler(async (req, res) => {
       searchQuery.role = req.query.role;
     }
 
-    // Retrieve users with pagination and search
     const users = await User.find(searchQuery)
-      .select("email name phone DOB role") // Added role to the selection
+      .select("email name phone role")
+      .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
       .lean()
@@ -91,6 +94,9 @@ const deleteUser = asyncHandler(async (req, res) => {
       `User deletion count: ${user.deletedCount}\nBooking deleted count: ${bookings.deletedCount}\nPayment deleted count: ${payments.deletedCount}`
     );
 
+    await invalidateCache(`/admin/users/${userId}`, userId);
+    await invalidateCache("/user", userId);
+
     // Return proper success response with message
     res.status(200).json({
       message: "User deleted successfully",
@@ -115,22 +121,68 @@ const updateUser = asyncHandler(async (req, res) => {
   }
 
   try {
+    // Fetch current user for email comparison
+    const currentUser = await User.findById(userId);
+    if (!currentUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
     // Create an update object with only the provided fields
     const updateData = {};
-    if (name) updateData.name = name;
-    if (email) updateData.email = email;
-    if (role && ["admin", "user"].includes(role)) updateData.role = role;
+
+    // Validate name if provided
+    if (name !== undefined) {
+      if (typeof name !== "string" || name.trim() === "") {
+        return res
+          .status(400)
+          .json({ message: "Name must be a non-empty string" });
+      }
+      updateData.name = name.trim();
+    }
+
+    if (email !== undefined) {
+      const { error } = emailSchema.validate({ email });
+
+      if (error) {
+        return res.status(400).json({
+          message: "Invalid email format",
+          details: error.details[0].message,
+        });
+      }
+
+      updateData.email = email;
+
+      // If email is being changed, set emailVerified.state to false
+      if (currentUser.email !== email) {
+        updateData["emailVerified.state"] = false;
+        updateData["emailVerified.encryptedToken"] = undefined;
+        updateData["emailVerified.expiresIn"] = undefined;
+      }
+    }
+
+    // Validate role if provided
+    if (role !== undefined) {
+      if (!["admin", "user"].includes(role)) {
+        return res
+          .status(400)
+          .json({ message: "Role must be either 'admin' or 'user'" });
+      }
+      updateData.role = role;
+    }
 
     // Perform the update
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       { $set: updateData },
       { new: true, runValidators: true }
-    ).select("name email role");
+    ).select("name email role emailVerified");
 
     if (!updatedUser) {
       return res.status(404).json({ message: "User not found" });
     }
+
+    await invalidateCache(`/admin/users/${userId}`, userId);
+    await invalidateCache("/user", userId);
 
     res.status(200).json({
       message: "User updated successfully",
@@ -142,8 +194,38 @@ const updateUser = asyncHandler(async (req, res) => {
   }
 });
 
+//@desc Get user details by ID
+//@param {Object} req with valid role and userId
+//@route GET /admin/users/:userId
+//@access Private
+const getUserDetails = asyncHandler(async (req, res) => {
+  const userId = req.params.userId;
+
+  if (!userId) {
+    return res.status(400).json({ message: "User ID is required" });
+  }
+
+  try {
+    const user = await User.findById(userId)
+      .select(
+        "email emailVerified.state role phone name DOB createdAt updatedAt lastLoginAt"
+      )
+      .lean();
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json(user);
+  } catch (error) {
+    logger.error(`Error fetching user details: ${error}`);
+    res.status(500).json({ message: "Error fetching user details" });
+  }
+});
+
 module.exports = {
   getAllUsers,
   deleteUser,
   updateUser,
+  getUserDetails,
 };

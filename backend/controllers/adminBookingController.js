@@ -4,7 +4,7 @@ const User = require("../models/User");
 const asyncHandler = require("express-async-handler");
 const logger = require("../logs/logger");
 
-//@desc returns all bookings
+//@desc returns all bookings with only the fields to e displayed in frontend table
 //@param valid admin jwt token
 //@route GET /admin/bookings
 //@access Private(admin)
@@ -17,7 +17,6 @@ const getAllBookings = asyncHandler(async (req, res) => {
     status,
     datePreset,
     showPastBookings,
-    sessionType,
     paymentOverdue,
     location,
   } = req.query;
@@ -53,8 +52,8 @@ const getAllBookings = asyncHandler(async (req, res) => {
         // Today: from start of today to end of today
         const endOfToday = new Date(startOfToday);
         endOfToday.setHours(23, 59, 59, 999);
-        query.eventStartTime.$gte = startOfToday.getTime();
-        query.eventStartTime.$lte = endOfToday.getTime();
+        query.eventStartTime.$gte = startOfToday;
+        query.eventStartTime.$lte = endOfToday;
         break;
 
       case "tomorrow":
@@ -63,8 +62,8 @@ const getAllBookings = asyncHandler(async (req, res) => {
         startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
         const endOfTomorrow = new Date(startOfTomorrow);
         endOfTomorrow.setHours(23, 59, 59, 999);
-        query.eventStartTime.$gte = startOfTomorrow.getTime();
-        query.eventStartTime.$lte = endOfTomorrow.getTime();
+        query.eventStartTime.$gte = startOfTomorrow;
+        query.eventStartTime.$lte = endOfTomorrow;
         break;
 
       case "thisWeek":
@@ -73,8 +72,8 @@ const getAllBookings = asyncHandler(async (req, res) => {
         const daysUntilSunday = 7 - startOfToday.getDay();
         endOfThisWeek.setDate(endOfThisWeek.getDate() + daysUntilSunday);
         endOfThisWeek.setHours(23, 59, 59, 999);
-        query.eventStartTime.$gte = startOfToday.getTime();
-        query.eventStartTime.$lte = endOfThisWeek.getTime();
+        query.eventStartTime.$gte = startOfToday;
+        query.eventStartTime.$lte = endOfThisWeek;
         break;
 
       case "thisMonth":
@@ -88,8 +87,8 @@ const getAllBookings = asyncHandler(async (req, res) => {
           59,
           999
         );
-        query.eventStartTime.$gte = startOfToday.getTime();
-        query.eventStartTime.$lte = endOfThisMonth.getTime();
+        query.eventStartTime.$gte = startOfToday;
+        query.eventStartTime.$lte = endOfThisMonth;
         break;
 
       case "nextMonth":
@@ -112,8 +111,8 @@ const getAllBookings = asyncHandler(async (req, res) => {
           59,
           999
         );
-        query.eventStartTime.$gte = startOfNextMonth.getTime();
-        query.eventStartTime.$lte = endOfNextMonth.getTime();
+        query.eventStartTime.$gte = startOfNextMonth;
+        query.eventStartTime.$lte = endOfNextMonth;
         break;
 
       case "lastMonth":
@@ -136,8 +135,8 @@ const getAllBookings = asyncHandler(async (req, res) => {
           59,
           999
         );
-        query.eventStartTime.$gte = startOfLastMonth.getTime();
-        query.eventStartTime.$lte = endOfLastMonth.getTime();
+        query.eventStartTime.$gte = startOfLastMonth;
+        query.eventStartTime.$lte = endOfLastMonth;
         break;
 
       default:
@@ -148,7 +147,7 @@ const getAllBookings = asyncHandler(async (req, res) => {
 
   if (showPastBookings !== "true") {
     if (!query.eventStartTime) {
-      query.eventStartTime = { $gte: startOfToday.getTime() };
+      query.eventStartTime = { $gte: startOfToday };
     }
   } else if (!datePreset) {
     // If showing past bookings and no datePreset specified,
@@ -156,26 +155,9 @@ const getAllBookings = asyncHandler(async (req, res) => {
     delete query.eventStartTime;
   }
 
-  if (sessionType) {
-    if (sessionType === "15min") {
-      query.eventName = "15 Minute Consultation";
-    } else if (sessionType === "1hour") {
-      query.eventName = "1 Hour Session";
-    }
-    // Add more session types if necessary
-  }
-
+  // Location filter - fixed to query the nested type field
   if (location) {
-    query.location = location;
-  }
-
-  // Payment overdue filter (requires logic based on payment status and booking date)
-  // This is complex and depends on how 'overdue' is defined.
-  // Example: Find bookings where payment is not 'Completed' and booking is in the past
-  if (paymentOverdue === "true") {
-    console.warn(
-      "Payment overdue filter logic needs implementation based on schema."
-    );
+    query["location.type"] = location;
   }
 
   let userIds = [];
@@ -201,17 +183,59 @@ const getAllBookings = asyncHandler(async (req, res) => {
   }
 
   try {
+    // Handle payment overdue filter
+    let paymentOverdueIds = [];
+    if (paymentOverdue === "true") {
+      // Find all completed bookings that have payments and payments are not completed
+      const bookingsWithOverduePayments = await Booking.aggregate([
+        {
+          $match: { status: "Completed" },
+        },
+        {
+          $lookup: {
+            from: "payments",
+            localField: "paymentId",
+            foreignField: "_id",
+            as: "payment",
+          },
+        },
+        {
+          $match: {
+            $or: [
+              { payment: { $size: 0 } }, // No payment record
+              { "payment.transactionStatus": { $ne: "Completed" } }, // Payment not completed
+            ],
+          },
+        },
+        {
+          $project: { _id: 1 },
+        },
+      ]);
+
+      paymentOverdueIds = bookingsWithOverduePayments.map((b) => b._id);
+
+      if (paymentOverdueIds.length > 0) {
+        query._id = { $in: paymentOverdueIds };
+      } else if (paymentOverdue === "true") {
+        // If no overdue payments found, return empty result
+        return res.json({
+          page,
+          limit,
+          totalBookings: 0,
+          totalPages: 0,
+          bookings: [],
+        });
+      }
+    }
+
+    // Only select fields needed for the table display
     const bookings = await Booking.find(query)
       .skip(skip)
       .limit(limit)
+      .select("_id status eventStartTime eventEndTime")
       .populate({
         path: "userId",
-        select: "name email phone",
-      })
-      .populate({
-        path: "paymentId",
-        select:
-          "transactionStatus tracker transactionReferenceNumber amount currency paymentCompletedDate",
+        select: "name email",
       })
       .sort({ eventStartTime: -1 })
       .lean()
@@ -229,6 +253,50 @@ const getAllBookings = asyncHandler(async (req, res) => {
   } catch (error) {
     logger.error(`Error retrieving bookings: ${error.message}`);
     res.status(500).json({ message: "Failed to retrieve bookings" });
+  }
+});
+
+//@desc returns upcoming booking timeline for display in /admin/upcoming
+//@param valid admin jwt token
+//@route GET /admin/bookings
+//@access Private(admin)
+const getBookingTimeline = asyncHandler(async (req, res) => {
+  try {
+    // Get today's date at 00:00:00
+    const now = new Date();
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+
+    // Get date one week from now at 23:59:59
+    const oneWeekFromNow = new Date(startOfToday);
+    oneWeekFromNow.setDate(oneWeekFromNow.getDate() + 7);
+    oneWeekFromNow.setHours(23, 59, 59, 999);
+
+    // Find bookings in the time range
+    const bookings = await Booking.find({
+      eventStartTime: { $gte: startOfToday, $lte: oneWeekFromNow },
+      status: { $ne: "Cancelled" }, // Exclude cancelled bookings
+    })
+      .select(
+        "_id eventStartTime eventEndTime eventName location status bookingId notes"
+      )
+      .populate({
+        path: "userId",
+        select: "name email phone",
+      })
+      .populate({
+        path: "paymentId",
+        select:
+          "amount currency transactionStatus transactionReferenceNumber paymentMethod paymentCompletedDate",
+      })
+      .sort({ eventStartTime: 1 }) // Sort by start time ascending
+      .lean()
+      .exec();
+
+    res.status(200).json({ bookings });
+  } catch (error) {
+    logger.error(`Error retrieving booking timeline: ${error.message}`);
+    res.status(500).json({ message: "Failed to retrieve booking timeline" });
   }
 });
 
@@ -326,8 +394,46 @@ const deleteBooking = asyncHandler(async (req, res) => {
   }
 });
 
+//@desc Get a single booking with details
+//@param {String} bookingId - MongoDB _id of the booking
+//@route GET /admin/bookings/:bookingId
+//@access Private(admin)
+const getBookingDetails = asyncHandler(async (req, res) => {
+  const { bookingId } = req.params;
+
+  if (!bookingId) {
+    return res.status(400).json({ message: "Booking ID is required" });
+  }
+
+  try {
+    const booking = await Booking.findById(bookingId)
+      .populate({
+        path: "userId",
+        select: "name email phone",
+      })
+      .populate({
+        path: "paymentId",
+        select:
+          "transactionStatus transactionReferenceNumber amount currency paymentCompletedDate paymentMethod paymentRefundedDate refundRequestedDate",
+      })
+      .lean()
+      .exec();
+
+    if (!booking) {
+      return res.status(404).json({ message: "Booking not found" });
+    }
+
+    res.status(200).json(booking);
+  } catch (error) {
+    logger.error(`Error retrieving booking details: ${error.message}`);
+    res.status(500).json({ message: "Failed to retrieve booking details" });
+  }
+});
+
 module.exports = {
   getAllBookings,
+  getBookingTimeline,
   updateBooking,
   deleteBooking,
+  getBookingDetails,
 };
