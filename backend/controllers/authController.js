@@ -2,13 +2,13 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const Booking = require("../models/Booking");
-const TemporaryBooking = require("../models/TemporaryBooking");
 const asyncHandler = require("express-async-handler");
 const crypto = require("crypto");
 const logger = require("../logs/logger");
 const { sendEmail } = require("../utils/myQueue");
 const { response } = require("express");
 const Invitee = require("../models/Invitee");
+const { invalidateCache } = require("../middleware/redisCaching");
 
 const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET;
 const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET;
@@ -81,7 +81,10 @@ const login = asyncHandler(async (req, res) => {
 
   foundUser.refreshTokenHash = await bcrypt.hash(refreshToken, 10);
   foundUser.refreshTokenExp = Date.now() + 8 * 60 * 60 * 1000; // Consider moving magic numbers to constants or env variables
+  foundUser.lastLoginAt = new Date();
   await foundUser.save();
+
+  invalidateCache(`/admin/users/${foundUser._id}`, foundUser._id);
 
   res.cookie("jwt", refreshToken, {
     httpOnly: true,
@@ -90,6 +93,35 @@ const login = asyncHandler(async (req, res) => {
     maxAge: 24 * 60 * 60 * 1000,
   });
   res.json({ accessToken });
+});
+
+// @desc Logout
+// @route POST /auth/logout
+// @access Public - clear cookie if exists
+const logout = asyncHandler(async (req, res) => {
+  //delete Access Token on client side
+  const cookies = req.cookies;
+  if (!cookies?.jwt) return res.sendStatus(204); //no content
+
+  const refreshToken = cookies.jwt;
+
+  // Decode the refresh token
+  const decodedRefreshToken = jwt.verify(refreshToken, REFRESH_TOKEN_SECRET);
+
+  const { email } = decodedRefreshToken;
+  if (!email) return res.sendStatus(204); // no content
+
+  // is user in db?
+  const foundUser = await User.findOne({ email }).exec();
+  if (!foundUser) return res.sendStatus(204); // no content
+
+  //delete refresh token in db
+  foundUser.refreshTokenHash = "";
+  foundUser.refreshTokenExp = 0;
+  await foundUser.save();
+
+  res.clearCookie("jwt", { httpOnly: true, sameSite: "None", secure: true }); //ADD secure: true in production
+  res.sendStatus(204); //no content
 });
 
 // @desc Refresh
@@ -189,8 +221,23 @@ const register = async (req, res) => {
       verificationToken,
     });
 
-    const link = `${process.env.FRONTEND_URL}/verifyEmail?token=${token}`;
-    await sendEmail("verifyEmail", { recipient: email, name, link });
+    // Fix: Use verificationToken instead of token for the verification link
+    const link = `${process.env.FRONTEND_URL}/verifyEmail?token=${verificationToken}`;
+
+    // Send verification email
+    try {
+      await sendEmail("verifyEmail", {
+        recipient: email,
+        name,
+        link,
+      });
+      logger.info(`Verification email sent to ${email} during registration`);
+    } catch (err) {
+      logger.error(
+        `Error sending verification email during registration: ${err.message}`
+      );
+      // Continue with registration even if email fails - user can request resend
+    }
 
     // Mark invitation as used
     await markInvitationAsUsed(email);
@@ -277,35 +324,6 @@ const markInvitationAsUsed = async (email) => {
 };
 
 // ---------------- END OF REGISTER HELPER FUNCTIONS ----------------- //
-
-// @desc Logout
-// @route POST /auth/logout
-// @access Public - clear cookie if exists
-const logout = asyncHandler(async (req, res) => {
-  //delete Access Token on client side
-  const cookies = req.cookies;
-  if (!cookies?.jwt) return res.sendStatus(204); //no content
-
-  const refreshToken = cookies.jwt;
-
-  // Decode the refresh token
-  const decodedRefreshToken = jwt.verify(refreshToken, REFRESH_TOKEN_SECRET);
-
-  const { email } = decodedRefreshToken;
-  if (!email) return res.sendStatus(204); // no content
-
-  // is user in db?
-  const foundUser = await User.findOne({ email }).exec();
-  if (!foundUser) return res.sendStatus(204); // no content
-
-  //delete refresh token in db
-  foundUser.refreshTokenHash = "";
-  foundUser.refreshTokenExp = 0;
-  await foundUser.save();
-
-  res.clearCookie("jwt", { httpOnly: true, sameSite: "None", secure: true }); //ADD secure: true in production
-  res.sendStatus(204); //no content
-});
 
 module.exports = {
   login,

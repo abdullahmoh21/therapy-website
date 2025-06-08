@@ -12,6 +12,6 @@ router.route("/").post(paymentController.createPayment);
 
 router.route("/:paymentId").get(redisCaching(), paymentController.getPayment);
 
-router.route("/refund").post(paymentController.refundRequest); //request a refund
+router.route("/refund").post(paymentController.refundRequest);
 
 module.exports = router;
