@@ -1,66 +1,46 @@
-import React, { useState, useCallback, useEffect } from "react";
-import { ProgressSpinner } from "primereact/progressspinner";
+import React, { useState, useCallback } from "react";
+import {
+  BiInfoCircle,
+  BiRefresh,
+  BiPlus,
+  BiX,
+  BiCopy,
+  BiLoaderAlt,
+  BiErrorCircle,
+} from "react-icons/bi";
+import { toast } from "react-toastify";
+import { ConfirmDialog } from "primereact/confirmdialog";
 import { InputText } from "primereact/inputtext";
 import { Dropdown } from "primereact/dropdown";
-import { Button } from "primereact/button";
-import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
-import { toast } from "react-toastify";
-import { useSelector } from "react-redux";
-import { selectCurrentUserId } from "../../../../features/auth/authSlice";
-import InvitedUsers from "./InvitedUsers";
+import Pagination from "../../../../components/pagination";
 import debounce from "lodash/debounce";
+import LoadingPage from "../../../../pages/LoadingPage";
+import EditUserWarningModal from "./EditUserWarningModal";
 
+// Import custom components
+import UserFilters from "./UserFilters";
+import UserTable from "./UserTable";
+import InvitedUsers from "./InvitedUsers";
+
+// Import the user RTK Query hooks
 import {
   useGetAdminUsersQuery,
   useInviteUserMutation,
   useDeleteUserMutation,
   useUpdateUserMutation,
 } from "../../../../features/admin/adminApiSlice";
-import LoadingPage from "../../../../pages/LoadingPage";
 
-import {
-  BiSearch,
-  BiFilterAlt,
-  BiRefresh,
-  BiUserCircle,
-  BiPlus,
-  BiEdit,
-  BiTrash,
-  BiLoaderAlt,
-  BiInfoCircle,
-  BiX,
-  BiCheck,
-  BiCopy,
-  BiErrorCircle,
-  BiChevronDown,
-  BiChevronUp,
-  BiChevronLeft,
-  BiChevronRight,
-} from "react-icons/bi";
+// Pagination: users/page
+const USERS_PER_PAGE = 10;
 
-// Toast notification helper functions
-const showSuccessToast = (message) => {
-  toast.success(message, {
-    position: "top-right",
-    autoClose: 3000,
-  });
-};
-
-const showErrorToast = (message) => {
-  toast.error(message, {
-    position: "top-right",
-    autoClose: 5000,
-  });
-};
-
-const showWarningToast = (message) => {
-  toast.warning(message, {
-    position: "top-right",
-    autoClose: 4000,
-  });
-};
-
+// Main AdminUsers component
 const AdminUsers = () => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filters, setFilters] = useState({
+    role: "",
+  });
+  const [expandedRows, setExpandedRows] = useState({});
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [newUser, setNewUser] = useState({
@@ -70,29 +50,61 @@ const AdminUsers = () => {
     role: "user",
   });
   const [invitationLink, setInvitationLink] = useState("");
-  const [filters, setFilters] = useState({ search: "", role: "" });
-  const [currentPage, setCurrentPage] = useState(1);
-  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [emailError, setEmailError] = useState("");
   const [showAdminWarning, setShowAdminWarning] = useState(false);
   const [showInvitedUsers, setShowInvitedUsers] = useState(false);
-
-  // State for delete confirmation modal
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [userToDelete, setUserToDelete] = useState(null);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const USERS_PER_PAGE = 10;
+  // Add the mutation hooks
+  const [inviteUser] = useInviteUserMutation();
+  const [deleteUser] = useDeleteUserMutation();
+  const [updateUser] = useUpdateUserMutation();
 
-  // Create a query params object for the API
+  // Additional state for edit warning modal
+  const [showEditWarning, setShowEditWarning] = useState(false);
+  const [userToEdit, setUserToEdit] = useState(null);
+
+  // Create a debounced search function
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const debouncedSearch = useCallback(
+    debounce((searchValue) => {
+      setSearchTerm(searchValue);
+      setCurrentPage(1); // Reset to first page when searching
+    }, 500),
+    []
+  );
+
+  // Handle search input change with debounce
+  const handleSearchChange = (e) => {
+    const value = e.target.value;
+    setSearchTerm(value); // Update UI immediately
+    debouncedSearch(value); // Debounce the actual API call
+  };
+
+  // Handle filter changes
+  const handleFilterChange = (filterType, value) => {
+    setFilters((prev) => ({ ...prev, [filterType]: value }));
+    setCurrentPage(1); // Reset to first page when filtering
+  };
+
+  // Clear all filters
+  const clearFilters = () => {
+    setFilters({
+      role: "",
+    });
+    setSearchTerm("");
+    setCurrentPage(1);
+  };
+
+  // Create query params object for API
   const queryParams = {
     page: currentPage,
     limit: USERS_PER_PAGE,
-    search: filters.search,
+    search: searchTerm,
     role: filters.role,
   };
 
+  // Use the RTK Query hook to fetch users
   const {
     data = {
       users: [],
@@ -104,88 +116,77 @@ const AdminUsers = () => {
     refetch,
   } = useGetAdminUsersQuery(queryParams);
 
-  const [inviteUser] = useInviteUserMutation();
-  const [deleteUser] = useDeleteUserMutation();
-  const [updateUser] = useUpdateUserMutation();
-
-  const currentUserId = useSelector(selectCurrentUserId);
-
-  // Create a debounced search function
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const debouncedSearch = useCallback(
-    debounce((searchValue) => {
-      setFilters((prev) => ({ ...prev, search: searchValue }));
-      setCurrentPage(1); // Reset to first page when searching
-    }, 500), // 500ms delay
-    []
-  );
-
-  // Handle search input change
-  const handleSearchChange = (e) => {
-    const value = e.target.value;
-    // Update the UI immediately
-    setFilters((prev) => ({ ...prev, search: value }));
-    // Debounce the actual API call
-    debouncedSearch(value);
+  // Extract users & pagination from the response
+  const users = data?.users || [];
+  const pagination = data?.pagination || {
+    totalUsers: 0,
+    currentPage: 1,
+    totalPages: 1,
   };
 
-  // Handle role filter change
-  const handleRoleChange = (e) => {
-    const value = e.target.value;
-    setFilters((prev) => ({ ...prev, role: value }));
-    setCurrentPage(1); // Reset to first page when filtering
+  // Pagination handler
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
   };
 
-  // Clear all filters
-  const clearFilters = () => {
-    setFilters({ search: "", role: "" });
-    setCurrentPage(1);
-  };
-
-  const handlePageChange = (page) => {
-    setCurrentPage(page);
-  };
-
-  const handleDeleteConfirmation = (user) => {
-    confirmDialog({
-      message: `Are you sure you want to delete the user "${user.name}"? This action cannot be undone.`,
-      header: "Delete Confirmation",
-      icon: <BiTrash className="text-red-500 mr-2" />,
-      acceptClassName: "p-button-danger",
-      accept: () => handleDeleteUser(user._id),
-    });
-  };
-
-  const handleDeleteUser = async (userId) => {
-    setIsDeleting(true);
+  // Handle delete user - directly delete without showing confirmDialog
+  const handleDeleteClick = async (user) => {
     try {
-      const result = await deleteUser(userId).unwrap();
-      showSuccessToast(result?.message || "User deleted successfully");
+      const result = await deleteUser(user._id).unwrap();
+      toast.success(result?.message || "User deleted successfully");
       refetch();
     } catch (err) {
       console.error("Error deleting user:", err);
-      // Special case: If it's a parsing error but status is 200, it was actually successful
       if (err?.status === "PARSING_ERROR" && err?.originalStatus === 200) {
-        showSuccessToast("User deleted successfully");
+        toast.success("User deleted successfully");
         refetch();
       } else {
-        showErrorToast(err?.data?.message || "Failed to delete user");
+        toast.error(err?.data?.message || "Failed to delete user");
       }
-    } finally {
-      setIsDeleting(false);
     }
   };
 
-  // Validate email confirmation
-  const validateEmailMatch = () => {
-    // Compare trimmed values to avoid whitespace issues and make comparison case-insensitive
+  // Handle edit user
+  const handleEditClick = (user) => {
+    setUserToEdit(user);
+    setShowEditWarning(true);
+  };
+
+  // Handle edit confirmation
+  const handleEditConfirm = () => {
+    if (!userToEdit) return;
+
+    setEditingUser(userToEdit);
+    setNewUser({
+      name: userToEdit.name,
+      email: userToEdit.email,
+      confirmEmail: userToEdit.email,
+      role: userToEdit.role,
+    });
+    setShowCreateUser(true);
+    setShowEditWarning(false);
+  };
+
+  // Validate email confirmation - updated to use current values
+  const validateEmailMatch = (email, confirmEmail) => {
+    // Use provided values or fallback to state
+    const currentEmail = email || newUser.email;
+    const currentConfirmEmail = confirmEmail || newUser.confirmEmail;
+
+    // Only show error if both fields have content
+    if (!currentEmail || !currentConfirmEmail) {
+      setEmailError("");
+      return true;
+    }
+
     if (
-      newUser.email.trim().toLowerCase() !==
-      newUser.confirmEmail.trim().toLowerCase()
+      currentEmail.trim().toLowerCase() !==
+      currentConfirmEmail.trim().toLowerCase()
     ) {
       setEmailError("Emails do not match");
       return false;
     }
+
     setEmailError("");
     return true;
   };
@@ -231,20 +232,15 @@ const AdminUsers = () => {
             ...updatedFields,
           }).unwrap();
 
-          showSuccessToast(result?.message || "User updated successfully");
-
-          // Close modal after delay
-          setTimeout(() => {
-            setShowCreateUser(false);
-            setEditingUser(null);
-          }, 1500);
+          // Close modal before showing success toast
+          setShowCreateUser(false);
+          setEditingUser(null);
+          toast.success(result?.message || "User updated successfully");
         } else {
           // No changes detected
-          showWarningToast("No changes detected");
-          setTimeout(() => {
-            setShowCreateUser(false);
-            setEditingUser(null);
-          }, 1500);
+          toast.warning("No changes detected");
+          setShowCreateUser(false);
+          setEditingUser(null);
         }
       } else {
         const response = await inviteUser({
@@ -255,39 +251,37 @@ const AdminUsers = () => {
 
         // Handle already invited case
         if (response?.alreadyInvited) {
-          showWarningToast(response.message || "User has already been invited");
+          toast.warning(response.message || "User has already been invited");
         } else {
-          setInvitationLink(response.link);
-          showSuccessToast("Invitation sent successfully");
-
-          // Close modal automatically after 5 seconds if we have link
+          // Close the modal first
+          setShowCreateUser(false);
+          
+          // Reset form state
+          setNewUser({
+            name: "",
+            email: "",
+            confirmEmail: "",
+            role: "user",
+          });
+          setShowAdminWarning(false);
+          
+          // Then show success message and set link if needed
+          toast.success("Invitation sent successfully");
+          
           if (response.link) {
-            setTimeout(() => {
-              setShowCreateUser(false);
-              setInvitationLink("");
-              setNewUser({
-                name: "",
-                email: "",
-                confirmEmail: "",
-                role: "user",
-              });
-              setShowAdminWarning(false);
-            }, 5000);
+            // Reopen modal with just the invitation link
+            setInvitationLink(response.link);
+            setShowCreateUser(true);
           }
         }
       }
       refetch();
     } catch (err) {
       console.error("Error processing user:", err);
-      showErrorToast(err.data?.message || "Failed to process user");
+      toast.error(err.data?.message || "Failed to process user");
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const copyInvitationLink = () => {
-    navigator.clipboard.writeText(invitationLink);
-    showSuccessToast("Invitation link copied to clipboard!");
   };
 
   // Handle creating/inviting a new user
@@ -311,309 +305,23 @@ const AdminUsers = () => {
     setShowAdminWarning(false);
   };
 
-  // Render the InvitedUsers component when showInvitedUsers is true
-  if (showInvitedUsers) {
-    return <InvitedUsers onSwitchToUsers={() => setShowInvitedUsers(false)} />;
-  }
+  // Copy invitation link to clipboard
+  const copyInvitationLink = () => {
+    navigator.clipboard.writeText(invitationLink);
+    toast.success("Invitation link copied to clipboard!");
+  };
+
+  // Check if any filters are active
+  const anyFiltersActive = filters.role || searchTerm;
 
   // Replace simple loading indicators with LoadingPage
   if (isLoading) {
     return <LoadingPage />;
   }
 
-  return (
-    <div className="max-w-7xl mx-auto">
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">User Management</h1>
-        <p className="mt-2 text-gray-600">
-          Manage and monitor all system users
-        </p>
-      </header>
-
-      {/* Error handling */}
-      {isError && (
-        <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg flex items-center">
-          <BiInfoCircle className="mr-2 flex-shrink-0" />
-          <span>
-            {error?.data?.message || error?.error || "Failed to fetch users"}
-          </span>
-          <button
-            onClick={() => refetch()}
-            className="ml-auto px-4 py-2 bg-red-600 text-white rounded-md font-medium hover:bg-red-700 transition-colors"
-          >
-            <BiRefresh className="inline-block mr-1" /> Retry
-          </button>
-        </div>
-      )}
-
-      {/* Filters Section */}
-      <div className="mb-6 p-4 bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex-grow">
-            <div className="relative">
-              <span className="p-input-icon-left w-full">
-                <BiSearch className="pi pi-search" />
-                <InputText
-                  value={filters.search}
-                  onChange={handleSearchChange}
-                  placeholder="Search by name, email or phone"
-                  className="w-full"
-                />
-              </span>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-3 items-center">
-            <div className="relative">
-              <Dropdown
-                value={filters.role}
-                options={[
-                  { label: "All Roles", value: "" },
-                  { label: "User", value: "user" },
-                  { label: "Admin", value: "admin" },
-                ]}
-                onChange={handleRoleChange}
-                placeholder="Filter by Role"
-                className="w-full md:w-auto"
-              />
-            </div>
-
-            <button
-              onClick={() => setShowInvitedUsers(true)}
-              className="flex items-center px-4 py-2 bg-white text-[#c45e3e] border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              <BiUserCircle className="mr-2" />
-              Invited Users
-            </button>
-
-            <Button
-              icon={<BiFilterAlt />}
-              onClick={clearFilters}
-              className="p-button-outlined p-button-secondary"
-              tooltip="Reset Filters"
-              disabled={!filters.search && !filters.role}
-            />
-
-            <Button
-              icon={<BiRefresh />}
-              onClick={() => refetch()}
-              className="p-button-outlined p-button-secondary"
-              tooltip="Refresh Data"
-            />
-
-            <Button
-              label="Invite User"
-              icon={<BiPlus />}
-              onClick={handleCreateUser}
-              className="p-button-outlined p-button-primary"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Results count */}
-      <div className="mb-4">
-        <span className="text-gray-600">
-          Showing <span className="font-medium">{data.users?.length || 0}</span>{" "}
-          of{" "}
-          <span className="font-medium">
-            {data.pagination?.totalUsers || 0}
-          </span>{" "}
-          users
-        </span>
-      </div>
-
-      {/* Users Table */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        {data.users && data.users.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                    Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                    Contact Information
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                    Role
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {data.users.map((user) => (
-                  <tr
-                    key={user._id}
-                    className="hover:bg-gray-50 transition-colors duration-200"
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="h-9 w-9 rounded-full bg-gray-200 flex items-center justify-center text-gray-700 mr-3">
-                          {user.name ? (
-                            user.name.charAt(0).toUpperCase()
-                          ) : (
-                            <BiUserCircle />
-                          )}
-                        </div>
-                        <div>
-                          <div className="font-medium text-gray-900">
-                            {user.name}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            Joined:{" "}
-                            {new Date(user.createdAt).toLocaleDateString()}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{user.email}</div>
-                      {user.phone && (
-                        <div className="text-sm text-gray-500">
-                          {user.phone}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          user.role === "admin"
-                            ? "bg-purple-100 text-purple-800"
-                            : "bg-green-100 text-green-800"
-                        }`}
-                      >
-                        {user.role}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          user.isActive
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
-                        }`}
-                      >
-                        {user.isActive ? (
-                          <>
-                            <BiCheck className="mr-1" /> Active
-                          </>
-                        ) : (
-                          <>
-                            <BiX className="mr-1" /> Inactive
-                          </>
-                        )}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        <Button
-                          icon={<BiEdit />}
-                          className="p-button-text p-button-sm p-button-rounded p-button-info"
-                          onClick={() => {
-                            setEditingUser(user);
-                            setNewUser({
-                              name: user.name,
-                              email: user.email,
-                              confirmEmail: user.email,
-                              role: user.role,
-                            });
-                            setShowCreateUser(true);
-                          }}
-                          disabled={isDeleting}
-                        />
-                        {user._id !== currentUserId && (
-                          <Button
-                            icon={<BiTrash />}
-                            className="p-button-text p-button-sm p-button-rounded p-button-danger"
-                            onClick={() => handleDeleteConfirmation(user)}
-                            disabled={isDeleting}
-                          />
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="text-center py-12">
-            <BiInfoCircle className="mx-auto h-12 w-12 text-gray-300" />
-            <h3 className="mt-2 text-sm font-medium text-gray-800">
-              No users found
-            </h3>
-            <p className="mt-1 text-sm text-gray-500">
-              No users match your current search and filter criteria.
-            </p>
-            {(filters.search || filters.role) && (
-              <button
-                onClick={clearFilters}
-                className="mt-6 px-4 py-2 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
-              >
-                <BiX className="mr-2 inline-block" />
-                Clear all filters
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Pagination */}
-      {data.pagination && data.pagination.totalPages > 1 && (
-        <div className="mt-6 flex justify-center">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
-              disabled={currentPage === 1}
-              className={`p-2 rounded-md ${
-                currentPage === 1
-                  ? "text-gray-400 cursor-not-allowed"
-                  : "text-[#c45e3e] hover:bg-[#FDF0E9]"
-              }`}
-            >
-              <BiChevronLeft size={20} />
-            </button>
-
-            {[...Array(data.pagination.totalPages)].map((_, i) => (
-              <button
-                key={i}
-                onClick={() => handlePageChange(i + 1)}
-                className={`px-3 py-1 rounded-md ${
-                  currentPage === i + 1
-                    ? "bg-[#DF9E7A] text-white"
-                    : "text-gray-700 hover:bg-gray-100"
-                }`}
-              >
-                {i + 1}
-              </button>
-            ))}
-
-            <button
-              onClick={() =>
-                handlePageChange(
-                  Math.min(data.pagination.totalPages, currentPage + 1)
-                )
-              }
-              disabled={currentPage === data.pagination.totalPages}
-              className={`p-2 rounded-md ${
-                currentPage === data.pagination.totalPages
-                  ? "text-gray-400 cursor-not-allowed"
-                  : "text-[#c45e3e] hover:bg-[#FDF0E9]"
-              }`}
-            >
-              <BiChevronRight size={20} />
-            </button>
-          </div>
-        </div>
-      )}
-
+  // Create the common modal that will be accessible from both views
+  const createUserModal = (
+    <>
       {/* Create/Edit User Modal */}
       {showCreateUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -712,7 +420,11 @@ const AdminUsers = () => {
                   </div>
                 </div>
               ) : (
-                <form onSubmit={handleCreateOrUpdateUser}>
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  if (isSubmitting) return; // Prevent multiple submissions
+                  handleCreateOrUpdateUser(e);
+                }}>
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -737,8 +449,10 @@ const AdminUsers = () => {
                         type="email"
                         value={newUser.email}
                         onChange={(e) => {
-                          setNewUser({ ...newUser, email: e.target.value });
-                          if (newUser.confirmEmail) validateEmailMatch();
+                          const newEmail = e.target.value;
+                          setNewUser({ ...newUser, email: newEmail });
+                          // Pass current values to validation to avoid stale state
+                          validateEmailMatch(newEmail, newUser.confirmEmail);
                         }}
                         placeholder="Enter user's email"
                         className="w-full"
@@ -755,11 +469,13 @@ const AdminUsers = () => {
                           type="email"
                           value={newUser.confirmEmail}
                           onChange={(e) => {
+                            const newConfirmEmail = e.target.value;
                             setNewUser({
                               ...newUser,
-                              confirmEmail: e.target.value,
+                              confirmEmail: newConfirmEmail,
                             });
-                            if (newUser.email) validateEmailMatch();
+                            // Pass current values to validation to avoid stale state
+                            validateEmailMatch(newUser.email, newConfirmEmail);
                           }}
                           placeholder="Confirm email address"
                           className={`w-full ${emailError ? "p-invalid" : ""}`}
@@ -785,7 +501,8 @@ const AdminUsers = () => {
                           setNewUser({ ...newUser, role: e.value })
                         }
                         placeholder="Select a role"
-                        className="w-full"
+                        className="w-full shadow-sm hover:bg-gray-50 transition-colors"
+                        style={{ boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)" }}
                       />
                     </div>
 
@@ -798,12 +515,15 @@ const AdminUsers = () => {
                           setInvitationLink("");
                           setEmailError("");
                         }}
+                        disabled={isSubmitting}
                       >
                         Cancel
                       </button>
                       <button
                         type="submit"
-                        className="px-4 py-2 bg-[#DF9E7A] text-white rounded-md hover:bg-[#c45e3e] flex items-center"
+                        className={`px-4 py-2 bg-[#DF9E7A] text-white rounded-md hover:bg-[#c45e3e] flex items-center ${
+                          isSubmitting ? "opacity-70 cursor-not-allowed" : ""
+                        }`}
                         disabled={isSubmitting}
                       >
                         {isSubmitting ? (
@@ -824,7 +544,93 @@ const AdminUsers = () => {
         </div>
       )}
 
+      {/* Edit User Warning Modal */}
+      <EditUserWarningModal
+        isOpen={showEditWarning}
+        onClose={() => setShowEditWarning(false)}
+        onConfirm={handleEditConfirm}
+      />
+
       <ConfirmDialog />
+    </>
+  );
+
+  // Render the InvitedUsers component when showInvitedUsers is true
+  if (showInvitedUsers) {
+    return (
+      <>
+        <InvitedUsers
+          onSwitchToUsers={() => setShowInvitedUsers(false)}
+          onInviteUser={handleCreateUser}
+        />
+        {createUserModal}
+      </>
+    );
+  }
+
+  return (
+    <div className="max-w-7xl mx-auto">
+      {/* Error handling */}
+      {isError && (
+        <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg flex items-center">
+          <BiInfoCircle className="mr-2 flex-shrink-0" />
+          <span>
+            {error?.data?.message || error?.error || "Failed to fetch users"}
+          </span>
+          <button
+            onClick={() => refetch()}
+            className="ml-auto px-4 py-2 bg-red-600 text-white rounded-md font-medium hover:bg-red-700 transition-colors"
+          >
+            <BiRefresh className="inline-block mr-1" /> Retry
+          </button>
+        </div>
+      )}
+
+      {/* User Filters */}
+      <UserFilters
+        searchTerm={searchTerm}
+        onSearchChange={handleSearchChange}
+        filters={filters}
+        onFilterChange={handleFilterChange}
+        clearFilters={clearFilters}
+        onSwitchToInvitedUsers={() => setShowInvitedUsers(true)}
+        onInviteUser={handleCreateUser}
+        title="Active Users"
+        subtitle="Manage and monitor all system users"
+      />
+
+      {/* Table Information */}
+      <div className="mb-4">
+        <span className="text-gray-600">
+          Showing <span className="font-medium">{users.length}</span> of{" "}
+          <span className="font-medium">{pagination.totalUsers}</span> users
+        </span>
+      </div>
+
+      {/* Users Table */}
+      <UserTable
+        users={users}
+        pagination={pagination}
+        expandedRows={expandedRows}
+        setExpandedRows={setExpandedRows}
+        onDeleteClick={handleDeleteClick}
+        onEditClick={handleEditClick}
+        clearFilters={clearFilters}
+        anyFiltersActive={anyFiltersActive}
+      />
+
+      {/* Pagination */}
+      {pagination.totalPages > 1 && users.length > 0 && (
+        <div className="mt-6">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={pagination.totalPages}
+            onPageChange={handlePageChange}
+          />
+        </div>
+      )}
+
+      {createUserModal}
     </div>
   );
 };
