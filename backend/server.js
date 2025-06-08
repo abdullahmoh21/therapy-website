@@ -108,7 +108,7 @@ app.use(compression());
 app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 app.use(cookieParser());
-app.use(credentials);
+app.use(credentials); // This MUST come before cors middleware
 app.use(cors(require("./config/corsOptions")));
 
 // Routes
@@ -119,6 +119,7 @@ app.use("/api/payments", require("./endpoints/paymentEndpoints"));
 app.use("/api/admin", require("./endpoints/adminEndpoints"));
 app.use("/api/contactMe", require("./endpoints/contactMeEndpoints"));
 app.use("/api/config", require("./endpoints/configEndpoints"));
+app.use("/api/test", require("./endpoints/testEndpoints"));
 
 // Global error handler
 app.use(errorHandler);
