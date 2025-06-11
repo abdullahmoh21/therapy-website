@@ -1,11 +1,51 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
 import { useUpdateMyUserMutation } from "../../../features/users/usersApiSlice";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import phonevalidator from "libphonenumber-js";
-import { PhoneInput } from "react-international-phone";
-import "react-international-phone/style.css";
 import Joi from "joi";
+import { parsePhoneNumberFromString } from "libphonenumber-js";
+
+// Custom phone validation function using libphonenumber-js
+const validPhone = Joi.string().custom((value, helpers) => {
+  // Remove any spaces or non-digit characters except +
+  const cleanedValue = value.replace(/[^\d+]/g, "");
+
+  // Ensure it starts with +
+  if (!cleanedValue.startsWith("+")) {
+    return helpers.message(
+      "Phone number must start with + followed by country code"
+    );
+  }
+
+  // Simple check for reasonable length
+  if (cleanedValue.length < 8) {
+    return helpers.message("Phone number is too short");
+  }
+  if (cleanedValue.length > 16) {
+    return helpers.message("Phone number is too long");
+  }
+
+  // Use libphonenumber-js for additional validation
+  try {
+    const phoneNumber = parsePhoneNumberFromString(cleanedValue);
+    if (phoneNumber && !phoneNumber.isValid()) {
+      return helpers.message(
+        "Invalid phone number format. Please check country code and number"
+      );
+    }
+  } catch (error) {
+    // If parsing fails, rely on basic validation
+  }
+
+  return cleanedValue;
+}, "Phone number validation");
 
 const JoiSchema = Joi.object({
   name: Joi.string().min(3).max(30).required().messages({
@@ -13,8 +53,8 @@ const JoiSchema = Joi.object({
     "string.max": "Name must be less than 30 characters long",
     "any.required": "Name is required",
   }),
-  phone: Joi.string().required().messages({
-    "any.required": "Phone number is required",
+  phone: validPhone.required().messages({
+    "string.empty": "Phone number is required",
   }),
   DOB: Joi.date().max("now").required().messages({
     "date.base": "Date of Birth must be a valid date",
@@ -23,8 +63,8 @@ const JoiSchema = Joi.object({
   }),
 });
 
-// Rename prop from initialUser to user to match DashboardNav
-const EditProfile = ({ user, onUserUpdate }) => {
+// Forward ref to expose methods to parent
+const EditProfile = forwardRef(({ user, onUserUpdate }, ref) => {
   const [updateUser, { isLoading: isUpdating }] = useUpdateMyUserMutation();
 
   const maxDate = useMemo(() => {
@@ -34,39 +74,87 @@ const EditProfile = ({ user, onUserUpdate }) => {
   }, []);
 
   const [name, setName] = useState(""); // Initialize with empty string
-  const [phone, setPhone] = useState(""); // Initialize with empty string
+  const [phone, setPhone] = useState("+"); // Always initialize with at least "+"
   const [DOB, setDOB] = useState(""); // Initialize with empty string
 
-  // Use refs to store the initial values received from the prop
-  const originalName = useRef("");
-  const originalPhone = useRef("");
-  const originalDOB = useRef("");
+  // Store the original values for comparison and reset
+  const originalValues = useRef({
+    name: "",
+    phone: "",
+    DOB: "",
+  });
 
+  // Initialize form with user data when it becomes available
   useEffect(() => {
-    // When the user prop is available or changes, update the state and refs
     if (user) {
+      // Set form values
       setName(user.name || "");
-      setPhone(user.phone || "");
-      setDOB(user.DOB || ""); // user.DOB is pre-formatted 'YYYY-MM-DD'
 
-      // Update refs to store the initial values from this specific prop instance
-      originalName.current = user.name || "";
-      originalPhone.current = user.phone || "";
-      originalDOB.current = user.DOB || "";
+      // Format phone with + if needed
+      const formattedPhone = user.phone
+        ? user.phone.startsWith("+")
+          ? user.phone
+          : `+${user.phone}`
+        : "+";
+      setPhone(formattedPhone);
+
+      setDOB(user.DOB || "");
+
+      // Store original values for reset and comparison
+      originalValues.current = {
+        name: user.name || "",
+        phone: user.phone || "",
+        DOB: user.DOB || "",
+      };
     }
-  }, [user]); // Rerun effect if user prop changes
+  }, [user]);
 
   const onNameChanged = (e) => setName(e.target.value);
-  const onPhoneChanged = (phoneString) => setPhone(phoneString);
+
+  const onPhoneChanged = (e) => {
+    let newValue = e.target.value;
+
+    // Handle empty case - ensure + remains
+    if (newValue === "" || newValue === "+") {
+      setPhone("+");
+      return;
+    }
+
+    // Add + prefix if missing
+    if (!newValue.startsWith("+")) {
+      newValue = "+" + newValue.replace(/^\+/, "");
+    }
+
+    // Filter out non-digit characters after the +
+    newValue = "+" + newValue.substring(1).replace(/\D/g, "");
+
+    setPhone(newValue);
+  };
+
+  const handlePhoneKeyDown = (e) => {
+    // Only prevent backspace if it would delete the + sign
+    if (
+      e.key === "Backspace" &&
+      e.target.selectionStart <= 1 &&
+      e.target.selectionEnd <= 1
+    ) {
+      e.preventDefault();
+    }
+  };
+
   const onDOBChanged = (e) => setDOB(e.target.value);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    const { error } = JoiSchema.validate(
-      { name, phone, DOB },
-      { abortEarly: false }
-    );
+    // Clean up phone format before validation
+    const submissionData = {
+      name,
+      phone: phone.replace(/\s/g, ""),
+      DOB,
+    };
+
+    const { error } = JoiSchema.validate(submissionData, { abortEarly: false });
     if (error) {
       error.details.forEach((detail) => toast.error(detail.message));
       return;
@@ -74,13 +162,23 @@ const EditProfile = ({ user, onUserUpdate }) => {
 
     let updatedFields = {};
 
-    if (name !== originalName.current) {
+    // Compare with original values from backend
+    if (name !== originalValues.current.name) {
       updatedFields.name = name;
     }
-    if (phone !== originalPhone.current) {
+
+    // Handle phone comparison - strip + if needed to match backend format
+    const originalPhone = originalValues.current.phone;
+    const currentPhone = phone.startsWith("+") ? phone : `+${phone}`;
+    const formattedOriginalPhone = originalPhone.startsWith("+")
+      ? originalPhone
+      : `+${originalPhone}`;
+
+    if (currentPhone !== formattedOriginalPhone && phone !== "+") {
       updatedFields.phone = phone;
     }
-    if (DOB !== originalDOB.current) {
+
+    if (DOB !== originalValues.current.DOB) {
       updatedFields.DOB = DOB;
     }
 
@@ -89,18 +187,48 @@ const EditProfile = ({ user, onUserUpdate }) => {
         await updateUser(updatedFields).unwrap();
         toast.success("Profile updated successfully.");
 
-        originalName.current = name;
-        originalPhone.current = phone;
-        originalDOB.current = DOB;
+        // Update original values after successful update
+        originalValues.current = {
+          name,
+          phone,
+          DOB,
+        };
 
         onUserUpdate();
       } catch (err) {
-        toast.error(err?.data?.message || "Failed to update profile.");
+        // Check for specific duplicate phone number error (HTTP 409)
+        if (err?.status === 409) {
+          toast.error(err?.data?.message || "Phone number already in use.");
+        } else {
+          toast.error(err?.data?.message || "Failed to update profile.");
+        }
       }
     } else {
       toast.info("No changes detected.");
     }
   };
+
+  // Function to reset form to original values
+  const resetForm = () => {
+    setName(originalValues.current.name || "");
+
+    // Format phone with + if needed
+    const originalPhone = originalValues.current.phone;
+    if (originalPhone) {
+      setPhone(
+        originalPhone.startsWith("+") ? originalPhone : `+${originalPhone}`
+      );
+    } else {
+      setPhone("+");
+    }
+
+    setDOB(originalValues.current.DOB || "");
+  };
+
+  // Expose the resetForm method to parent components
+  useImperativeHandle(ref, () => ({
+    resetForm,
+  }));
 
   return (
     <form onSubmit={handleSubmit}>
@@ -132,21 +260,20 @@ const EditProfile = ({ user, onUserUpdate }) => {
           >
             Phone:
           </label>
-          <PhoneInput
-            defaultCountry="pk"
+          <input
+            className="mt-1 p-2 w-full border border-gray-300 rounded-md shadow-sm focus:ring-[#c45e3e] focus:border-[#c45e3e]"
+            id="phone"
+            name="phone"
+            type="tel"
+            autoComplete="tel"
             value={phone}
             onChange={onPhoneChanged}
-            inputClassName="!border-gray-300 focus:!border-[#c45e3e] focus:!ring-[#c45e3e]"
-            className="w-full"
-            style={{
-              "--react-international-phone-border-radius": "0.375rem",
-              "--react-international-phone-border-color": "#D1D5DB",
-              "--react-international-phone-background-color": "white",
-              "--react-international-phone-text-color": "#1F2937",
-              "--react-international-phone-font-size": "1rem",
-              "--react-international-phone-height": "2.5rem",
-            }}
+            onKeyDown={handlePhoneKeyDown}
+            placeholder="+[country code] phone number"
           />
+          <span className="mt-1 text-xs text-gray-500">
+            Example: +92 for Pakistan, +1 for USA, +44 for UK, etc.
+          </span>
         </div>
         <div>
           <label
@@ -199,6 +326,6 @@ const EditProfile = ({ user, onUserUpdate }) => {
       </div>
     </form>
   );
-};
+});
 
 export default EditProfile;

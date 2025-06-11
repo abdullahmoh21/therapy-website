@@ -1,7 +1,5 @@
-import { Navigate } from "react-router-dom";
 import { apiSlice } from "../../app/api/apiSlice";
 import { logOut, setCredentials } from "./authSlice";
-import { register } from "swiper/element";
 
 export const authApiSlice = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
@@ -30,7 +28,7 @@ export const authApiSlice = apiSlice.injectEndpoints({
       }),
       invalidatesTags: [{ type: "User" }],
     }),
-    Logout: builder.mutation({
+    logout: builder.mutation({
       query: () => ({
         url: "/auth/logout",
         method: "POST",
@@ -38,7 +36,6 @@ export const authApiSlice = apiSlice.injectEndpoints({
       async onQueryStarted(arg, { dispatch, queryFulfilled }) {
         try {
           await queryFulfilled;
-          console.log(queryFulfilled);
           dispatch(logOut()); //token = null
           dispatch(apiSlice.util.resetApiState());
         } catch (err) {
@@ -54,7 +51,6 @@ export const authApiSlice = apiSlice.injectEndpoints({
       async onQueryStarted(arg, { dispatch, queryFulfilled }) {
         try {
           const { data } = await queryFulfilled;
-          console.log(data);
           const { accessToken } = data;
           dispatch(setCredentials({ accessToken }));
         } catch (err) {

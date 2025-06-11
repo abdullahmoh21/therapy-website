@@ -10,7 +10,7 @@ import Login from "../features/auth/SignIn";
 import ForgotPassword from "../features/users/ForgotPassword";
 import ResetPassword from "../features/users/ResetPassword";
 import EmailVerification from "../features/users/EmailVerification";
-import Register from "../features/auth/Register";
+import SignUp from "../features/auth/SignUp";
 import Dashboard from "../pages/Dashboards/UserDashboard/DashboardNav";
 import AdminDashboard from "../pages/Dashboards/AdminDashboard/AdminDashNav";
 import NotFound from "../pages/404";
@@ -31,7 +31,7 @@ const Routers = () => {
     <Routes>
       <Route path="/" element={<SPA />} />
       <Route path="/signin" element={<Login />} />
-      <Route path="/signup" element={<Register />} />
+      <Route path="/signup" element={<SignUp />} />
       <Route path="/verifyEmail" element={<EmailVerification />} />
       <Route path="/forgotPassword" element={<ForgotPassword />} />
       <Route path="/resetPassword" element={<ResetPassword />} />
@@ -60,7 +60,7 @@ const Routers = () => {
             </AdminProtectedRoute>
           }
         >
-          <Route index element={<Navigate to="/admin/metrics" replace />} />
+          <Route index element={<Navigate to="/admin/upcoming" replace />} />
           <Route path="metrics" element={<AdminMetrics />} />
           <Route path="bookings" element={<AdminBookings />} />
           <Route path="users" element={<AdminUsers />} />

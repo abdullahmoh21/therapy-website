@@ -50,9 +50,9 @@ const AdminDashboard = () => {
 
   const navItems = [
     { path: "/admin/upcoming", label: "Upcoming Bookings" },
-    { path: "/admin/metrics", label: "Metrics" },
     { path: "/admin/bookings", label: "Bookings" },
     { path: "/admin/users", label: "Users" },
+    { path: "/admin/metrics", label: "Metrics" },
     { path: "/admin/system", label: "System Health" },
   ];
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   useVerifyEmailMutation,
@@ -19,10 +19,9 @@ const VerifyEmail = () => {
   const navigate = useNavigate();
   const query = new URLSearchParams(location.search);
   const token = query.get("token");
+
   const [validationError, setValidationError] = useState(false);
-  const hasRun = useRef(false);
-  const [cooldown, setCooldown] = useState(0);
-  const timerRef = useRef(null);
+  const [alreadyVerified, setAlreadyVerified] = useState(false);
 
   const [
     verifyEmail,
@@ -31,82 +30,23 @@ const VerifyEmail = () => {
       isError: errorVerifying,
       isSuccess: verified,
       error: verificationError,
+      data: verificationData,
     },
   ] = useVerifyEmailMutation();
 
   const [
     resendVerificationLink,
-    { isLoading: sending, isError: errorSending, isSuccess: sent },
+    { isLoading: sending, isError: errorSending },
   ] = useResendEmailVerificationMutation();
 
-  // Initialize cooldown from localStorage if exists
+  // Send verification request whenever the token in the URL changes
   useEffect(() => {
-    const cooldownEndTime = localStorage.getItem("verificationCooldownEnd");
-
-    if (cooldownEndTime) {
-      const endTime = parseInt(cooldownEndTime, 10);
-      const now = Date.now();
-
-      if (endTime > now) {
-        // Calculate remaining time in seconds
-        const remainingSeconds = Math.ceil((endTime - now) / 1000);
-        setCooldown(remainingSeconds);
-
-        // Start the countdown
-        timerRef.current = setInterval(() => {
-          setCooldown((prev) => {
-            if (prev <= 1) {
-              clearInterval(timerRef.current);
-              localStorage.removeItem("verificationCooldownEnd");
-              return 0;
-            }
-            return prev - 1;
-          });
-        }, 1000);
-      } else {
-        // Cooldown has expired, clear it
-        localStorage.removeItem("verificationCooldownEnd");
-      }
-    }
-
-    // Cleanup on unmount
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, []);
-
-  // Function to check if token has already failed verification
-  const hasTokenFailed = (token) => {
-    const failedTokens = JSON.parse(
-      localStorage.getItem("failedVerificationTokens") || "[]"
-    );
-    return failedTokens.includes(token);
-  };
-
-  // Function to mark a token as failed
-  const markTokenAsFailed = (token) => {
-    const failedTokens = JSON.parse(
-      localStorage.getItem("failedVerificationTokens") || "[]"
-    );
-    if (!failedTokens.includes(token)) {
-      failedTokens.push(token);
-      localStorage.setItem(
-        "failedVerificationTokens",
-        JSON.stringify(failedTokens)
-      );
-    }
-  };
-
-  //Email verification request
-  useEffect(() => {
-    if (hasRun.current) {
-      //ensure only runs once
-      return;
-    }
     if (!token) {
       setValidationError(true);
+      toast.error("Invalid or expired token.", { autoClose: false });
       return;
     }
+
     const { error } = tokenSchema.validate({ token });
     if (error) {
       setValidationError(true);
@@ -114,21 +54,21 @@ const VerifyEmail = () => {
       return;
     }
 
-    // Check if this token has already failed verification
-    if (hasTokenFailed(token)) {
-      console.log("Token previously failed verification, skipping request");
-      setValidationError(true);
-      toast.error("Verification link has expired or is invalid.", {
-        autoClose: false,
-      });
-      return;
-    }
-
-    // Proceed with verification if token hasn't failed before
     verifyEmail(token);
-    hasRun.current = true;
-  }, []);
+  }, [token, verifyEmail]);
 
+  // Check for 204 status in success case
+  useEffect(() => {
+    if (verified) {
+      // If the response has meta.response.status, check if it's 204
+      const statusCode = verificationData?.meta?.response?.status;
+      if (statusCode === 204) {
+        setAlreadyVerified(true);
+      }
+    }
+  }, [verified, verificationData]);
+
+  // Handle other errors from the verification mutation
   useEffect(() => {
     if (errorVerifying) {
       const statusCode =
@@ -139,9 +79,6 @@ const VerifyEmail = () => {
 
       if (statusCode === 400) {
         toast.error("Verification link has expired or is invalid.");
-        setValidationError(true);
-        // Store this token as failed
-        markTokenAsFailed(token);
       } else if (statusCode === "NETWORK_ERROR") {
         toast.error("Network error. Please check your internet connection.");
       } else {
@@ -152,50 +89,21 @@ const VerifyEmail = () => {
     }
   }, [errorVerifying, verificationError]);
 
-  //send token to backend. Backend will send verification email by searching token in db
+  // Resend verification link with no cooldown
   async function resendLink() {
+    if (sending) return;
+
     try {
-      // Don't allow resending if cooldown is active
-      if (cooldown > 0) return;
-
-      const result = await resendVerificationLink({ token: token });
-
-      if (errorSending) {
-        toast.error("Error sending! Please try logging in again.");
-      } else {
-        toast.success(
-          "If we find an account with this token, a verification email will be sent to your inbox. Please check your email (including spam folder)."
-        );
-
-        // Set cooldown time (60 seconds)
-        setCooldown(60);
-
-        // Store the end time in localStorage
-        const endTime = Date.now() + 60 * 1000;
-        localStorage.setItem("verificationCooldownEnd", endTime.toString());
-
-        // Start cooldown timer
-        timerRef.current = setInterval(() => {
-          setCooldown((prev) => {
-            if (prev <= 1) {
-              clearInterval(timerRef.current);
-              localStorage.removeItem("verificationCooldownEnd");
-              return 0;
-            }
-            return prev - 1;
-          });
-        }, 1000);
-      }
-    } catch (error) {
-      console.error(error);
+      await resendVerificationLink({ token }).unwrap();
+      toast.success(
+        "If we find an account with this token, a verification email will be sent to your inbox."
+      );
+    } catch {
+      toast.error("Error sending! Please try again later.");
     }
   }
 
-  // Modify the button rendering to show cooldown
   const renderResendButton = () => {
-    let buttonText = "Resend Verification Link";
-    let isDisabled = sending || cooldown > 0;
-
     if (sending) {
       return (
         <div className="flex justify-center items-center space-x-2">
@@ -205,22 +113,14 @@ const VerifyEmail = () => {
       );
     }
 
-    if (cooldown > 0) {
-      buttonText = `Try again in ${cooldown}s`;
-    }
-
     return (
       <button
-        className={`py-3 px-8 bg-orangeButton text-buttonTextBlack border-2 border-black font-semibold rounded-full 
-                  transition-all duration-300 shadow-md ${
-                    isDisabled
-                      ? "opacity-60 cursor-not-allowed"
-                      : "hover:bg-lightPink transform hover:scale-105"
-                  }`}
+        className="py-3 px-8 bg-orangeButton text-buttonTextBlack border-2 border-black font-semibold rounded-full
+                   transition-all duration-300 shadow-md hover:bg-lightPink transform hover:scale-105"
         onClick={resendLink}
-        disabled={isDisabled}
+        disabled={sending}
       >
-        {buttonText}
+        Resend Verification Link
       </button>
     );
   };
@@ -249,6 +149,30 @@ const VerifyEmail = () => {
               <div className="animate-bounce h-4 w-4 bg-lightPink rounded-full delay-300"></div>
             </div>
             <p className="text-textColor">Verifying your email...</p>
+          </motion.div>
+        ) : alreadyVerified ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex flex-col items-center text-center space-y-4 py-4"
+          >
+            <div className="text-lightPink mb-2">
+              <FaCheckCircle size={64} />
+            </div>
+            <p className="text-xl font-semibold text-orangeHeader mb-4">
+              Email Already Verified
+            </p>
+            <p className="text-textColor mb-4">
+              This email has already been verified. You can sign in to your
+              account now.
+            </p>
+            <button
+              className="py-3 px-8 bg-orangeButton text-buttonTextBlack border-2 border-black font-semibold rounded-full
+                         hover:bg-lightPink transition-all duration-300 transform hover:scale-105 shadow-md"
+              onClick={() => navigate("/signin")}
+            >
+              Sign In
+            </button>
           </motion.div>
         ) : errorVerifying ? (
           <motion.div
@@ -280,7 +204,8 @@ const VerifyEmail = () => {
             </p>
             {renderResendButton()}
           </motion.div>
-        ) : verified ? (
+        ) : verified && !alreadyVerified ? (
+          // Only show success if it's not already verified
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -296,8 +221,8 @@ const VerifyEmail = () => {
               Your email has been verified. You can now sign in to your account.
             </p>
             <button
-              className="py-3 px-8 bg-orangeButton text-buttonTextBlack border-2 border-black font-semibold rounded-full 
-                        hover:bg-lightPink transition-all duration-300 transform hover:scale-105 shadow-md"
+              className="py-3 px-8 bg-orangeButton text-buttonTextBlack border-2 border-black font-semibold rounded-full
+                         hover:bg-lightPink transition-all duration-300 transform hover:scale-105 shadow-md"
               onClick={() => navigate("/signin")}
             >
               Sign In

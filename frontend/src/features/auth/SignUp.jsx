@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { format } from "date-fns";
 import Joi from "joi";
 import { toast } from "react-toastify";
@@ -12,19 +12,33 @@ import wave from "../../assets/images/wave.webp";
 
 /* ------------------------- validation helpers ------------------------- */
 const validPhone = Joi.string().custom((value, helpers) => {
-  const phoneNumber = parsePhoneNumberFromString(value, "PK");
-  let phoneString = value;
-  if (!phoneNumber) {
-    return helpers.message("Invalid phone number. Format: +9234567890");
+  // Remove any spaces or non-digit characters except +
+  const cleanedValue = value.replace(/[^\d+]/g, "");
+  
+  // Ensure it starts with +
+  if (!cleanedValue.startsWith("+")) {
+    return helpers.message("Phone number must start with + followed by country code");
   }
-  if (!phoneNumber.isValid()) {
-    return helpers.message("Invalid phone number. Format: +9234567890");
+  
+  // Simple check for reasonable length (international numbers are typically 7-15 digits plus country code)
+  if (cleanedValue.length < 8) {
+    return helpers.message("Phone number is too short");
   }
-  if (!value.startsWith("+")) {
-    phoneString = value.replace(/^0/, "");
-    phoneString = "+92" + phoneString;
+  if (cleanedValue.length > 16) {
+    return helpers.message("Phone number is too long");
   }
-  return phoneString;
+  
+  // Use the library for additional validation if available
+  try {
+    const phoneNumber = parsePhoneNumberFromString(cleanedValue);
+    if (phoneNumber && !phoneNumber.isValid()) {
+      return helpers.message("Invalid phone number format. Please check country code and number");
+    }
+  } catch (error) {
+    // If parsing fails, we'll rely on our basic validation
+  }
+  
+  return cleanedValue;
 }, "Phone number validation");
 
 const schema = Joi.object({
@@ -84,7 +98,7 @@ const schema = Joi.object({
 });
 
 /* ------------------------------ component ----------------------------- */
-const Register = () => {
+const SignUp = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -98,11 +112,17 @@ const Register = () => {
     token: "",
   });
 
-  const [register, { isLoading: registerIsLoading }] = useRegisterMutation();
+  const [signUp, { isLoading: signUpIsLoading }] = useRegisterMutation();
 
   const urlParams = new URLSearchParams(location.search);
   const invitationToken = urlParams.get("invitation");
   const email = urlParams.get("email");
+
+  // Reference for the phone input
+  const phoneInputRef = useRef(null);
+
+  // Flag to track if the prefix is already showing
+  const [phoneHasPrefix, setPhoneHasPrefix] = useState(false);
 
   /* -------- pre-fill email / token if present in invitation link ------- */
   useEffect(() => {
@@ -112,24 +132,63 @@ const Register = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Initialize phone with + prefix only
+  useEffect(() => {
+    if (!form.phone && !phoneHasPrefix) {
+      setForm((prev) => ({ ...prev, phone: "+" }));
+      setPhoneHasPrefix(true);
+    }
+  }, [form.phone, phoneHasPrefix]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({
-      ...prev,
-      [name]: name === "phone" ? value.replace(/\s/g, "") : value,
-    }));
+
+    if (name === "phone") {
+      // Special handling for phone input
+      let phoneValue = value;
+
+      // Ensure the + sign remains at the beginning
+      if (!phoneValue.startsWith("+")) {
+        phoneValue = "+" + phoneValue.replace(/^\+/, "");
+      }
+      
+      // Update state
+      setForm((prev) => ({ ...prev, [name]: phoneValue }));
+    } else {
+      // Default handling for other fields
+      setForm((prev) => ({ ...prev, [name]: value }));
+    }
+  };
+
+  // Special handling for phone input keydown - only protect the + sign
+  const handlePhoneKeyDown = (e) => {
+    // Prevent deleting the "+" prefix only
+    if (e.key === "Backspace" && (
+        e.target.selectionStart <= 1 || 
+        (e.target.selectionStart === e.target.selectionEnd && e.target.selectionStart <= 1)
+      )) {
+      e.preventDefault();
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const { error, value } = schema.validate(form);
+
+    // Clean up phone format before validation
+    const submissionForm = {
+      ...form,
+      phone: form.phone.replace(/\s/g, "")
+    };
+
+    const { error, value } = schema.validate(submissionForm);
     if (error?.details[0]?.message) {
       toast.error(error.details[0].message);
       return;
     }
+
     const { phone: phoneString } = value;
     try {
-      await register({ ...form, phone: phoneString }).unwrap();
+      await signUp({ ...submissionForm, phone: phoneString }).unwrap();
       toast.success(
         "Registration successful. Please check your email to verify your account."
       );
@@ -230,14 +289,16 @@ const Register = () => {
           </label>
 
           {/* --- Email --- */}
-          <label className="flex flex-col text-sm font-medium text-textColor">
+          <label className="flex flex-col text-sm font-medium text-textColor" htmlFor="email-field">
             Email
             <input
+              id="email-field"
               className="mt-1 w-full cursor-not-allowed border-b-2 border-textColor bg-transparent py-2 outline-none"
               type="email"
               name="email"
               value={form.email}
               readOnly
+              autoComplete="username email"
             />
           </label>
 
@@ -251,14 +312,19 @@ const Register = () => {
               value={form.phone}
               autoComplete="tel"
               onChange={handleChange}
+              onKeyDown={handlePhoneKeyDown}
+              ref={phoneInputRef}
+              placeholder="+[country code] phone number"
               required
             />
+            <span className="mt-1 text-xs text-gray-500">Example: +92 for Pakistan, +1 for USA, +44 for UK, etc.</span>
           </label>
 
           {/* --- Password --- */}
-          <label className="flex flex-col text-sm font-medium text-textColor">
+          <label className="flex flex-col text-sm font-medium text-textColor" htmlFor="password-field">
             Password
             <input
+              id="password-field"
               className="mt-1 w-full border-b-2 border-textColor bg-transparent py-2 outline-none transition-colors focus:border-orangeText"
               type="password"
               name="password"
@@ -271,9 +337,10 @@ const Register = () => {
           </label>
 
           {/* --- Confirm Password --- */}
-          <label className="flex flex-col text-sm font-medium text-textColor">
+          <label className="flex flex-col text-sm font-medium text-textColor" htmlFor="confirm-password-field">
             Confirm Password
             <input
+              id="confirm-password-field"
               className="mt-1 w-full border-b-2 border-textColor bg-transparent py-2 outline-none transition-colors focus:border-orangeText"
               type="password"
               name="confirmPassword"
@@ -310,10 +377,10 @@ const Register = () => {
             type="submit"
             className="mt-6 flex w-full items-center justify-center rounded-full border-2 border-buttonTextBlack bg-orangeButton py-3 font-semibold text-buttonTextBlack shadow-md transition-transform duration-300 hover:bg-lightPink"
           >
-            {registerIsLoading ? (
+            {signUpIsLoading ? (
               <div className="spinner h-5 w-5 animate-spin rounded-full border-4 border-t-transparent" />
             ) : (
-              "Register"
+              "SignUp"
             )}
           </button>
         </form>
@@ -322,4 +389,4 @@ const Register = () => {
   );
 };
 
-export default Register;
+export default SignUp;

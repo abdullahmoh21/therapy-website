@@ -5,19 +5,23 @@
     <title>System Alert</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
-      body { margin: 0; padding: 0; background-color: #f9f9f9; } .container {
-      background-color: #ffffff; border: 1px solid #eee; border-left: 4px solid
-      #E27A82; border-radius: 8px; margin: 40px auto; padding: 20px; max-width:
-      600px; } .header { text-align: center; margin-bottom: 20px; } .header h2 {
-      margin: 10px 0 0; font-size: 20px; color: #E27A82; } .title {
-      background-color: #E27A82; color: #ffffff; text-align: center;
-      border-radius: 6px 6px 0 0; padding: 20px; font-size: 20px; } .message {
-      padding: 30px 20px; font-size: 16px; color: #444; line-height: 1.5; }
-      .button-container { text-align: center; margin: 30px 0; } .btn {
-      background-color: #E27A82; color: #ffffff; padding: 14px 28px; font-size:
-      16px; text-decoration: none; border-radius: 6px; display: inline-block; }
-      .footer { text-align: center; font-size: 12px; color: #999999; border-top:
-      1px solid #eee; padding: 20px; }
+      body { margin: 0; padding: 0; background-color: #f9f9f9; font-family:
+      Arial, sans-serif; color: #333; } .container { background-color: #ffffff;
+      border: 1px solid #eee; border-left: 4px solid #E27A82; border-radius:
+      8px; margin: 40px auto; padding: 24px; max-width: 600px; } .header {
+      text-align: center; margin-bottom: 20px; } .header h2 { margin: 10px 0 0;
+      font-size: 20px; color: #E27A82; } .title { background-color: #E27A82;
+      color: #ffffff; text-align: center; border-radius: 6px 6px 0 0; padding:
+      20px; font-size: 20px; } .message { padding: 30px 20px; font-size: 16px;
+      color: #444; line-height: 1.5; } .button-container { text-align: center;
+      margin: 30px 0; } .btn { background-color: #E27A82 !important; color:
+      #ffffff !important; padding: 14px 28px; font-size: 16px; text-decoration:
+      none !important; border-radius: 6px; display: inline-block; font-weight:
+      bold; } .btn:hover { background-color: #c86a67 !important; color: #ffffff
+      !important; } a:not(.btn) { color: #0066cc; text-decoration: underline;
+      word-break: break-word; } .footer { text-align: center; font-size: 13px;
+      color: #777; border-top: 1px solid #eee; padding-top: 16px; margin-top:
+      40px; }
     </style>
   </head>
 
@@ -25,13 +29,21 @@
     <div class="container">
       <!-- Logo & Fallback -->
       <div class="header">
-        <div style="height: 40px; margin-bottom: 10px;">
-          <img
-            src="{{frontend_url}}/logo.png"
-            alt="Fatima's Therapy Services"
-            style="max-height: 100%; display: block; margin: 0 auto;"
-            onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\'color:#E27A82;font-size:18px;font-weight:bold;\'>Fatima&apos;s Therapy Services</div>';"
-          />
+        <div style="height: 40px; margin-bottom: 10px; text-align: center;">
+          <a
+            href="{{frontend_url}}"
+            target="_blank"
+            style="display: inline-block"
+          >
+            <img
+              src="{{frontend_url}}/logo.png"
+              alt="Fatima's Therapy Services"
+              width="100"
+              height="100"
+              style="max-height: 100%; display: block; margin: 0 auto;"
+              onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\'color:#E27A82;font-size:18px;font-weight:bold;\'>Fatima&apos;s Therapy Services</div>';"
+            />
+          </a>
         </div>
         <h2>Fatima Mohsin Therapy</h2>
       </div>
@@ -43,6 +55,8 @@
 
       <!-- Message -->
       <div class="message">
+        <p>Dear Admin,</p>
+
         <p>{{message}}</p>
 
         {{#if actionText}}
@@ -59,7 +73,10 @@
       <!-- Footer -->
       <div class="footer">
         Regards,<br />
-        Your Server<br />
+        Fatima's Therapy Services<br />
+        &copy;
+        {{currentYear}}
+        All rights reserved.
       </div>
     </div>
   </body>

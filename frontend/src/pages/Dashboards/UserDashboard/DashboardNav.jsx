@@ -29,17 +29,20 @@ const Dashboard = () => {
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
+  const editProfileRef = useRef(null); // Add ref for EditProfile component
   const navigate = useNavigate();
-  221;
 
   const fetchedUser = useMemo(() => {
     if (!data) return null;
     const entities = data.entities;
     const user = entities && entities[Object.keys(entities)[0]];
     if (!user) return null;
+
+    // Format the DOB properly
     const formattedDob = user.DOB
       ? new Date(user.DOB).toISOString().split("T")[0]
       : "";
+
     return { ...user, DOB: formattedDob };
   }, [data]);
 
@@ -83,12 +86,21 @@ const Dashboard = () => {
 
   const handleClickOutsideModal = (event) => {
     if (event.target.id === "edit-profile-modal-overlay") {
-      toggleEditProfileModal();
+      closeEditProfileModal();
     }
   };
 
   const toggleEditProfileModal = () => {
     setShowEditProfileModal(!showEditProfileModal);
+  };
+
+  // Add a new function to specifically handle closing the modal
+  const closeEditProfileModal = () => {
+    // Reset form fields to original values
+    if (editProfileRef.current) {
+      editProfileRef.current.resetForm();
+    }
+    setShowEditProfileModal(false);
   };
 
   const toggleMenu = () => {
@@ -124,14 +136,14 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-100">
-      <header className="sticky top-0 z-40 bg-white shadow-md flex items-center justify-between p-4">
-        <img src={logo} alt="logo" className="h-16 w-auto" />
+      <header className="sticky top-0 z-40 bg-white shadow-md flex items-center justify-between p-3">
+        <img src={logo} alt="logo" className="h-20 w-auto" />
 
-        <nav className="hidden lg:flex items-center space-x-4">
+        <nav className="hidden lg:flex items-center space-x-3">
           {navItems.map((item) => (
             <button
               key={item.id}
-              className={`flex items-center px-4 py-3 rounded-md text-lg transition-colors duration-150 ${
+              className={`flex items-center px-4 py-2 rounded-md text-base transition-colors duration-150 ${
                 activeTab === item.id
                   ? "bg-[#FDF0E9] text-[#c45e3e]"
                   : "text-textColor hover:bg-gray-100"
@@ -143,14 +155,14 @@ const Dashboard = () => {
             </button>
           ))}
           <button
-            className="flex items-center px-4 py-3 rounded-md text-lg transition-colors duration-150 hover:bg-gray-100"
+            className="flex items-center px-4 py-2 rounded-md text-base transition-colors duration-150 hover:bg-gray-100"
             onClick={toggleEditProfileModal}
           >
             <BiUser className="mr-2" />
             Edit Profile
           </button>
           <button
-            className="flex items-center justify-center px-4 py-3 bg-red-500 text-white rounded-md text-lg font-medium hover:bg-red-600 transition-colors duration-150 disabled:opacity-50"
+            className="flex items-center justify-center px-4 py-2 bg-red-500 text-white rounded-md text-base font-medium hover:bg-red-600 transition-colors duration-150 disabled:opacity-50"
             onClick={handleLogout}
             disabled={isLoggingOut}
           >
@@ -244,22 +256,21 @@ const Dashboard = () => {
           <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-lg relative">
             <button
               className="absolute top-3 right-3 text-gray-400 hover:text-textColor text-2xl"
-              onClick={toggleEditProfileModal}
+              onClick={closeEditProfileModal}
               aria-label="Close"
             >
               &times;
             </button>
-            {/* Handle loading, error, and success states for rendering EditProfile */}
             {isLoadingUser ? (
               <div className="text-center p-4">Loading profile...</div>
             ) : isError ? (
               <div className="text-center p-4 text-red-600">
                 Error loading profile data. Please try again.
-                {/* Optionally display error details: {error?.data?.message || error.toString()} */}
               </div>
             ) : fetchedUser ? (
               <EditProfile
-                user={fetchedUser} // Pass the derived user data
+                ref={editProfileRef}
+                user={fetchedUser}
                 onUserUpdate={handleUserUpdate}
               />
             ) : (

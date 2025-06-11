@@ -9,6 +9,7 @@ import {
   BiLoaderAlt,
   BiDollarCircle,
 } from "react-icons/bi";
+import { FaInfoCircle } from "react-icons/fa";
 import ExpandedStatusDisplay from "./ExpandedStatusDisplay";
 import { getStatusDisplay } from "./billingUtils"; // Make sure this util is robust
 
@@ -268,7 +269,7 @@ const ExpandedRowContent = ({
                 <div>
                   <p className="text-sm text-gray-500">Payment Status</p>
                   <div>
-                    <ExpandedStatusDisplay // This component uses transactionStatusDisplay
+                    <ExpandedStatusDisplay
                       transactionStatusDisplay={
                         combinedData.transactionStatusDisplay
                       }
@@ -295,6 +296,34 @@ const ExpandedRowContent = ({
                 </div>
               </div>
             </div>
+
+            {/* Refund request info - now full width */}
+            {combinedData.payment?.transactionStatus === "Refund Requested" && (
+              <div className="mt-4 px-3 py-2 bg-blue-50 border-l-4 border-blue-300 rounded w-full">
+                <div className="flex items-start">
+                  <FaInfoCircle className="text-blue-400 mt-0.5 mr-2 flex-shrink-0" />
+                  <div>
+                    <p className="text-s font-medium text-blue-700">
+                      Refund Request Status
+                    </p>
+                    <ul className="mt-1 text-s text-gray-600 list-disc pl-4 space-y-1">
+                      <li>
+                        Your request has been received and is being processed
+                      </li>
+                      <li>
+                        Please allow 2-3 business days for the refund to be
+                        initiated
+                      </li>
+                      <li>
+                        If you don't receive an email after this period, please
+                        contact us with the transaction ID above
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {(combinedData.payment?.transactionStatus === "Not Initiated" ||
               combinedData.payment?.transactionStatus === "Cancelled" ||
               combinedData.payment?.transactionStatus === "Failed") &&

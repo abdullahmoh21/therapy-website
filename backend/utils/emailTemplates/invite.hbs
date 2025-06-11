@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -6,71 +5,22 @@
     <title>Invitation to Register</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
-      body {
-        margin: 0;
-        padding: 0;
-        background-color: #f9f9f9;
-      }
-
-      .container {
-        background-color: #ffffff;
-        border: 1px solid #eee;
-        border-left: 4px solid #e27a82;
-        border-radius: 8px;
-        margin: 40px auto;
-        padding: 24px;
-        max-width: 600px;
-        font-family: Arial, sans-serif;
-        color: #333;
-      }
-
-      .header {
-        text-align: center;
-        margin-bottom: 20px;
-      }
-
-      .header img {
-        max-height: 40px;
-        display: block;
-        margin: 0 auto 10px;
-      }
-
-      .fallback-logo {
-        color: #e27a82;
-        font-weight: bold;
-        font-size: 18px;
-      }
-
-      .title {
-        font-size: 18px;
-        font-weight: bold;
-        color: #e27a82;
-        text-align: center;
-        margin-bottom: 20px;
-      }
-
-      .message {
-        font-size: 16px;
-        line-height: 1.5;
-        margin-bottom: 30px;
-      }
-
-      .btn {
-        display: inline-block;
-        background-color: #e27a82;
-        color: #fff;
-        text-decoration: none;
-        padding: 12px 24px;
-        border-radius: 6px;
-        font-size: 16px;
-      }
-
-      .footer {
-        font-size: 13px;
-        color: #777;
-        text-align: center;
-        margin-top: 40px;
-      }
+      body { margin: 0; padding: 0; background-color: #f9f9f9; font-family:
+      Arial, sans-serif; color: #333; } .container { background-color: #ffffff;
+      border: 1px solid #eee; border-left: 4px solid #e27a82; border-radius:
+      8px; margin: 40px auto; padding: 24px; max-width: 600px; } .header {
+      text-align: center; margin-bottom: 20px; } .header img { max-height: 40px;
+      display: block; margin: 0 auto 10px; } .fallback-logo { color: #e27a82;
+      font-weight: bold; font-size: 18px; } .title { font-size: 20px;
+      font-weight: bold; color: #e27a82; text-align: center; margin-bottom:
+      20px; } .message { font-size: 16px; line-height: 1.5; margin-bottom: 30px;
+      } .btn { display: inline-block; background-color: #e27a82 !important;
+      color: #ffffff !important; text-decoration: none !important; padding: 12px
+      24px; border-radius: 6px; font-size: 16px; font-weight: bold; } .btn:hover
+      { background-color: #c86a67 !important; color: #ffffff !important; }
+      a:not(.btn) { color: #0066cc; text-decoration: underline; word-break:
+      break-word; } .footer { font-size: 13px; color: #777; text-align: center;
+      margin-top: 40px; border-top: 1px solid #eee; padding-top: 16px; }
     </style>
   </head>
   <body>
@@ -86,6 +36,8 @@
             <img
               src="{{frontend_url}}/logo.png"
               alt="Fatima's Therapy Services"
+              width="100"
+              height="100"
               style="max-height: 100%; display: block; margin: 0 auto"
               onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\'color:#E27A82;font-size:18px;font-weight:bold;\'>Fatima's Therapy Services</div>';"
             />
@@ -98,7 +50,7 @@
 
       <!-- Message -->
       <div class="message">
-        <p>Hello!</p>
+        <p>Dear {{name}},</p>
         <p>
           You have been invited to register for Fatima's Clinic. Please complete
           your registration by clicking the button below:
@@ -106,9 +58,7 @@
         <p>This invitation will expire in a week.</p>
 
         <p style="text-align: center; margin: 30px 0">
-          <a href="{{link}}" class="btn" target="_blank"
-            >Complete Registration</a
-          >
+          <a href="{{link}}" class="btn" target="_blank">Complete Registration</a>
         </p>
 
         <p>
@@ -116,12 +66,15 @@
           your browser:<br />
           <a href="{{link}}" style="color: #0066cc">{{link}}</a>
         </p>
+
+        <p>Regards,<br />Fatima's Therapy Services</p>
       </div>
 
       <!-- Footer -->
       <div class="footer">
-        Thank you,<br />
-        Fatima's Clinic Team
+        &copy;
+        {{currentYear}}
+        Fatima's Therapy Services. All rights reserved.
       </div>
     </div>
   </body>
