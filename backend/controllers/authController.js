@@ -120,7 +120,7 @@ const logout = asyncHandler(async (req, res) => {
   foundUser.refreshTokenExp = 0;
   await foundUser.save();
 
-  res.clearCookie("jwt", { httpOnly: true, sameSite: "None", secure: true }); //ADD secure: true in production
+  res.clearCookie("jwt", { httpOnly: true, sameSite: "None", secure: true });
   res.sendStatus(204); //no content
 });
 
