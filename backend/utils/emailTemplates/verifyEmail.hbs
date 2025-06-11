@@ -51,7 +51,7 @@
 
       <!-- Message Body -->
       <div class="email-body">
-        <p>Dear {{name}},</p>
+        <p>Dear {{#if name}}{{name}}{{else}}Client{{/if}},</p>
 
         <p>
           We're excited to have you on board. To get started, please activate

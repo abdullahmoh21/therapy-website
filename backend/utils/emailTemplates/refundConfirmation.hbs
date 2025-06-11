@@ -52,7 +52,7 @@
 
       <!-- Message -->
       <div class="email-body">
-        <p>Dear {{name}},</p>
+        <p>Dear {{#if name}}{{name}}{{else}}Client{{/if}},</p>
         <p>
           Your refund for booking number
           <strong>{{bookingId}}</strong>, booked for
