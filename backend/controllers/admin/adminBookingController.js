@@ -1,8 +1,8 @@
-const Booking = require("../models/Booking");
-const Payment = require("../models/Payment");
-const User = require("../models/User");
+const Booking = require("../../models/Booking");
+const Payment = require("../../models/Payment");
+const User = require("../../models/User");
 const asyncHandler = require("express-async-handler");
-const logger = require("../logs/logger");
+const logger = require("../../logs/logger");
 
 //@desc returns all bookings with only the fields to e displayed in frontend table
 //@param valid admin jwt token

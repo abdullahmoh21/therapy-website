@@ -1,7 +1,7 @@
-const User = require("../models/User");
-const Booking = require("../models/Booking");
-const Payment = require("../models/Payment");
-const Inquiry = require("../models/Inquiry");
+const User = require("../../models/User");
+const Booking = require("../../models/Booking");
+const Payment = require("../../models/Payment");
+const Inquiry = require("../../models/Inquiry");
 const asyncHandler = require("express-async-handler");
 
 //@desc gets user and general statistics that don't change with time period
@@ -205,7 +205,9 @@ const getMonthlyMetrics = asyncHandler(async (req, res) => {
   const monthlyStats = {
     period: {
       startDate: lastMonth,
-      label: `${lastMonth.toLocaleString('default', { month: 'long' })} ${lastMonth.getFullYear()}`
+      label: `${lastMonth.toLocaleString("default", {
+        month: "long",
+      })} ${lastMonth.getFullYear()}`,
     },
     profit: totalProfitLastMonth[0]?.total || 0,
     users: {
@@ -260,9 +262,9 @@ const getYearlyMetrics = asyncHandler(async (req, res) => {
     // Inquiry metrics
     totalInquiriesLastYear,
     inquiriesByTypeLastYear,
-    
+
     // Monthly profit breakdown for the year
-    monthlyProfitBreakdown
+    monthlyProfitBreakdown,
   ] = await Promise.all([
     // Profit for last year (only completed payments)
     Payment.aggregate([
@@ -309,28 +311,28 @@ const getYearlyMetrics = asyncHandler(async (req, res) => {
       { $match: { createdAt: { $gte: lastYear } } },
       { $group: { _id: "$type", count: { $sum: 1 } } },
     ]),
-    
+
     // Monthly profit breakdown for the year
     Payment.aggregate([
       {
         $match: {
           createdAt: { $gte: lastYear },
-          transactionStatus: "Completed"
-        }
+          transactionStatus: "Completed",
+        },
       },
       {
         $group: {
-          _id: { 
+          _id: {
             year: { $year: "$createdAt" },
-            month: { $month: "$createdAt" }
+            month: { $month: "$createdAt" },
           },
-          profit: { $sum: "$netAmountReceived" }
-        }
+          profit: { $sum: "$netAmountReceived" },
+        },
       },
       {
-        $sort: { "_id.year": 1, "_id.month": 1 }
-      }
-    ])
+        $sort: { "_id.year": 1, "_id.month": 1 },
+      },
+    ]),
   ]);
 
   // Calculate total bookings for last year
@@ -348,16 +350,19 @@ const getYearlyMetrics = asyncHandler(async (req, res) => {
   // Calculate total meetings by type
   const onlineMeetingsLastYear = onlineMeetingsCompleted;
   const inPersonMeetingsLastYear = inPersonMeetingsCompleted;
-  
+
   // Format monthly profit breakdown
   const monthlyProfit = {};
   const profitData = [];
   const labels = [];
-  
-  monthlyProfitBreakdown.forEach(item => {
-    const monthName = new Date(item._id.year, item._id.month - 1, 1)
-      .toLocaleString('default', { month: 'short' });
-    
+
+  monthlyProfitBreakdown.forEach((item) => {
+    const monthName = new Date(
+      item._id.year,
+      item._id.month - 1,
+      1
+    ).toLocaleString("default", { month: "short" });
+
     monthlyProfit[monthName] = item.profit;
     labels.push(monthName);
     profitData.push(item.profit);
@@ -368,12 +373,12 @@ const getYearlyMetrics = asyncHandler(async (req, res) => {
     period: {
       startDate: lastYear,
       endDate: new Date(),
-      label: `${lastYear.getFullYear()} - ${new Date().getFullYear()}`
+      label: `${lastYear.getFullYear()} - ${new Date().getFullYear()}`,
     },
     profit: totalProfitLastYear[0]?.total || 0,
     profitChart: {
       labels,
-      data: profitData
+      data: profitData,
     },
     users: {
       new: newUsersLastYear,
@@ -391,7 +396,7 @@ const getYearlyMetrics = asyncHandler(async (req, res) => {
       total: totalInquiriesLastYear,
       typeDistribution: inquiryTypeDistributionLastYear,
     },
-    monthlyProfit
+    monthlyProfit,
   };
 
   res.status(200).json(yearlyStats);

@@ -68,7 +68,7 @@ const initializeQueue = async () => {
         maxRetriesPerRequest: 1,
       },
       defaultJobOptions: {
-        removeOnComplete: true,
+        removeOnComplete: { age: 3600, count: 1000 },
         removeOnFail: true,
         attempts: 5,
       },

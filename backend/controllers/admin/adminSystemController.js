@@ -1,9 +1,12 @@
-const Config = require("../models/Config");
+const Config = require("../../models/Config");
 const asyncHandler = require("express-async-handler");
-const logger = require("../logs/logger");
+const logger = require("../../logs/logger");
 const mongoose = require("mongoose");
 const os = require("os");
-const { redisClient, checkRedisAvailability } = require("../utils/redisClient");
+const {
+  redisClient,
+  checkRedisAvailability,
+} = require("../../utils/redisClient");
 
 //@desc Get system health and configuration
 //@param valid admin jwt token
