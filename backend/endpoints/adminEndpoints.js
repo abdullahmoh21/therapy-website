@@ -8,7 +8,7 @@ const { redisCaching } = require("../middleware/redisCaching");
 router.use(verifyAdmin);
 
 // User routes - collection endpoints
-router.route("/users").get(adminController.getAllUsers);
+router.route("/users").get(redisCaching(), adminController.getAllUsers);
 
 // User routes - document endpoints
 router

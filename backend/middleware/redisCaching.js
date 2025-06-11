@@ -1,4 +1,4 @@
-const redisClient = require("../utils/redisClient");
+const { redisClient, checkRedisAvailability } = require("../utils/redisClient");
 const logger = require("../logs/logger");
 const { promisify } = require("util");
 const path = require("path");
@@ -7,47 +7,27 @@ const zlib = require("zlib");
 const inflateAsync = promisify(zlib.inflate);
 const deflateAsync = promisify(zlib.deflate);
 const crypto = require("crypto");
-
-/* 
-    Endpoints that will be cached:
-    -  GET  /users              (getMyData)
-    -  GET  /bookings           (getMyBookings)
-    -  GET  /user/bookings      (getMyBookings)
-  
-    Invalidation scenarios:
-    - User updates their profile
-    - Admin deletes a user
-    - Calendly webhook triggers a new booking,cancellation or reschedule
-    - Safepay webhook triggers a change in payment status. 
-*/
+const cacheConfig = require("../config/cacheConfig");
 
 // Track Redis availability status to prevent repeated logs
 let redisAvailable = null; // null means not checked yet
 let lastRedisCheckTime = 0;
 const REDIS_CHECK_INTERVAL = 60000; // Check at most once per minute
 
-// Check if Redis is working
-function isRedisWorking() {
+// Check if Redis is working using the utility from redisClient
+async function isRedisWorking() {
   const now = Date.now();
-
-  // Only check Redis status if we haven't checked recently or status is unknown
   if (
     redisAvailable === null ||
     now - lastRedisCheckTime > REDIS_CHECK_INTERVAL
   ) {
     lastRedisCheckTime = now;
-
-    // Check Redis client status
-    const isConnected =
-      redisClient && redisClient.status === "ready" && !redisClient.connecting;
-
-    // Only log when status changes to avoid spam
+    const isConnected = await checkRedisAvailability();
     if (redisAvailable !== isConnected) {
       if (isConnected) {
-        logger.info("Redis is now available for caching");
+        logger.debug("Redis is now available for caching");
       } else if (redisAvailable !== null) {
-        // Only log if this is a change in status, not initial check
-        logger.warn("Redis is unavailable, operating without caching");
+        logger.debug("Redis is unavailable, operating without caching");
       }
       redisAvailable = isConnected;
     }
@@ -56,39 +36,317 @@ function isRedisWorking() {
   return redisAvailable === true;
 }
 
-// Invalidate cache for a given key
-async function invalidateCache(url, userId) {
-  const keyName = generateKey(userId, url);
-  if (!isRedisWorking()) {
-    // Store invalidation request for future processing when Redis is back
-    try {
-      const invalidationFilePath = path.join(
-        __dirname,
-        "../utils/invalidationRequests.bin"
-      );
-      const buffer = Buffer.from(keyName + "\0", "utf8"); // Null-terminated
-      fs.appendFileSync(invalidationFilePath, buffer);
-    } catch (fileError) {
-      logger.error(
-        `Failed to append ${keyName} to invalidationRequests.bin: ${fileError.message}`
-      );
-    }
-    return false;
+/**
+ * Normalize a URL path for consistent caching
+ * - Ensures path starts with /
+ * - Removes trailing slashes
+ * - Ensures /api prefix
+ */
+function normalizePath(url) {
+  let fullPath = url.startsWith("/") ? url : `/${url}`;
+
+  // Remove query parameters if present
+  fullPath = fullPath.split("?")[0];
+
+  // Remove trailing slash if present
+  if (fullPath.length > 1 && fullPath.endsWith("/")) {
+    fullPath = fullPath.slice(0, -1);
   }
 
-  try {
-    await redisClient.del(keyName);
-    return true;
-  } catch (error) {
-    logger.error(`Failed to invalidate cache for key: ${keyName}`, error);
-    return false;
+  // Ensure /api prefix
+  if (!fullPath.startsWith("/api/")) {
+    fullPath = `/api${fullPath}`;
+  }
+
+  return fullPath;
+}
+
+/**
+ * Determine if a path matches any of our cacheable endpoints
+ * Returns the matching configuration or null if no match
+ */
+function getEndpointConfig(path) {
+  for (const [pattern, config] of Object.entries(cacheConfig.endpoints)) {
+    if (new RegExp(pattern).test(path)) {
+      return config;
+    }
+  }
+  return null;
+}
+
+/**
+ * Validate query parameters based on endpoint configuration
+ * Returns true if query params are valid for caching, false otherwise
+ */
+function validateQueryParams(query, config) {
+  if (!query) return true; // No query params is always valid
+
+  // If no allowed query params are defined, don't cache requests with query params
+  if (!config.allowQueryParams || config.allowQueryParams.length === 0) {
+    // Return false if there are any non-empty query params
+    return Object.keys(query).every((key) => {
+      const value = query[key];
+      return (
+        value === undefined ||
+        value === null ||
+        value === "" ||
+        value === "undefined" ||
+        value === "null"
+      );
+    });
+  }
+
+  // Filter out empty query parameters
+  const queryKeys = Object.keys(query).filter((key) => {
+    const value = query[key];
+    // Skip empty values
+    return !(
+      value === undefined ||
+      value === null ||
+      value === "" ||
+      value === "undefined" ||
+      value === "null"
+    );
+  });
+
+  // If there are any parameters not in the allowedQueryParams list, don't cache
+  const hasDisallowedParams = queryKeys.some(
+    (key) => !config.allowQueryParams.includes(key)
+  );
+
+  // Only valid if no disallowed params exist
+  return !hasDisallowedParams;
+}
+
+/**
+ * Extract cacheable query params for key generation
+ */
+function extractQueryParams(query, config) {
+  if (!query) return {};
+
+  if (!config.allowQueryParams || config.allowQueryParams.length === 0) {
+    return {};
+  }
+
+  // Only include allowed parameters with non-empty values
+  const result = {};
+  for (const param of config.allowQueryParams) {
+    if (
+      query[param] !== undefined &&
+      query[param] !== null &&
+      query[param] !== "" &&
+      query[param] !== "undefined" &&
+      query[param] !== "null"
+    ) {
+      result[param] = query[param];
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Generate a cache key based on userId, path, and filtered query parameters
+ * Admin routes: cache:admin:${resourceType}:${pathHash}
+ * User routes: cache:${userId}:${resourceType}:${pathHash}
+ */
+function generateKey(userId, path, query = null, config = null) {
+  // Normalize the path
+  const normalizedPath = normalizePath(path);
+
+  // Get endpoint configuration if not provided
+  if (!config) {
+    config = getEndpointConfig(normalizedPath);
+  }
+
+  // Don't cache if no matching configuration
+  if (!config) {
+    return `nocache:${crypto.randomBytes(8).toString("hex")}`;
+  }
+
+  // Validate query parameters - if not valid, don't cache
+  if (!validateQueryParams(query, config)) {
+    return `nocache:${crypto.randomBytes(8).toString("hex")}`;
+  }
+
+  // Extract cacheable query params
+  const filteredQuery = extractQueryParams(query, config);
+
+  // Sort query parameters for consistent hashing
+  const sortedQueryEntries = Object.entries(filteredQuery).sort(([a], [b]) =>
+    a.localeCompare(b)
+  );
+
+  // Build query string in a deterministic way
+  let queryString = "";
+  if (sortedQueryEntries.length > 0) {
+    queryString =
+      "?" +
+      sortedQueryEntries.map(([key, value]) => `${key}=${value}`).join("&");
+  }
+
+  // Create full path with query string
+  const fullPathWithQuery = normalizedPath + queryString;
+
+  // Extract resource type from path
+  const pathParts = normalizedPath.split("/").filter(Boolean);
+  let resourceType = "unknown";
+  let isAdminRoute = false;
+
+  if (pathParts.length > 1) {
+    if (pathParts[0] === "api") {
+      if (pathParts[1] === "admin" && pathParts.length > 2) {
+        // Admin route: /api/admin/[resourceType]
+        resourceType = pathParts[2]; // Just get the resource type, don't prefix with admin
+        isAdminRoute = true;
+      } else {
+        // Standard route: /api/[resourceType]
+        resourceType = pathParts[1];
+      }
+    }
+  }
+
+  // Hash the full path with query for a deterministic key suffix
+  const pathHash = crypto
+    .createHash("md5")
+    .update(fullPathWithQuery)
+    .digest("hex")
+    .substring(0, 10); // Use only first 10 chars for readability
+
+  // Format: cache:[userId/admin]:[resourceType]:[pathHash]
+  if (isAdminRoute) {
+    // For admin routes, use 'admin' prefix
+    return `cache:admin:${resourceType}:${pathHash}`;
+  } else {
+    // For user-specific routes
+    return `cache:${userId}:${resourceType}:${pathHash}`;
   }
 }
 
-// Add data to cache
-async function addToCache(keyName, data, options = { EX: 21600 }) {
+/**
+ * Invalidate cache based on a specific event
+ */
+async function invalidateByEvent(eventName, options = {}) {
   if (!isRedisWorking()) {
-    return; // Silently return without caching when Redis is unavailable
+    logger.debug(
+      `Cannot invalidate cache by event: Redis not working (event: ${eventName})`
+    );
+    return false;
+  }
+
+  // Check if this event exists in our configuration
+  const eventConfig = cacheConfig.events[eventName];
+  if (!eventConfig) {
+    logger.debug(`No cache invalidation rules defined for event: ${eventName}`);
+    return false;
+  }
+
+  logger.debug(
+    `Invalidating cache for event: ${eventName}${
+      options.userId ? ` for userId: ${options.userId}` : ""
+    }`
+  );
+  let totalDeleted = 0;
+
+  for (const rule of eventConfig) {
+    let pattern;
+
+    // Handle pathVariables pattern for more precise cache invalidation
+    if (rule.pathVariables) {
+      const { urlPattern, variable } = rule.pathVariables;
+
+      // Only proceed if we have the required variable value
+      if (options[variable]) {
+        // Create a URL with the variable replaced
+        const specificUrl = urlPattern.replace(
+          new RegExp(`\\{\\{${variable}\\}\\}`, "g"),
+          options[variable]
+        );
+
+        // Generate a hash of the URL the same way we do when creating cache keys
+        const normalizedPath = normalizePath(specificUrl);
+        const pathHash = crypto
+          .createHash("md5")
+          .update(normalizedPath)
+          .digest("hex")
+          .substring(0, 10);
+
+        // For pathVariables targeting admin routes
+        if (rule.pattern.startsWith("admin:")) {
+          pattern = `cache:admin:${rule.pattern.replace(
+            /^admin:/,
+            ""
+          )}:${pathHash}*`;
+        } else if (options.userId) {
+          pattern = `cache:${options.userId}:${rule.pattern}:${pathHash}*`;
+        } else {
+          pattern = `cache:*:${rule.pattern}:*`;
+        }
+
+        logger.debug(`Using pathVariables pattern: ${pattern}`);
+      } else {
+        // Skip this rule if we don't have the required variable
+        logger.debug(`Skipping pathVariables rule: missing ${variable}`);
+        continue;
+      }
+    }
+    // If rule requires userId and we have it
+    else if (rule.userId && options.userId) {
+      // User-specific pattern
+      pattern = `cache:${options.userId}:${rule.pattern}`;
+      logger.debug(`Using user-specific pattern: ${pattern}`);
+    }
+    // Admin patterns
+    else if (rule.pattern.startsWith("admin:")) {
+      const cleanPattern = rule.pattern.replace(/^admin:/, "");
+      pattern = `cache:admin:${cleanPattern}`;
+      logger.debug(`Using admin pattern: ${pattern}`);
+    }
+    // Default case - either apply to specific user if provided, or all users
+    else {
+      pattern = options.userId
+        ? `cache:${options.userId}:${rule.pattern}:*`
+        : `cache:*:${rule.pattern}:*`;
+    }
+
+    // Use Redis SCAN to find matching keys
+    let cursor = "0";
+    do {
+      try {
+        const [nextCursor, keys] = await redisClient.scan(
+          cursor,
+          "MATCH",
+          pattern,
+          "COUNT",
+          100
+        );
+
+        cursor = nextCursor;
+
+        if (keys.length > 0) {
+          await redisClient.del(keys);
+          totalDeleted += keys.length;
+        }
+      } catch (error) {
+        logger.error(
+          `Error during cache invalidation for pattern ${pattern}: ${error.message}`
+        );
+        return false;
+      }
+    } while (cursor !== "0");
+  }
+
+  logger.info(
+    `Invalidated ${totalDeleted} cache entries for event: ${eventName}`
+  );
+  return true;
+}
+
+// Add data to cache
+async function addToCache(keyName, data, options = { EX: 1800 }) {
+  if (!isRedisWorking()) {
+    logger.debug(`Cannot add to cache: Redis not working (key: ${keyName})`);
+    return;
   }
 
   let dataString;
@@ -104,23 +362,13 @@ async function addToCache(keyName, data, options = { EX: 21600 }) {
     const compressedData = buffer.toString("base64");
     await redisClient.set(keyName, compressedData, "EX", options.EX);
   } catch (error) {
-    // Don't log every caching error to prevent log spam
     if (redisAvailable) {
-      logger.error(
-        `Failed to compress data for key=${keyName}: ${error.message}`
+      logger.debug(
+        `Failed to compress/cache data for key=${keyName}: ${error.message}`
       );
       redisAvailable = false; // Mark Redis as unavailable to prevent further errors
     }
   }
-}
-
-// Generate a key based on the request
-function generateKey(userId, fullPath) {
-  const digest = crypto
-    .createHash("md5")
-    .update(`${userId}:${fullPath}`)
-    .digest("hex");
-  return `cache:${digest}`;
 }
 
 // Retrieve data from cache, parse if JSON, otherwise return as-is
@@ -143,14 +391,14 @@ async function getFromCache(key) {
         }
         return parsedData; // Return parsed JSON data
       } catch (err) {
-        logger.error(`Error parsing JSON for key=${key}: ${err.message}`);
+        logger.debug(`Error parsing JSON for key=${key}: ${err.message}`);
         return data; // Return as-is if not JSON
       }
     }
   } catch (err) {
     // Only log if Redis was thought to be available
     if (redisAvailable) {
-      logger.error(`Error retrieving cache for key=${key}: ${err.message}`);
+      logger.debug(`Error retrieving cache for key=${key}: ${err.message}`);
       redisAvailable = false; // Mark Redis as unavailable
     }
   }
@@ -158,52 +406,90 @@ async function getFromCache(key) {
   return null;
 }
 
-// Middleware to cache responses with cache refreshing logic
-function redisCaching(options = { EX: 21600 }) {
+function redisCaching(options = {}) {
   return async (req, res, next) => {
     if (req.method !== "GET") {
+      logger.debug("Skipping cache: Not a GET request");
       return next();
     }
 
-    // Skip caching logic entirely if Redis is known to be unavailable
-    if (redisAvailable === false) {
+    if (!isRedisWorking()) {
+      logger.debug("Skipping cache: Redis not available");
       return next();
     }
 
-    // Ensure req.user and req.user.id exist before trying to generate a key
+    // For admin routes, we still need user authentication but will use global admin caching
     if (!req.user || !req.user.id) {
+      logger.debug("Skipping cache: No user or user ID in request");
       return next();
     }
 
     const userId = req.user.id;
-    let fullPath = req.originalUrl.split("?")[0];
-    if (fullPath.length > 1 && fullPath.endsWith("/")) {
-      fullPath = fullPath.slice(0, -1);
+    const fullPath = req.originalUrl.split("?")[0];
+
+    // Get the endpoint configuration
+    const config = getEndpointConfig(fullPath);
+
+    // Skip caching if no configuration matches this endpoint
+    if (!config) {
+      logger.debug(`Skipping cache: No configuration for ${fullPath}`);
+      return next();
     }
 
-    const key = generateKey(userId, fullPath);
+    // Generate the cache key using our new approach
+    const key = generateKey(userId, fullPath, req.query, config);
+
+    // Skip caching for keys with 'nocache' prefix
+    if (key.startsWith("nocache:")) {
+      logger.debug(
+        `Skipping cache: Request has disallowed query parameters: ${fullPath}`
+      );
+      return next();
+    }
+
+    // Use TTL from config or default from options or global default
+    const cacheTTL = config.ttl || options.ttl || cacheConfig.defaultTTL;
 
     try {
       // Attempt to retrieve from cache
       const cachedValue = await getFromCache(key);
       if (cachedValue !== null) {
+        logger.info(`[CACHE HIT] key: ${key} path: ${fullPath}`);
+
         if (isRedisWorking()) {
-          await redisClient.expire(key, options.EX).catch(() => {}); // Ignore expire errors
+          try {
+            // Reset expiry on cache hit
+            await redisClient.expire(key, cacheTTL);
+          } catch (expireError) {
+            logger.debug(
+              `Failed to reset expiry for key: ${key} - ${expireError.message}`
+            );
+          }
         }
+
         return res.send(cachedValue);
       } else {
+        logger.info(`[CACHE MISS] key: ${key} path: ${fullPath}`);
+
+        // Override res.send to cache the response
         const oldSend = res.send;
         res.send = async function (data) {
           res.send = oldSend;
           if (res.statusCode.toString().startsWith("2")) {
-            await addToCache(key, data, options);
+            logger.debug(`[CACHE SET] key: ${key}`);
+            await addToCache(key, data, { EX: cacheTTL });
+          } else {
+            logger.debug(
+              `Not caching response with status code: ${res.statusCode}`
+            );
           }
-          oldSend.call(res, data);
+          return oldSend.call(res, data);
         };
+
         next();
       }
     } catch (error) {
-      logger.error(`Error handling cache for key: ${key}`, error);
+      logger.debug(`Error handling cache for key: ${key}`, error);
       next();
     }
   };
@@ -221,7 +507,7 @@ function isValidJsonString(str) {
 module.exports = {
   redisCaching,
   addToCache,
-  invalidateCache,
   getFromCache,
   isRedisWorking,
+  invalidateByEvent,
 };

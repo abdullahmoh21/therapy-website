@@ -1,7 +1,7 @@
 const Payment = require("../models/Payment");
 const asyncHandler = require("express-async-handler");
 const logger = require("../logs/logger");
-const { invalidateCache } = require("../middleware/redisCaching");
+const { invalidateByEvent } = require("../middleware/redisCaching");
 
 //@desc returns all payments
 //@param valid admin jwt token
@@ -101,8 +101,8 @@ const markAsPaid = asyncHandler(async (req, res) => {
   await payment.save();
 
   if (payment.userId) {
-    invalidateCache("/bookings", payment.userId);
-    invalidateCache(`/payments/${payment._id}`, payment.userId);
+    await invalidateByEvent("payment-updated", { userId: payment.userId });
+    await invalidateByEvent("admin-data-changed");
   }
 
   logger.info(

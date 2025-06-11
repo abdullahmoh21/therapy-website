@@ -79,15 +79,20 @@
             {{eventTime}}
           </li>
           <li>
-            <strong>Cancelled within policy period?</strong>
-            {{cancelledWithinPolicyPeriod}}
+            <strong>Cancellation Date:</strong>
+            {{cancellationDate}}
           </li>
-          <li><strong>Payment Amount:</strong> {{paymentAmount}} PKR</li>
+          <li>
+            <strong>Cancelled By:</strong>
+            {{cancelledBy}}
+          </li>
+          <li><strong>Payment Amount:</strong>
+            {{paymentAmount}}
+            {{paymentCurrency}}</li>
           <li>
             <strong>Payment Status:</strong>
             {{paymentStatus}}
-            on
-            {{paymentCompleted}}
+            {{#if paymentCompleted}}on {{paymentCompleted}}{{/if}}
           </li>
           <li>
             <strong>Transaction Reference Number:</strong>
@@ -95,26 +100,23 @@
           </li>
         </ol>
 
-        <p>Please follow these steps to review and process the refund:</p>
+        <p>Please follow these steps to process the refund:</p>
 
         <ol>
-          <li>Review and decide to approve or reject the refund.</li>
+          <li>Log in to your Safepay dashboard</li>
           <li>
-            Click the button below to open the payment on Safepay (search by
-            order ID).
+            Find the transaction using the reference number above
           </li>
           <li>
-            If approved, click the refund button on Safepay’s payment details
-            page.
+            Process the refund through the Safepay interface
           </li>
-          <li>If rejected, contact the user directly with a response.</li>
           <li>
-            <strong>[ATTENTION]</strong>
-            Ensure the transaction reference matches the details above.
+            <strong>Important:</strong>
+            Verify the transaction details match before processing
           </li>
         </ol>
 
-        <a href="{{refundLink}}" class="button-link">Review Payment</a>
+        <a href="{{refundLink}}" class="button-link">Process Refund</a>
 
         <p>If you have any questions, feel free to reach out.</p>
       </div>
@@ -123,6 +125,9 @@
       <div class="footer">
         Regards,<br />
         Fatima's Therapy Services<br />
+        &copy;
+        {{currentYear}}
+        All rights reserved.
       </div>
     </div>
   </body>

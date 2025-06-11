@@ -3,7 +3,7 @@ const asyncHandler = require("express-async-handler");
 const logger = require("../logs/logger");
 const Booking = require("../models/Booking");
 const Payment = require("../models/Payment");
-const { invalidateCache } = require("../middleware/redisCaching");
+const { invalidateByEvent } = require("../middleware/redisCaching");
 const Joi = require("joi");
 const { emailSchema } = require("../utils/validation/ValidationSchemas");
 
@@ -94,8 +94,8 @@ const deleteUser = asyncHandler(async (req, res) => {
       `User deletion count: ${user.deletedCount}\nBooking deleted count: ${bookings.deletedCount}\nPayment deleted count: ${payments.deletedCount}`
     );
 
-    await invalidateCache(`/admin/users/${userId}`, userId);
-    await invalidateCache("/user", userId);
+    await invalidateByEvent("user-deleted", { userId });
+    await invalidateByEvent("admin-data-changed");
 
     // Return proper success response with message
     res.status(200).json({
@@ -181,8 +181,8 @@ const updateUser = asyncHandler(async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    await invalidateCache(`/admin/users/${userId}`, userId);
-    await invalidateCache("/user", userId);
+    await invalidateByEvent("user-updated", { userId });
+    await invalidateByEvent("admin-data-changed");
 
     res.status(200).json({
       message: "User updated successfully",

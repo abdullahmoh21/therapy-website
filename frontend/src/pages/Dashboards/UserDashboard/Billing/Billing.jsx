@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 // DataTable and Column are removed as BillingTable handles this
 import { useGetPaymentLinkMutation } from "../../../../features/payments/paymentApiSlice";
-import { useGetPastBookingsQuery } from "../../../../features/users/usersApiSlice"; // Changed import
+import { useGetPastBookingsQuery } from "../../../../features/bookings/bookingApiSlice";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { InputText } from "primereact/inputtext";
 import { Dropdown } from "primereact/dropdown";
@@ -18,6 +18,7 @@ import {
   BiRefresh,
 } from "react-icons/bi";
 import { Badge } from "primereact/badge";
+import { toast } from "react-toastify";
 import "./calendar-custom.css"; // We'll create this file for custom calendar styling
 
 const Billing = () => {
@@ -82,41 +83,47 @@ const Billing = () => {
     isFetching,
     error: bookingFetchError,
     refetch,
-  } = useGetPastBookingsQuery(queryParams, {
-    // Prevent refetching if queryParams object reference is the same but content might be.
-    // RTK Query handles this well by default if queryParams is a new object or its primitive values change.
-  });
+  } = useGetPastBookingsQuery(queryParams, {});
 
   const [triggerGetPaymentLink] = useGetPaymentLinkMutation();
 
   // Effect to update payments state from server response
   useEffect(() => {
-    if (isSuccess && pastBookingsResponseData) {
-      if (
-        pastBookingsResponseData.bookings &&
-        pastBookingsResponseData.bookings.entities
-      ) {
-        const allBookingsOnPage = Object.values(
+    try {
+      if (isSuccess && pastBookingsResponseData) {
+        console.log("Response data received:", pastBookingsResponseData);
+
+        if (
+          pastBookingsResponseData.bookings &&
           pastBookingsResponseData.bookings.entities
-        );
-        setBookingsData(allBookingsOnPage);
-      } else {
+        ) {
+          const allBookingsOnPage = Object.values(
+            pastBookingsResponseData.bookings.entities
+          );
+          setBookingsData(allBookingsOnPage);
+        } else {
+          console.warn(
+            "No booking entities found in response:",
+            pastBookingsResponseData
+          );
+          setBookingsData([]);
+        }
+
+        if (pastBookingsResponseData.pagination) {
+          setTotalPages(pastBookingsResponseData.pagination.totalPages || 1);
+        } else {
+          console.warn("No pagination info found in response");
+          setTotalPages(1);
+        }
+      } else if (!isLoading && !isFetching && !isSuccess && !isError) {
         setBookingsData([]);
       }
-      if (pastBookingsResponseData.pagination) {
-        setTotalPages(pastBookingsResponseData.pagination.totalPages || 1);
-      }
-    } else if (!isLoading && !isFetching && !isSuccess && !isError) {
+    } catch (error) {
+      console.error("Error processing booking data:", error);
       setBookingsData([]);
+      setTotalPages(1);
     }
-  }, [
-    isSuccess,
-    pastBookingsResponseData,
-    isLoading,
-    isFetching,
-    isError,
-    // Remove currentPage from dependencies to prevent effect from re-running when page changes
-  ]);
+  }, [isSuccess, pastBookingsResponseData, isLoading, isFetching, isError]);
 
   // Update the debounced function for bookingIdSearch to handle validation
   const debouncedSetBookingIdSearch = useCallback(
@@ -307,6 +314,9 @@ const Billing = () => {
   }
 
   if (isError) {
+    // Log the full error for debugging
+    console.error("Error object details:", bookingFetchError);
+
     return (
       <div
         className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative m-4"
@@ -317,8 +327,18 @@ const Billing = () => {
         </strong>
         <span className="block sm:inline">
           {bookingFetchError?.data?.message ||
+            bookingFetchError?.error ||
+            JSON.stringify(bookingFetchError) ||
             "Failed to load booking history."}
         </span>
+        <div className="mt-3">
+          <button
+            onClick={refetch}
+            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+          >
+            Try Again
+          </button>
+        </div>
       </div>
     );
   }
@@ -372,11 +392,9 @@ const Billing = () => {
   return (
     <div className="max-w-7xl mx-auto">
       <header className="mb-6">
-        <h1 className="text-2xl font-bold text-textColor">
-          Billing & Payments
-        </h1>
+        <h1 className="text-2xl font-bold text-textColor">Past Bookings</h1>
         <p className="mt-1 text-textColor">
-          View and manage your payment history and session details
+          View and manage your Past Bookings
         </p>
       </header>
 
