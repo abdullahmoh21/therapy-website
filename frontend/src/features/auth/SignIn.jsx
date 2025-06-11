@@ -118,7 +118,11 @@ const SignIn = () => {
   const Header = () => (
     <div className="flex flex-col items-center text-center">
       <Link to="/" className="mb-2">
-        <img src={logo} alt="logo" width={135} height={60} />
+        <img
+          src={logo}
+          alt="logo"
+          className="w-[150px] sm:w-[160px] md:w-[180px] h-auto"
+        />
       </Link>
       <h1 className="text-[26px] leading-[36px] sm:leading-[46px] font-bold text-[#c45e3e] pb-3">
         Welcome to Fatima's Clinic

@@ -9,7 +9,7 @@ export const data = {
     /* ────────────────────────────────────────────────────────────────── */
     {
       title: "How do I create an account?",
-      content: `Start by booking a free 15-minute consultation with Fatima via this <a href="https://calendly.com/fatimamohsintherapy/consultation" target="_blank" rel="noopener noreferrer"><u>link</u></a>. If both you and Fatima decide to proceed, you'll receive an e-mail invitation to create your private dashboard account. Only invited clients can sign up.`,
+      content: `Start by booking a free 15-minute consultation with Fatima via this <a href="/consultation"><u>link</u></a>. If both you and Fatima decide to proceed, you'll receive an e-mail invitation to create your private dashboard account. Only invited clients can sign up.`,
     },
     /* ────────────────────────────────────────────────────────────────── */
     {
