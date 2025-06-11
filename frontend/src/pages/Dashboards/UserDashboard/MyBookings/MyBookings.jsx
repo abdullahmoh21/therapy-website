@@ -17,10 +17,7 @@ import {
   useGetMyActiveBookingsQuery,
   useGetNewBookingLinkQuery,
 } from "../../../../features/bookings/bookingApiSlice";
-import {
-  useGetPaymentLinkMutation,
-  useSendRefundRequestMutation,
-} from "../../../../features/payments/paymentApiSlice";
+import { useGetPaymentLinkMutation } from "../../../../features/payments/paymentApiSlice";
 import { useGetMyUserQuery } from "../../../../features/users/usersApiSlice";
 import NoBooking from "./NoBooking";
 import DashboardHeader from "./MyBookingHeader";
@@ -57,9 +54,6 @@ const MyBookings = () => {
 
   const [triggerGetPaymentLink, { isLoading: gettingPaymentLink }] =
     useGetPaymentLinkMutation();
-
-  const [sendRefundRequest, { isLoading: sendingRefundRequest }] =
-    useSendRefundRequestMutation();
 
   // Check for Calendly redirect URL parameters
   useEffect(() => {
@@ -137,16 +131,11 @@ const MyBookings = () => {
     return new Date(b.eventStartTime).getTime() - Date.now() > threeDays;
   };
 
-  const handleRefundRequest = async (bid, pid, url) => {
-    setLoading(true);
-    setRefundError(null);
-    try {
-      await sendRefundRequest({ bookingId: bid, paymentId: pid }).unwrap();
+  const handleRefundRequest = (url) => {
+    if (url) {
       window.location.href = url;
-    } catch (e) {
-      setRefundError(e?.data?.message || "Something went wrong.");
-    } finally {
-      setLoading(false);
+    } else {
+      setRefundError("No cancellation URL available");
     }
   };
 
@@ -488,11 +477,7 @@ const MyBookings = () => {
                     selectedBooking.transactionStatus === "Completed" &&
                     checkRefundEligibility(selectedBooking)
                   ) {
-                    handleRefundRequest(
-                      selectedBooking._id,
-                      selectedBooking.paymentId,
-                      selectedBooking.cancelURL
-                    );
+                    handleRefundRequest(selectedBooking.cancelURL);
                   } else {
                     handleCancellation(selectedBooking.cancelURL);
                   }

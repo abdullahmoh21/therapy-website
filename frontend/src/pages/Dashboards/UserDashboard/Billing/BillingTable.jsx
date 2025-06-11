@@ -9,7 +9,7 @@ import {
   BiInfoCircle,
 } from "react-icons/bi";
 import ExpandedRowContent from "./ExpandedRowContent";
-import { renderIcon } from "./billingUtils.jsx"; // Assuming renderIcon is for payment status
+import { renderIcon, getStatusDisplay } from "./billingUtils.jsx";
 
 const BillingTable = ({
   paymentsData, // These are booking objects
@@ -20,27 +20,16 @@ const BillingTable = ({
 }) => {
   const statusBodyTemplate = (rowData) => {
     // rowData is a booking object.
-    // transactionStatusDisplay is on rowData, derived from rowData.payment.transactionStatus
-    if (!rowData || !rowData.transactionStatusDisplay) {
-      // Fallback if payment object or status is missing
-      if (rowData.payment && rowData.payment.transactionStatus) {
-        // This case should be handled by transformResponse, but as a safeguard:
-        const { icon, text, color } = getStatusDisplay(
-          rowData.payment.transactionStatus
-        ); // You'd need getStatusDisplay here
-        return (
-          <span
-            className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium ${color}`}
-          >
-            {renderIcon(icon)}{" "}
-            {/* Ensure renderIcon can handle the icon component directly */}
-            <span className="ml-1">{text}</span>
-          </span>
-        );
-      }
+    // Payment status is in rowData.payment.transactionStatus
+    if (!rowData || !rowData.payment || !rowData.payment.transactionStatus) {
       return <span>--</span>;
     }
-    const { icon, text, color } = rowData.transactionStatusDisplay;
+
+    // Import and use getStatusDisplay directly from billingUtils
+    const { icon, text, color } = getStatusDisplay(
+      rowData.payment.transactionStatus
+    );
+
     return (
       <span
         className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium ${color}`}

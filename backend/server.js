@@ -32,12 +32,6 @@ async function bootstrap() {
   }
 
   try {
-    await Config.initializeConfig();
-  } catch (err) {
-    logger.error(`Config init failed, using defaults: ${err.message}`);
-  }
-
-  try {
     calendlyOk = await connectCalendly();
     if (!calendlyOk) throw new Error("webhook not live");
   } catch (err) {
@@ -59,6 +53,12 @@ async function bootstrap() {
     if (process.env.NODE_ENV === "production") {
       await sendAdminAlert("redisDisconnectedInitial").catch(() => {});
     }
+  }
+
+  try {
+    await Config.initializeConfig();
+  } catch (err) {
+    logger.error(`Config init failed, using defaults: ${err.message}`);
   }
 
   initializeQueue();
@@ -119,7 +119,6 @@ app.use("/api/payments", require("./endpoints/paymentEndpoints"));
 app.use("/api/admin", require("./endpoints/adminEndpoints"));
 app.use("/api/contactMe", require("./endpoints/contactMeEndpoints"));
 app.use("/api/config", require("./endpoints/configEndpoints"));
-app.use("/api/test", require("./endpoints/testEndpoints"));
 
 // Global error handler
 app.use(errorHandler);

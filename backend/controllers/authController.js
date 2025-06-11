@@ -8,7 +8,7 @@ const logger = require("../logs/logger");
 const { sendEmail } = require("../utils/myQueue");
 const { response } = require("express");
 const Invitee = require("../models/Invitee");
-const { invalidateCache } = require("../middleware/redisCaching");
+const { invalidateByEvent } = require("../middleware/redisCaching");
 
 const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET;
 const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET;
@@ -84,7 +84,7 @@ const login = asyncHandler(async (req, res) => {
   foundUser.lastLoginAt = new Date();
   await foundUser.save();
 
-  invalidateCache(`/admin/users/${foundUser._id}`, foundUser._id);
+  invalidateByEvent("user-login", { userId: foundUser._id });
 
   res.cookie("jwt", refreshToken, {
     httpOnly: true,
