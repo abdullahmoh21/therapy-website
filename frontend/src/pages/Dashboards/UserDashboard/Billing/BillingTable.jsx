@@ -9,7 +9,7 @@ import {
   BiInfoCircle,
 } from "react-icons/bi";
 import ExpandedRowContent from "./ExpandedRowContent";
-import { renderIcon } from "./billingUtils.jsx"; // Assuming renderIcon is for payment status
+import { renderIcon, getStatusDisplay } from "./billingUtils.jsx";
 
 const BillingTable = ({
   paymentsData, // These are booking objects
@@ -20,27 +20,16 @@ const BillingTable = ({
 }) => {
   const statusBodyTemplate = (rowData) => {
     // rowData is a booking object.
-    // transactionStatusDisplay is on rowData, derived from rowData.payment.transactionStatus
-    if (!rowData || !rowData.transactionStatusDisplay) {
-      // Fallback if payment object or status is missing
-      if (rowData.payment && rowData.payment.transactionStatus) {
-        // This case should be handled by transformResponse, but as a safeguard:
-        const { icon, text, color } = getStatusDisplay(
-          rowData.payment.transactionStatus
-        ); // You'd need getStatusDisplay here
-        return (
-          <span
-            className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium ${color}`}
-          >
-            {renderIcon(icon)}{" "}
-            {/* Ensure renderIcon can handle the icon component directly */}
-            <span className="ml-1">{text}</span>
-          </span>
-        );
-      }
+    // Payment status is in rowData.payment.transactionStatus
+    if (!rowData || !rowData.payment || !rowData.payment.transactionStatus) {
       return <span>--</span>;
     }
-    const { icon, text, color } = rowData.transactionStatusDisplay;
+
+    // Import and use getStatusDisplay directly from billingUtils
+    const { icon, text, color } = getStatusDisplay(
+      rowData.payment.transactionStatus
+    );
+
     return (
       <span
         className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium ${color}`}
@@ -126,7 +115,7 @@ const BillingTable = ({
         className="p-datatable-sm"
         onRowClick={(e) => {
           // Allow clicking row to expand
-          if (e.originalEvent.target.closest("button, a")) return; // Don't toggle if click was on a button/link
+          if (e.originalEvent.target.closest("button, a")) return;
           onRowToggle(e.data);
         }}
         rowClassName="cursor-pointer hover:bg-gray-50"
@@ -149,24 +138,13 @@ const BillingTable = ({
         <Column
           field="customerBookingId" // This is booking.bookingId (numeric) from transformResponse
           header="Booking ID"
-          sortable
           style={{ minWidth: "10rem" }}
           headerClassName="bg-gray-50 text-gray-600 text-xs uppercase font-medium px-4 py-3"
           bodyClassName="px-4 py-3 text-sm text-gray-700"
         />
         <Column
-          field="eventName" // Added eventName column
-          header="Event Name"
-          sortable
-          style={{ minWidth: "14rem" }}
-          headerClassName="bg-gray-50 text-gray-600 text-xs uppercase font-medium px-4 py-3"
-          bodyClassName="px-4 py-3 text-sm text-gray-700"
-          body={(rowData) => rowData.eventName || "--"}
-        />
-        <Column
           field="formattedEventStartTime" // This is pre-formatted
           header="Session Date/Time"
-          sortable
           sortField="eventStartTime" // Sort by actual date object if possible
           style={{ minWidth: "14rem" }}
           headerClassName="bg-gray-50 text-gray-600 text-xs uppercase font-medium px-4 py-3"
@@ -176,7 +154,6 @@ const BillingTable = ({
           field="status" // This is booking.status
           header="Booking Status"
           body={bookingStatusBodyTemplate}
-          sortable
           style={{ minWidth: "12rem" }}
           headerClassName="bg-gray-50 text-gray-600 text-xs uppercase font-medium px-4 py-3"
           bodyClassName="px-4 py-3 text-sm text-gray-700"
@@ -185,7 +162,6 @@ const BillingTable = ({
           // field="payment.transactionStatus" // Sort by actual payment transaction status
           header="Payment Status"
           body={statusBodyTemplate} // Uses rowData.transactionStatusDisplay
-          sortable
           sortField="payment.transactionStatus" // Correct sort field
           style={{ minWidth: "12rem" }}
           headerClassName="bg-gray-50 text-gray-600 text-xs uppercase font-medium px-4 py-3"
@@ -195,7 +171,6 @@ const BillingTable = ({
           field="payment.amount" // Field for sorting
           header="Amount"
           body={amountBodyTemplate} // Custom body for formatting
-          sortable
           style={{ minWidth: "10rem" }}
           headerClassName="bg-gray-50 text-gray-600 text-xs uppercase font-medium px-4 py-3"
           bodyClassName="px-4 py-3 text-sm text-gray-700"

@@ -1,7 +1,7 @@
 import React from "react";
 import { BiLoaderAlt, BiErrorCircle, BiCalendar } from "react-icons/bi";
 import { toast } from "react-toastify";
-import { useGetNoticePeriodQuery } from "../../features/bookings/bookingApiSlice";
+import { useGetNoticePeriodQuery } from "../../../../features/bookings/bookingApiSlice";
 
 const DashboardHeader = ({
   userData,
@@ -48,8 +48,8 @@ const DashboardHeader = ({
             Here's your upcoming schedule
           </p>
           <p className="text-textColor mt-1">
-            Online payment is optional; you can also pay in cash during your
-            session
+            Online payment is optional; you can also pay in cash or via a bank
+            transfer during your session
           </p>
           {showNoticePeriod && (
             <p className="text-textColor">

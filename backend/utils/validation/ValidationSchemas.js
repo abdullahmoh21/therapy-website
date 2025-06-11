@@ -10,12 +10,15 @@ const validPhone = Joi.string().custom((value, helpers) => {
 
 //for route: /auth/register
 const baseSchema = {
-  email: Joi.string().email().required().messages({
-    "string.base": "Email must be a string",
-    "string.empty": "Email is required",
-    "string.email": "Email must be a valid email address",
-    "any.required": "Email is required",
-  }),
+  email: Joi.string()
+    .email({ tlds: { allow: true } })
+    .required()
+    .messages({
+      "string.base": "Email must be a string",
+      "string.empty": "Email is required",
+      "string.email": "Email must be a valid email address",
+      "any.required": "Email is required",
+    }),
   password: Joi.string()
     .pattern(new RegExp("^[a-zA-Z0-9#$%^&*()_+!]{8,30}$"))
     .required()
@@ -94,7 +97,9 @@ const userSchema = Joi.alternatives().try(schemaWithToken, schemaWithEvents);
 
 //for route /auth
 const loginSchema = Joi.object({
-  email: Joi.string().email().required(),
+  email: Joi.string()
+    .email({ tlds: { allow: true } })
+    .required(),
   password: Joi.string().required(),
 });
 
@@ -109,13 +114,19 @@ const updateMyUser = Joi.object({
 
 // for route: /forgotPassword and /deleteUser_ADMIN
 const emailSchema = Joi.object({
-  email: Joi.string().email().required(),
+  email: Joi.string()
+    .email({ tlds: { allow: true } })
+    .required(),
 });
 
 // for route: /users/verifyEmail
 const tokenOrEmailSchema = Joi.alternatives().try(
   Joi.object({ token: Joi.string().length(40).required() }).unknown(),
-  Joi.object({ email: Joi.string().email().required() }).unknown()
+  Joi.object({
+    email: Joi.string()
+      .email({ tlds: { allow: true } })
+      .required(),
+  }).unknown()
 );
 
 const tokenSchema = Joi.object({
@@ -136,7 +147,9 @@ const passwordSchema = Joi.object({
 // for route: /contactMe
 const ContactMeSchema = Joi.object({
   name: Joi.string().min(3).max(30).required(),
-  email: Joi.string().email().required(),
+  email: Joi.string()
+    .email({ tlds: { allow: true } })
+    .required(),
   phone: validPhone,
   message: Joi.string().min(10).max(500).required(),
   type: Joi.string().required(),

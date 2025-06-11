@@ -32,24 +32,8 @@ export const paymentsApiSlice = apiSlice.injectEndpoints({
         return response.status === 200 && !result.isError;
       },
     }),
-    sendRefundRequest: builder.mutation({
-      query: (data) => ({
-        url: "/payments/refund",
-        method: "POST",
-        body: data,
-      }),
-      validateStatus: (response, result) => {
-        if (response.status === undefined) {
-          return false;
-        }
-        return response.status === 200 && !result.isError;
-      },
-    }),
   }),
 });
 
-export const {
-  useGetPaymentQuery,
-  useSendRefundRequestMutation,
-  useGetPaymentLinkMutation,
-} = paymentsApiSlice;
+export const { useGetPaymentQuery, useGetPaymentLinkMutation } =
+  paymentsApiSlice;

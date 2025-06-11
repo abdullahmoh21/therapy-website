@@ -21,6 +21,7 @@ router
 router.use(verifyJWT);
 
 router.route("/").get(redisCaching(), bookingController.getActiveBookings);
+router.route("/all").get(redisCaching(), bookingController.getAllMyBookings);
 
 router
   .route("/:bookingId")
