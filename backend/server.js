@@ -32,12 +32,6 @@ async function bootstrap() {
   }
 
   try {
-    await Config.initializeConfig();
-  } catch (err) {
-    logger.error(`Config init failed, using defaults: ${err.message}`);
-  }
-
-  try {
     calendlyOk = await connectCalendly();
     if (!calendlyOk) throw new Error("webhook not live");
   } catch (err) {
@@ -59,6 +53,12 @@ async function bootstrap() {
     if (process.env.NODE_ENV === "production") {
       await sendAdminAlert("redisDisconnectedInitial").catch(() => {});
     }
+  }
+
+  try {
+    await Config.initializeConfig();
+  } catch (err) {
+    logger.error(`Config init failed, using defaults: ${err.message}`);
   }
 
   initializeQueue();
@@ -108,7 +108,7 @@ app.use(compression());
 app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 app.use(cookieParser());
-app.use(credentials);
+app.use(credentials); // This MUST come before cors middleware
 app.use(cors(require("./config/corsOptions")));
 
 // Routes

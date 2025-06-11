@@ -11,6 +11,7 @@ module.exports = {
   getAllUsers: userController.getAllUsers,
   deleteUser: userController.deleteUser,
   updateUser: userController.updateUser,
+  getUserDetails: userController.getUserDetails,
 
   // Invitation controller functions
   inviteUser: invitationController.inviteUser,
@@ -20,16 +21,19 @@ module.exports = {
 
   // Booking controller functions
   getAllBookings: bookingController.getAllBookings,
+  getBookingTimeline: bookingController.getBookingTimeline,
   updateBooking: bookingController.updateBooking,
   deleteBooking: bookingController.deleteBooking,
+  getBookingDetails: bookingController.getBookingDetails,
 
   // Payment controller functions
   getAllPayments: paymentController.getAllPayments,
-  updatePayment: paymentController.updatePayment,
-  markCashPaid: paymentController.markCashPaid,
+  markAsPaid: paymentController.markAsPaid,
 
   // Metrics controller functions
-  getStatistics: metricsController.getStatistics,
+  getGeneralMetrics: metricsController.getGeneralMetrics,
+  getMonthlyMetrics: metricsController.getMonthlyMetrics,
+  getYearlyMetrics: metricsController.getYearlyMetrics,
 
   // System controller functions
   getSystemHealth: systemController.getSystemHealth,

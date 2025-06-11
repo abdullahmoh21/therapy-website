@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { joiResolver } from "@hookform/resolvers/joi";
 import Joi from "joi";
@@ -7,18 +7,42 @@ import "react-toastify/dist/ReactToastify.css";
 import { InputText } from "primereact/inputtext";
 import { Dropdown } from "primereact/dropdown";
 import { Button } from "primereact/button";
-import { PrimeIcons } from "primereact/api";
 import { useContactMeMutation } from "../../../features/users/usersApiSlice";
-import { PhoneInput } from "react-international-phone";
-import { isValidNumber } from "libphonenumber-js";
-import "react-international-phone/style.css";
+import { parsePhoneNumberFromString } from "libphonenumber-js";
 import "./ContactMe.css";
 
 const validPhone = Joi.string().custom((value, helpers) => {
-  if (!isValidNumber(value)) {
-    return helpers.message("Phone number must be a valid international number");
+  // Remove any spaces or non-digit characters except +
+  const cleanedValue = value.replace(/[^\d+]/g, "");
+
+  // Ensure it starts with +
+  if (!cleanedValue.startsWith("+")) {
+    return helpers.message(
+      "Phone number must start with + followed by country code"
+    );
   }
-  return value;
+
+  // Simple check for reasonable length (international numbers are typically 7-15 digits plus country code)
+  if (cleanedValue.length < 8) {
+    return helpers.message("Phone number is too short");
+  }
+  if (cleanedValue.length > 16) {
+    return helpers.message("Phone number is too long");
+  }
+
+  // Use the library for additional validation
+  try {
+    const phoneNumber = parsePhoneNumberFromString(cleanedValue);
+    if (phoneNumber && !phoneNumber.isValid()) {
+      return helpers.message(
+        "Invalid phone number format. Please check country code and number"
+      );
+    }
+  } catch (error) {
+    // If parsing fails, we'll rely on our basic validation
+  }
+
+  return cleanedValue;
 }, "Phone number validation");
 
 const schema = Joi.object({
@@ -56,15 +80,47 @@ const schema = Joi.object({
     }),
 });
 
-const ContactMe = () => {
+const ContactMe = ({ closePopup }) => {
   const [contactMe, { isLoading }] = useContactMeMutation();
   const {
     control,
     handleSubmit,
-    formState: { errors },
+    setValue,
+    formState: { errors, isSubmitting },
+    reset,
   } = useForm({
     resolver: joiResolver(schema),
+    defaultValues: {
+      phone: "+92", // Default to Pakistan country code
+    },
   });
+
+  // Reference for the phone input
+  const phoneInputRef = useRef(null);
+
+  // Flag to track if the prefix is already showing
+  const [phoneHasPrefix, setPhoneHasPrefix] = useState(false);
+
+  // Initialize phone with +92 prefix if not already set
+  useEffect(() => {
+    if (!phoneHasPrefix) {
+      setValue("phone", "+92");
+      setPhoneHasPrefix(true);
+    }
+  }, [setValue, phoneHasPrefix]);
+
+  // Handle phone input to prevent deleting the + sign
+  const handlePhoneKeyDown = (e) => {
+    // Prevent deleting the "+" prefix only
+    if (
+      e.key === "Backspace" &&
+      (e.target.selectionStart <= 1 ||
+        (e.target.selectionStart === e.target.selectionEnd &&
+          e.target.selectionStart <= 1))
+    ) {
+      e.preventDefault();
+    }
+  };
 
   const requestTypes = [
     { label: "General Inquiry", value: "General" },
@@ -74,14 +130,25 @@ const ContactMe = () => {
 
   const onSubmit = async (data) => {
     try {
-      await contactMe({
+      // Using await here to catch any errors
+      const response = await contactMe({
         name: data.name,
         phone: data.phone,
         email: data.email,
         message: data.message,
         type: data.requestType,
       }).unwrap();
+
+      // Display success message
       toast.success("Message sent successfully!");
+
+      // Reset the form
+      reset();
+
+      // Close the popup if closePopup function is provided
+      if (typeof closePopup === "function") {
+        closePopup();
+      }
     } catch (error) {
       if (error.status >= 400 && error.status < 500) {
         toast.error("Client error: Failed to send message");
@@ -132,24 +199,35 @@ const ContactMe = () => {
             name="phone"
             control={control}
             render={({ field: { onChange, onBlur, value, name } }) => (
-              <PhoneInput
-                {...{ onChange, onBlur, value, name }}
-                defaultCountry="pk"
-                autoComplete="off"
-                className={`mt-1 pl-[5px] h-[42px] w-full border rounded bg-white ${
+              <input
+                id="phone"
+                type="tel"
+                value={value}
+                onChange={(e) => {
+                  // Ensure the + sign remains at the beginning
+                  let phoneValue = e.target.value;
+                  if (!phoneValue.startsWith("+")) {
+                    phoneValue = "+" + phoneValue.replace(/^\+/, "");
+                  }
+                  onChange(phoneValue);
+                }}
+                onBlur={onBlur}
+                name={name}
+                onKeyDown={handlePhoneKeyDown}
+                ref={phoneInputRef}
+                placeholder="+92 XXX XXXXXXX"
+                className={`w-full p-2 border rounded ${
                   errors.phone ? "border-red-500" : "border-gray-300"
                 }`}
-                style={{
-                  "--react-international-phone-border-color": "transparent",
-                  "--react-international-phone-font-size": "16px",
-                }}
               />
             )}
           />
-
           {errors.phone && (
             <p className="text-red-500 text-sm mt-1">{errors.phone.message}</p>
           )}
+          <span className="text-xs text-gray-500 mt-1">
+            Format: +[country code] phone number (e.g. +92 for Pakistan)
+          </span>
         </div>
         <div className="mb-4">
           <label
@@ -239,10 +317,10 @@ const ContactMe = () => {
 
         <Button
           type="submit"
+          disabled={isLoading || isSubmitting}
           className={`w-32 p-2 bg-lightPink text-white rounded-full mx-auto block ${
-            isLoading ? "pi pi-spin pi-spinner" : ""
+            isLoading ? "pi pi-spin pi-spinner opacity-70" : ""
           }`}
-          // Add mb-6 for spacing at the bottom on mobile when it's full screen
           style={{ marginBottom: "1.5rem" }}
         >
           {isLoading ? "Sending..." : "Send"}

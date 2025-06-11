@@ -12,50 +12,45 @@ const ConfirmationModal = ({
 }) => {
   if (!isOpen) return null;
 
-  // Prevent clicks from propagating to parent elements
-  const handleContainerClick = (e) => {
-    e.stopPropagation();
-  };
+  const handleContainerClick = (e) => e.stopPropagation();
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4"
       onClick={onClose}
     >
       <div
-        className="max-w-md w-full bg-white dark:bg-secondary-800 rounded-xl shadow-xl border-2 border-danger-500 dark:border-danger-600 animate-scale-in"
+        className="w-full max-w-xl rounded-xl border-2 border-lightPink/20 bg-white shadow-panelShadow animate-scale-in"
         onClick={handleContainerClick}
       >
-        <div className="flex items-start justify-between p-5 border-b border-gray-200 dark:border-gray-700">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4 rounded-t-xl bg-whiteBg/50 px-6 py-4">
           <div className="flex items-center">
-            <FaExclamationTriangle className="mr-3 h-6 w-6 text-danger-600 dark:text-danger-400" />
-            <h3 className="text-xl font-bold text-secondary-900 dark:text-white">
-              {title}
-            </h3>
+            <FaExclamationTriangle className="mr-3 h-6 w-6 text-lightPink" />
+            <h3 className="text-lg font-semibold text-headingColor">{title}</h3>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-full hover:bg-secondary-100 dark:hover:bg-secondary-700 text-secondary-500 dark:text-secondary-400 transition-colors"
+            className="rounded-full p-2 text-textColor hover:bg-lightPink/10 hover:text-headingColor transition-colors"
           >
             <FaTimes size={18} />
           </button>
         </div>
 
-        <div className="p-5">
-          <p className="text-secondary-700 dark:text-secondary-300">
-            {message}
-          </p>
+        {/* Body */}
+        <div className="px-6 py-5">
+          <p className="text-base text-textColor">{message}</p>
 
           <div className="mt-6 flex flex-row-reverse gap-3">
             <button
               onClick={onConfirm}
-              className="px-4 py-2.5 bg-danger-600 hover:bg-danger-700 text-white rounded-lg transition-colors font-medium shadow-sm"
+              className="rounded-lg bg-lightPink px-4 py-2.5 font-medium text-white transition-colors hover:bg-lightPink/90"
             >
               {confirmText}
             </button>
             <button
               onClick={onClose}
-              className="px-4 py-2 text-secondary-700 dark:text-secondary-300 hover:text-primary-600 dark:hover:text-primary-400 bg-white dark:bg-secondary-800 border border-secondary-200 dark:border-secondary-700 hover:border-primary-400 dark:hover:border-primary-600 rounded-lg transition-all font-medium"
+              className="rounded-lg border border-lightPink/20 bg-white px-4 py-2 font-medium text-buttonTextBlack transition-all hover:border-lightPink hover:text-lightPink"
             >
               {cancelText}
             </button>

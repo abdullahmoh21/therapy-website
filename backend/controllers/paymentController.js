@@ -6,7 +6,7 @@ const Booking = require("../models/Booking");
 const logger = require("../logs/logger");
 const Config = require("../models/Config"); // Import Config model
 const { sendEmail } = require("../utils/myQueue");
-const { invalidateCache } = require("../middleware/redisCaching");
+const { invalidateByEvent } = require("../middleware/redisCaching");
 
 //production: change to main api
 const safepay = new Safepay({
@@ -92,7 +92,7 @@ const handleSafepayWebhook = asyncHandler(async (req, res) => {
     }
   }
 
-  invalidateCache("/bookings", payment.userId);
+  await invalidateByEvent("payment-updated", payment.userId);
 
   console.log(
     `Payment document updated for tracker: ${tracker}/n ${JSON.stringify(
@@ -179,102 +179,6 @@ const refundSchema = Joi.object({
   bookingId: Joi.string().required(),
 });
 
-//@desc sends a refund request to admin for approval
-//@param valid tracker token
-//@route POST /payments/refund
-//@access Private
-const refundRequest = asyncHandler(async (req, res) => {
-  const { paymentId, bookingId } = req.body;
-
-  const { error } = refundSchema.validate({ paymentId, bookingId });
-  if (error) return res.status(400).json({ message: error.details[0].message });
-
-  // Fetch admin email from config
-  const adminEmail = await Config.getValue("adminEmail");
-  if (!adminEmail) {
-    logger.error(
-      "Admin email not found in config. Cannot process refund request."
-    );
-    return res
-      .status(500)
-      .json({ message: "Server configuration error: Admin email not set." });
-  }
-
-  // Find the corresponding Payment and Booking documents
-  const [payment, booking] = await Promise.all([
-    Payment.findOne({ _id: paymentId }).exec(),
-    Booking.findOne({ _id: bookingId }).lean().exec(),
-  ]);
-
-  // Check if both documents exist and _id's match
-  if (
-    !booking ||
-    !payment ||
-    !booking.paymentId ||
-    !payment._id ||
-    booking.paymentId.toString() !== payment._id.toString()
-  ) {
-    return res.status(400).end(); // Bad Request
-  }
-
-  if (payment.transactionStatus !== "Completed") {
-    return res.status(400).json({
-      message: "Refunds can only be processed for completed payments",
-    });
-  }
-  const currentTime = new Date();
-  const seventyTwoHoursBeforeBooking = new Date(
-    booking.eventStartTime.getTime() - 72 * 60 * 60 * 1000
-  );
-  const rawCutoff = await Config.getValue("cancelCutoffDays");
-  const cutoffDays = parseInt(rawCutoff, 10);
-  if (isNaN(cutoffDays)) {
-    logger.error(`Invalid cancelCutoffDays config: ${rawCutoff}`);
-    return res
-      .status(500)
-      .json({ message: "Server config error: invalid cutoff" });
-  }
-  const now = new Date();
-  const cutoffMillis = cutoffDays * 24 * 60 * 60 * 1000;
-  const cutoffDeadline = new Date(
-    booking.eventStartTime.getTime() - cutoffMillis
-  );
-
-  if (now >= cutoffDeadline) {
-    return res.status(400).json({
-      message: `Refunds can only be requested when booking was cancelled at least ${cutoffDays} days before the booking.`,
-    });
-  }
-  // Check if the current time is 72 hours before the booking's start time
-  if (currentTime >= seventyTwoHoursBeforeBooking) {
-    return res.status(400).json({
-      message:
-        "Refunds can only be processed if cancellation is made 72 hours before the booking start time",
-    });
-  }
-
-  const emailJobData = {
-    // pass fetched data to email job
-    payment: payment,
-    booking: booking,
-    recipient: adminEmail, // Use fetched admin email
-    updatePaymentStatus: true, //worker will update payment status to 'Refund Requested'
-  };
-  try {
-    await sendEmail("refundRequest", emailJobData);
-  } catch (error) {
-    logger.error(
-      `Error adding refund request job to queue. Sending manually: ${error}`
-    );
-    return res.sendStatus(500);
-  }
-  payment.refundRequestedDate = new Date();
-  payment.save();
-  return res
-    .status(200)
-    .json({ message: "Refund request has been added to the queue " });
-});
-
 const getPayment = asyncHandler(async (req, res) => {
   const { paymentId } = req.params;
 
@@ -288,7 +192,7 @@ const getPayment = asyncHandler(async (req, res) => {
   })
     .lean()
     .select(
-      "_id transactionReferenceNumber amount currency transactionStatus paymentCompletedDate paymentRefundedDate refundRequestedDate"
+      "_id transactionReferenceNumber paymentMethod amount currency transactionStatus paymentCompletedDate paymentRefundedDate refundRequestedDate"
     )
     .exec();
 
@@ -302,6 +206,5 @@ const getPayment = asyncHandler(async (req, res) => {
 module.exports = {
   handleSafepayWebhook,
   createPayment,
-  refundRequest,
   getPayment,
 };

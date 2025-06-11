@@ -19,6 +19,11 @@ const customLevels = {
   },
 };
 
+// Custom format for console output
+const consoleFormat = winston.format.printf(({ level, message, timestamp }) => {
+  return `${timestamp} [${level}]: ${message}`;
+});
+
 // Custom format for HTTP requests
 const httpLogFormat = winston.format.printf(({ level, message, timestamp }) => {
   if (level === "http") {
@@ -38,6 +43,9 @@ const httpOnlyFilter = winston.format((info, opts) => {
   return info.level === "http" ? info : false;
 });
 
+// Add colors to console output
+winston.addColors(customLevels.colors);
+
 // Create the base logger with all functionality
 const baseLogger = winston.createLogger({
   levels: customLevels.levels,
@@ -46,25 +54,25 @@ const baseLogger = winston.createLogger({
       format: "YYYY-MM-DD HH:mm:ss",
     }),
     winston.format.errors({ stack: true }),
-    winston.format.splat(),
-    winston.format.json()
+    winston.format.splat()
   ),
   transports: [
-    // Console transport with custom format
+    // Console transport with readable format
     new winston.transports.Console({
       level: "success",
-      format: winston.format.combine(winston.format.colorize()),
+      format: winston.format.combine(
+        winston.format.colorize(),
+        consoleFormat
+      ),
     }),
-    // Error log file transport
+    // Error log file transport with JSON format
     new winston.transports.File({
       filename: "logs/errors.log",
       level: "error",
+      format: winston.format.json()
     }),
   ],
 });
-
-// Add colors to console output
-winston.addColors(customLevels.colors);
 
 // Create a production logger that only processes error logs
 const createProductionLogger = (logger) => {

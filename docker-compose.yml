@@ -46,8 +46,10 @@ services:
 
   redis:
     image: eqalpha/keydb:latest
+    command: ["keydb-server", "/etc/keydb/keydb.conf"]
     volumes:
       - redis-data:/data
+      - ./keydb/keydb.conf:/etc/keydb/keydb.conf:ro
     networks:
       - app-network
     restart: unless-stopped

@@ -66,12 +66,19 @@ const ForgotPassword = () => {
           {isLoading ? "Sending..." : "Continue"}
         </button>
       </form>
-      <p className="mt-4 text-center text-textColor">
-        Don't have an account?{" "}
-        <Link to="/consultation" className="text-[#c45e3e] underline">
-          Book a free consultation
-        </Link>
-      </p>
+      <div className="mt-4 text-center text-textColor">
+        <p className="mb-2">
+          <Link to="/signin" className="text-[#c45e3e] underline">
+            Back to Sign In
+          </Link>
+        </p>
+        <p>
+          Don't have an account?{" "}
+          <Link to="/consultation" className="text-[#c45e3e] underline">
+            Book a free consultation
+          </Link>
+        </p>
+      </div>
     </div>
   );
 };

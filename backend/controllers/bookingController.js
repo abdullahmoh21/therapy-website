@@ -2,11 +2,12 @@ const crypto = require("crypto");
 const logger = require("../logs/logger");
 const asyncHandler = require("express-async-handler");
 const axios = require("axios");
-const { invalidateCache } = require("../middleware/redisCaching");
+const mongoose = require("mongoose");
+const { invalidateByEvent } = require("../middleware/redisCaching");
+const { sendEmail } = require("../utils/myQueue");
 const User = require("../models/User");
 const Booking = require("../models/Booking");
 const Payment = require("../models/Payment");
-const TemporaryBooking = require("../models/TemporaryBooking");
 const Config = require("../models/Config");
 const ShortUniqueId = require("short-unique-id");
 const uid = new ShortUniqueId({ length: 5 });
@@ -191,7 +192,9 @@ async function createBooking({
   payment.bookingId = booking._id;
   await Promise.all([booking.save(), payment.save()]);
 
-  await Promise.all([invalidateCache("/bookings", userId)]);
+  await invalidateByEvent("booking-created", {
+    userId: userId,
+  });
 }
 
 async function cancelBooking({
@@ -213,9 +216,10 @@ async function cancelBooking({
   booking.cancellation.date = new Date(cancellationDate);
 
   await booking.save();
-  await invalidateCache("/bookings", booking.userId);
-
-  logger.info(`Booking cancelled locally for email ${booking.email}`);
+  await invalidateByEvent("booking-updated", {
+    userId: booking.userId,
+  });
+  await processRefundRequest(booking);
 }
 
 async function deleteEvent(eventURI, reasonText = "No user found") {
@@ -230,6 +234,123 @@ async function deleteEvent(eventURI, reasonText = "No user found") {
   };
   await axios.request(options);
   logger.info(`Event deleted: ${eventURI} – ${reasonText}`);
+}
+
+async function processRefundRequest(booking) {
+  // Only proceed if booking has a payment ID
+  if (!booking.paymentId) {
+    logger.debug(
+      `No payment ID found for booking ${booking._id}. Skipping refund processing.`
+    );
+    return;
+  }
+
+  // Fetch admin email from config
+  const adminEmail = await Config.getValue("adminEmail");
+  if (!adminEmail) {
+    logger.error(
+      "Admin email not found in config. Cannot process refund processing."
+    );
+    return;
+  }
+
+  // Find the corresponding Payment document
+  const payment = await Payment.findOne({ _id: booking.paymentId }).exec();
+
+  // Check if payment exists and is completed
+  if (!payment) {
+    logger.debug(
+      `No payment found for booking ${booking._id}. Skipping refund processing.`
+    );
+    return;
+  }
+
+  if (payment.transactionStatus !== "Completed") {
+    logger.debug(
+      `Payment for booking ${booking._id} is not completed. Status: ${payment.transactionStatus}. Skipping refund.`
+    );
+    return;
+  }
+
+  // Check if the cancellation is within the allowed time period
+  const currentTime = new Date();
+  const rawCutoff = await Config.getValue("cancelCutoffDays");
+  const cutoffDays = parseInt(rawCutoff, 10);
+
+  if (isNaN(cutoffDays)) {
+    logger.error(`Invalid cancelCutoffDays config: ${rawCutoff}`);
+    return;
+  }
+
+  const cutoffMillis = cutoffDays * 24 * 60 * 60 * 1000;
+  const cutoffDeadline = new Date(
+    booking.eventStartTime.getTime() - cutoffMillis
+  );
+
+  // Fetch user data for the email
+  const user = await User.findById(booking.userId).lean().exec();
+  if (!user) {
+    logger.error(`User not found for booking ${booking._id}.`);
+    return;
+  }
+
+  // Prepare common email data
+  const emailJobData = {
+    payment: payment,
+    booking: booking,
+    recipient: adminEmail,
+    updatePaymentStatus: true,
+    name: `${user.firstName} ${user.lastName}`,
+    userEmail: user.email,
+    bookingId: booking._id.toString(),
+    eventDate: new Date(booking.eventStartTime).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }),
+    eventTime: new Date(booking.eventStartTime).toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
+    cancelledBy: booking.cancellation.cancelledBy,
+    paymentAmount: payment.amount,
+    paymentStatus: payment.transactionStatus,
+    paymentCompleted: payment.paymentCompletedDate
+      ? new Date(payment.paymentCompletedDate).toLocaleDateString()
+      : "N/A",
+    transactionReferenceNumber: payment.transactionReferenceNumber,
+    cancelCutoffDays: cutoffDays,
+    refundLink: `${process.env.SAFEPAY_DASHBOARD_URL}`,
+    isAdmin: booking.cancellation.cancelledBy === "Admin",
+    frontend_url: process.env.FRONTEND_URL || "https://fatimatherapy.com",
+  };
+
+  try {
+    // Determine if it's a late cancellation or not
+    if (currentTime >= cutoffDeadline) {
+      // Late cancellation - send late cancellation notification
+      logger.debug(
+        `Cancellation for booking ${booking._id} is past the ${cutoffDays}-day cutoff. Sending late cancellation email.`
+      );
+
+      await sendEmail("lateCancellation", emailJobData);
+      logger.info(
+        `Late cancellation notification email sent for booking ${booking._id}, payment ${payment._id}`
+      );
+    } else {
+      // Regular cancellation within policy - send cancellation notification with refund info
+      await sendEmail("cancellationNotification", emailJobData);
+      payment.refundRequestedDate = new Date();
+      await payment.save();
+      logger.info(
+        `Cancellation notification email sent for booking ${booking._id}, payment ${payment._id}`
+      );
+    }
+  } catch (error) {
+    logger.error(
+      `Error sending cancellation email for booking ${booking._id}: ${error}`
+    );
+  }
 }
 // ----------------------------- End Webhook Helper Functions ----------------------------- //
 
@@ -298,6 +419,7 @@ const getActiveBookings = asyncHandler(async (req, res) => {
       status: "Active",
       eventEndTime: { $gt: new Date().getTime() },
     })
+      .sort({ eventStartTime: 1 }) // Sort by eventStartTime ascending (closest first)
       .select(
         "bookingId eventStartTime eventEndTime eventName status location cancelURL"
       )
@@ -346,6 +468,176 @@ const getActiveBookings = asyncHandler(async (req, res) => {
   res.json(bookingsWithPaymentDetails);
 });
 
+//@desc returns booking documents with payment and booking details with filters and searching
+//@param valid user jwt token
+//@route GET /user/bookings
+//@access Private
+const getAllMyBookings = asyncHandler(async (req, res) => {
+  const userId = new mongoose.Types.ObjectId(req.user.id);
+  let page = parseInt(req.query.page, 10) || 1;
+  if (page < 1) page = 1; // Ensure page is not less than 1
+  const limit = parseInt(req.query.limit, 10) || 10;
+  const {
+    search,
+    transactionRef,
+    paymentStatus,
+    startDate,
+    endDate,
+    location,
+  } = req.query;
+  const skip = (page - 1) * limit;
+
+  const query = { userId };
+
+  // Search by Booking ID (customerBookingId)
+  if (search) {
+    if (!isNaN(search)) {
+      query.bookingId = parseInt(search, 10);
+    } else {
+      query.bookingId = -1; // No booking will have ID -1
+    }
+  }
+
+  // Date filtering using startDate and endDate parameters
+  if (startDate && endDate) {
+    try {
+      const parsedStartDate = new Date(startDate);
+      const parsedEndDate = new Date(endDate);
+
+      if (isNaN(parsedStartDate.getTime()) || isNaN(parsedEndDate.getTime())) {
+        return res
+          .status(400)
+          .json({ message: "Invalid date format provided." });
+      }
+
+      query.eventStartTime = { $gte: parsedStartDate, $lte: parsedEndDate };
+    } catch (e) {
+      logger.error(`Error parsing date parameters: ${e.message}`);
+      return res.status(400).json({ message: "Invalid date parameters." });
+    }
+  }
+
+  // Location filtering
+  if (location && (location === "online" || location === "in-person")) {
+    query["location.type"] = location;
+  }
+
+  const aggregatePipeline = [
+    {
+      $match: {
+        ...query,
+        eventStartTime: { ...query.eventStartTime, $lt: new Date() }, // ensures eventStartTime is in the past
+      },
+    }, // Initial match on booking fields
+    {
+      $lookup: {
+        from: "payments",
+        let: { pid: "$paymentId" },
+        pipeline: [
+          { $match: { $expr: { $eq: ["$_id", "$$pid"] } } },
+          {
+            $project: {
+              _id: 1,
+              amount: 1,
+              transactionStatus: 1,
+              currency: 1,
+              transactionReferenceNumber: 1, // Add this field to projection
+            },
+          },
+        ],
+        as: "payment",
+      },
+    },
+    { $unwind: { path: "$payment", preserveNullAndEmptyArrays: true } },
+  ];
+
+  // Filter by payment transaction reference if provided
+  if (transactionRef) {
+    // Remove "T-" prefix if present
+    const searchRefNumber = transactionRef.startsWith("T-")
+      ? transactionRef.substring(2)
+      : transactionRef;
+
+    // Add a match stage for transaction reference number
+    aggregatePipeline.push({
+      $match: {
+        $or: [
+          { "payment.transactionReferenceNumber": searchRefNumber },
+          {
+            "payment.transactionReferenceNumber": new RegExp(
+              searchRefNumber,
+              "i"
+            ),
+          }, // Case insensitive search
+        ],
+      },
+    });
+
+    logger.debug(`Filtering by transaction reference: ${searchRefNumber}`);
+  }
+
+  // Filter by paymentStatus if provided
+  if (paymentStatus) {
+    aggregatePipeline.push({
+      $match: { "payment.transactionStatus": paymentStatus },
+    });
+  }
+
+  // Add sorting, $facet for pagination, and final $project
+  aggregatePipeline.push(
+    { $sort: { eventStartTime: -1 } },
+    {
+      $facet: {
+        metadata: [{ $count: "totalBookings" }],
+        data: [
+          { $skip: skip },
+          { $limit: limit },
+          {
+            $project: {
+              _id: 1,
+              eventStartTime: 1,
+              eventEndTime: 1,
+              bookingId: 1,
+              status: 1,
+              eventName: 1,
+              location: 1,
+              notes: 1,
+              cancellation: 1,
+              createdAt: 1,
+              payment: 1,
+            },
+          },
+        ],
+      },
+    },
+    { $unwind: { path: "$metadata", preserveNullAndEmptyArrays: true } },
+    {
+      $project: {
+        totalBookings: { $ifNull: ["$metadata.totalBookings", 0] },
+        bookings: "$data",
+      },
+    }
+  );
+
+  try {
+    const [result] = await Booking.aggregate(aggregatePipeline).exec();
+
+    const totalBookings = result?.totalBookings || 0;
+    const bookings = result?.bookings || [];
+
+    res.json({
+      page: page,
+      limit,
+      totalBookings,
+      totalPages: Math.ceil(totalBookings / limit),
+      bookings,
+    });
+  } catch (error) {
+    logger.error(`Error fetching bookings: ${error.message}`);
+    res.status(500).json({ message: "Error fetching bookings" });
+  }
+});
+
 //@desc returns a specific booking
 //@param {Object} req with valid email abd bookingId
 //@route GET /bookings:bookingId
@@ -379,4 +671,5 @@ module.exports = {
   getActiveBookings,
   getNewBookingLink,
   getBooking,
+  getAllMyBookings,
 };
