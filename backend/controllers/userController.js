@@ -186,7 +186,7 @@ const forgotPassword = asyncHandler(async (req, res) => {
     );
   }
 
-  const link = `${process.env.FRONTEND_URL}/resetPassword?token=${resetToken}`; //production: change to domain
+  const link = `${process.env.FRONTEND_URL}/resetPassword?token=${resetToken}`;
 
   let emailJobData = {
     name: user.name,

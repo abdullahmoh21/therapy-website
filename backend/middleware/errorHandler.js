@@ -13,8 +13,6 @@ const errorHandler = (err, req, res, next) => {
   res.json({ message: err.message, isError: true });
 };
 
-// production: uncomment
-
 process.on("uncaughtException", function (err) {
   logger.error(`[UNHANDLED EXCEPTION] ${err.name}: ${err.message}`, {
     stack: err.stack,
