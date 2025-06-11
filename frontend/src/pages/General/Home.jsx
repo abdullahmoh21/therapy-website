@@ -45,7 +45,7 @@ const Home = () => {
                   imageLoaded ? "opacity-100" : "opacity-0"
                 }`}
                 onLoad={() => setImageLoaded(true)}
-                onError={() => setImageLoaded(true)} // Prevent permanent skeleton on fail
+                onError={() => setImageLoaded(true)}
               />
             </div>
           </motion.div>
