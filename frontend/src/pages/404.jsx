@@ -17,12 +17,6 @@ const NotFound = () => {
           Either you typo’d the URL, or I tried to deploy without my chai again.
         </p>
 
-        <p className="text-md text-textColor mb-8 max-w-xl mx-auto">
-          If landing on this dead end stirs up <em>anything</em>, jot it down
-          for your next therapy session. My unpaid hours don’t include emotional
-          support.
-        </p>
-
         <div className="flex flex-col items-center mb-10">
           <p className="text-md text-textColor   mb-4">
             Since you’re here anyway, meet Maggie—the real boss around here.

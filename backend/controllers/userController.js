@@ -6,7 +6,10 @@ const asyncHandler = require("express-async-handler"); //middleware to handle ex
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const logger = require("../logs/logger");
-const { invalidateCache } = require("../middleware/redisCaching");
+const {
+  invalidateResourceCache,
+  invalidateByEvent,
+} = require("../middleware/redisCaching");
 const {
   myQueue,
   sendEmail,
@@ -70,7 +73,7 @@ const resendEvLink = asyncHandler(async (req, res) => {
   if (user.emailVerified.state) {
     return res.status(400).json({ message: "Email already verified" });
   }
-
+  logger.debug(`attempting to send ev link for: ${user.email}`);
   let link;
   // Check if token exists and not expired, else generate new token
   if (
@@ -89,6 +92,7 @@ const resendEvLink = asyncHandler(async (req, res) => {
     await user.save();
     link = `${process.env.FRONTEND_URL}/verifyEmail?token=${newToken}`;
   }
+  logger.debug(`link: ${link}`);
 
   // Prepare email job data
   const emailJobData = {
@@ -115,27 +119,35 @@ const resendEvLink = asyncHandler(async (req, res) => {
 const verifyEmail = asyncHandler(async (req, res) => {
   const { token } = req.body;
   if (!token) return res.status(400).send("Invalid request");
+
+  logger.info(
+    `Attempting to verify email with token: ${token.substring(0, 6)}...`
+  );
   const encryptedToken = encrypt(token);
+  logger.debug(`Encrypted token: ${encryptedToken.substring(0, 10)}...`);
 
   const user = await User.findOne(
     {
       "emailVerified.encryptedToken": encryptedToken,
       "emailVerified.expiresIn": { $gt: Date.now() }, //not expired
     },
-    "emailVerified,"
+    "emailVerified email"
   );
 
   if (!user) {
-    logger.error(`Invalid or expired verification token: ${token}`);
+    logger.error(
+      `Invalid or expired verification token: ${token.substring(0, 6)}...`
+    );
     return res
       .status(400)
       .json({ message: "Invalid or expired verification token" });
   }
+  if (user.emailVerified.state == true) {
+    return res.status(204).send();
+  }
 
-  console.log("Email verified!!");
-  user.emailVerified.state = true; //set email verified to true
-  user.emailVerified.hash = "";
-  user.emailVerified.expiresIn = undefined;
+  logger.info(`Email verified for user: ${user.email}!`);
+  user.emailVerified.state = true;
   await user.save();
 
   res.status(200).json({ message: "Email Verified!" });
@@ -260,183 +272,37 @@ const updateMyUser = asyncHandler(async (req, res) => {
       return obj;
     }, {});
 
+  // Check if phone number is being updated
+  if (updates.phone) {
+    // Check if phone number already exists for another user
+    const existingUser = await User.findOne({
+      phone: updates.phone,
+      _id: { $ne: userId }, // Exclude current user
+    });
+
+    if (existingUser) {
+      logger.debug(`Duplicate phone number detected: ${updates.phone}`);
+      return res.status(409).json({
+        message:
+          "This phone number is already registered with another account.",
+      });
+    }
+  }
+
   const updatedUser = await User.findOneAndUpdate({ _id: userId }, updates, {
     new: true,
     runValidators: true,
-  }).select("_id email phone role DOB name");
+  })
+    .select("_id email phone role DOB name")
+    .lean();
 
   if (!updatedUser) {
     return res.status(404).json({ message: "User not found" });
   }
-
-  logger.success(`User Updated! Invalidating User cache`);
-  invalidateCache(req.url, req.user.id);
+  logger.debug(`User Updated! Invalidating User cache for userId: ${userId}`);
+  const result = await invalidateByEvent("user-profile-updated", { userId });
+  logger.debug(`Cache invalidation result: ${result ? "Success" : "Failed"}`);
   return res.status(201).json(updatedUser);
-});
-
-//@desc returns booking documents with payment and booking details with filters and searching
-//@param valid user jwt token
-//@route GET /user/bookings
-//@access Private
-const getAllMyBookings = asyncHandler(async (req, res) => {
-  const userId = new mongoose.Types.ObjectId(req.user.id);
-  let page = parseInt(req.query.page, 10) || 1;
-  if (page < 1) page = 1; // Ensure page is not less than 1
-  const limit = parseInt(req.query.limit, 10) || 10;
-  const {
-    search,
-    transactionRef,
-    paymentStatus,
-    startDate,
-    endDate,
-    location,
-  } = req.query;
-  const skip = (page - 1) * limit;
-
-  const query = { userId };
-
-  // Search by Booking ID (customerBookingId)
-  if (search) {
-    if (!isNaN(search)) {
-      query.bookingId = parseInt(search, 10);
-    } else {
-      query.bookingId = -1; // No booking will have ID -1
-    }
-  }
-
-  // Date filtering using startDate and endDate parameters
-  if (startDate && endDate) {
-    try {
-      const parsedStartDate = new Date(startDate);
-      const parsedEndDate = new Date(endDate);
-
-      if (isNaN(parsedStartDate.getTime()) || isNaN(parsedEndDate.getTime())) {
-        return res
-          .status(400)
-          .json({ message: "Invalid date format provided." });
-      }
-
-      query.eventStartTime = { $gte: parsedStartDate, $lte: parsedEndDate };
-    } catch (e) {
-      logger.error(`Error parsing date parameters: ${e.message}`);
-      return res.status(400).json({ message: "Invalid date parameters." });
-    }
-  }
-
-  // Location filtering
-  if (location && (location === "online" || location === "in-person")) {
-    query["location.type"] = location;
-  }
-
-  const aggregatePipeline = [
-    { $match: query }, // Initial match on booking fields
-    {
-      $lookup: {
-        from: "payments",
-        let: { pid: "$paymentId" },
-        pipeline: [
-          { $match: { $expr: { $eq: ["$_id", "$$pid"] } } },
-          {
-            $project: {
-              _id: 1,
-              amount: 1,
-              transactionStatus: 1,
-              currency: 1,
-              transactionReferenceNumber: 1, // Add this field to projection
-            },
-          },
-        ],
-        as: "payment",
-      },
-    },
-    { $unwind: { path: "$payment", preserveNullAndEmptyArrays: true } },
-  ];
-
-  // Filter by payment transaction reference if provided
-  if (transactionRef) {
-    // Remove "T-" prefix if present
-    const searchRefNumber = transactionRef.startsWith("T-")
-      ? transactionRef.substring(2)
-      : transactionRef;
-
-    // Add a match stage for transaction reference number
-    aggregatePipeline.push({
-      $match: {
-        $or: [
-          { "payment.transactionReferenceNumber": searchRefNumber },
-          {
-            "payment.transactionReferenceNumber": new RegExp(
-              searchRefNumber,
-              "i"
-            ),
-          }, // Case insensitive search
-        ],
-      },
-    });
-
-    logger.debug(`Filtering by transaction reference: ${searchRefNumber}`);
-  }
-
-  // Filter by paymentStatus if provided
-  if (paymentStatus) {
-    aggregatePipeline.push({
-      $match: { "payment.transactionStatus": paymentStatus },
-    });
-  }
-
-  // Add sorting, $facet for pagination, and final $project
-  aggregatePipeline.push(
-    { $sort: { eventStartTime: -1 } },
-    {
-      $facet: {
-        metadata: [{ $count: "totalBookings" }],
-        data: [
-          { $skip: skip },
-          { $limit: limit },
-          {
-            $project: {
-              _id: 1,
-              eventStartTime: 1,
-              eventEndTime: 1,
-              bookingId: 1,
-              status: 1,
-              eventName: 1,
-              location: 1,
-              notes: 1,
-              cancellation: 1,
-              createdAt: 1,
-              payment: 1,
-            },
-          },
-        ],
-      },
-    },
-    { $unwind: { path: "$metadata", preserveNullAndEmptyArrays: true } },
-    {
-      $project: {
-        totalBookings: { $ifNull: ["$metadata.totalBookings", 0] },
-        bookings: "$data",
-      },
-    }
-  );
-
-  try {
-    const [result] = await Booking.aggregate(aggregatePipeline).exec();
-
-    const totalBookings = result?.totalBookings || 0;
-    const bookings = result?.bookings || [];
-
-    res.json({
-      page: page,
-      limit,
-      totalBookings,
-      totalPages: Math.ceil(totalBookings / limit),
-      bookings,
-    });
-  } catch (error) {
-    logger.error(`Error fetching bookings: ${error.message}`);
-    res.status(500).json({ message: "Error fetching bookings" });
-  }
 });
 
 module.exports = {
@@ -446,5 +312,4 @@ module.exports = {
   resendEvLink,
   forgotPassword,
   resetPassword,
-  getAllMyBookings,
 };

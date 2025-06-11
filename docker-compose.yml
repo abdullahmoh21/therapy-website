@@ -1,5 +1,6 @@
 services:
   backend:
+    container_name: backend
     build:
       context: .
       dockerfile: backend/Dockerfile
@@ -17,6 +18,7 @@ services:
     restart: on-failure:5
 
   frontend:
+    container_name: frontend
     build:
       context: .
       dockerfile: frontend/Dockerfile
@@ -46,8 +48,10 @@ services:
 
   redis:
     image: eqalpha/keydb:latest
+    command: ["keydb-server", "/etc/keydb/keydb.conf"]
     volumes:
       - redis-data:/data
+      - ./keydb/keydb.conf:/etc/keydb/keydb.conf:ro
     networks:
       - app-network
     restart: unless-stopped

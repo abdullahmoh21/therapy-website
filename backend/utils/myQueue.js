@@ -5,22 +5,61 @@ const User = require("../models/User");
 const Invitee = require("../models/Invitee");
 const Booking = require("../models/Booking");
 const Payment = require("../models/Payment");
-const TemporaryBooking = require("../models/TemporaryBooking");
-const Config = require("../models/Config"); // Import Config model
+const Config = require("../models/Config");
 const { checkRedisAvailability } = require("./redisClient");
+const crypto = require("crypto");
 
 let myQueue = null;
 let queueWorker = null;
 
-const initializeQueue = async () => {
-  const redisAvailable = await checkRedisAvailability();
+function stableStringify(obj) {
+  return JSON.stringify(obj, Object.keys(obj).sort());
+}
 
-  if (!redisAvailable) {
-    return false;
+// Function to get unique identifiers for each job type
+
+const getJobUniqueId = (jobName, jobData) => {
+  let stableKey;
+
+  switch (jobName) {
+    case "verifyEmail":
+    case "resetPassword":
+      stableKey = jobData.recipient; // collapse spam-clicks
+      break;
+    case "cancellationNotification":
+    case "lateCancellation":
+    case "refundConfirmation":
+      stableKey = jobData.payment?._id || jobData.payment?.id;
+      break;
+    case "ContactMe":
+      stableKey = `${jobData.email}:${crypto
+        .createHash("md5")
+        .update(jobData.message)
+        .digest("hex")}`;
+      break;
+    case "deleteDocuments":
+      stableKey = `${jobData.model}:${jobData.documentIds.sort().join(",")}`;
+      break;
+    case "sendInvitation":
+      stableKey = jobData.recipient;
+      break;
+    default:
+      // Always-unique fallback
+      stableKey = stableStringify(jobData);
   }
 
+  return `${jobName}:${crypto
+    .createHash("sha256")
+    .update(String(stableKey))
+    .digest("hex")}`;
+};
+
+const initializeQueue = async () => {
+  const redisAvailable = await checkRedisAvailability();
+  if (!redisAvailable) return false;
+
   try {
-    // Create Queue instance
+    // Queue instance
     myQueue = new Queue("myQueue", {
       connection: {
         host: process.env.REDIS_HOST || "localhost",
@@ -31,11 +70,11 @@ const initializeQueue = async () => {
       defaultJobOptions: {
         removeOnComplete: true,
         removeOnFail: true,
-        attempts: 5, // Retry the job 5 times on failure
+        attempts: 5,
       },
     });
 
-    // Create Worker instance and set up error handling
+    // Worker instance
     queueWorker = new Worker(
       "myQueue",
       async (job) => {
@@ -44,8 +83,10 @@ const initializeQueue = async () => {
             return sendVerificationEmail(job);
           case "resetPassword":
             return sendResetPasswordEmail(job);
-          case "refundRequest":
-            return sendRefundRequest(job);
+          case "cancellationNotification":
+            return sendCancellationNotification(job);
+          case "lateCancellation":
+            return sendLateCancellation(job);
           case "refundConfirmation":
             return sendRefundConfirmation(job);
           case "ContactMe":
@@ -55,11 +96,8 @@ const initializeQueue = async () => {
           case "sendInvitation":
             return sendInvitationEmail(job);
           default:
-            logger.error(`[QUEUE SWITCH] Unknown email Job name: ${job.name}`);
-            return Promise.resolve({
-              success: false,
-              error: "Unknown email type",
-            });
+            logger.error(`[QUEUE SWITCH] Unknown job name: ${job.name}`);
+            return { success: false, error: "Unknown job type" };
         }
       },
       {
@@ -71,44 +109,33 @@ const initializeQueue = async () => {
       }
     );
 
-    // Failed job handler
+    // Failed-job handler
     queueWorker.on("failed", async (job, err) => {
-      // Check if the job has failed after all retry attempts
       if (job.attemptsMade === job.opts.attempts) {
-        const type = job.name === "deleteDocuments" ? "DATABASE" : "EMAIL";
+        const adminEmail = await Config.getValue("adminEmail");
+        if (!adminEmail) {
+          logger.error("Admin email not found in config");
+          return;
+        }
+
+        const mailOptions = {
+          from: "server@fatimanaqvi.com",
+          to: adminEmail,
+          subject: "Job Failure Notification",
+          html: `
+            <h1>Job Failure Alert</h1>
+            <p>Job ID: ${job.id}</p>
+            <p>Job Name: ${job.name}</p>
+            <p>Recipient: ${job.data.recipient}</p>
+            <p>Error Message: ${err.message}</p>
+            <pre>${JSON.stringify(job.data, null, 2)}</pre>`,
+        };
+
         try {
-          // Fetch admin email from config
-          const adminEmail = await Config.getValue("adminEmail");
-          if (!adminEmail) {
-            logger.error(
-              "Admin email not found in config, cannot send job failure notification"
-            );
-            return;
-          }
-
-          const mailOptions = {
-            from: "server@fatimanaqvi.com",
-            to: adminEmail,
-            subject: "Job Failure Notification",
-            html: `
-                      <h1>Job Failure Alert. Please debug</h1>
-                      <h2>Job Details</h2>
-                      <p>Job ID: ${job.id}</p>
-                      <p>Job Name: ${job.name}</p>
-                      <p>Recipient: ${job.data.recipient}</p>
-                      <p>Error Message: ${err.message}</p>
-                      <p>Job Data: ${JSON.stringify(job.data)}</p>
-                  `,
-          };
-
           await transporter.sendMail(mailOptions);
-          logger.info(
-            `Error log sent to admin (${adminEmail}) for job ${job.id}`
-          );
-        } catch (notificationError) {
-          logger.error(
-            `[EMAIL] Failed to send notification to admin for job ${job.id}. Killing job. Error: ${notificationError}`
-          );
+          logger.info(`Error log sent to admin for job ${job.id}`);
+        } catch (e) {
+          logger.error(`[EMAIL] Could not notify admin: ${e.message}`);
         }
       }
     });
@@ -116,65 +143,66 @@ const initializeQueue = async () => {
     logger.info("BullMQ queue system initialized successfully");
     return true;
   } catch (error) {
-    logger.error(`[QUEUE] Error initializing queue: ${error.message}`);
+    logger.error(`[QUEUE] Initialization error: ${error.message}`);
     return false;
   }
 };
 
 const safeAdd = async (jobName, jobData) => {
   if (!myQueue) {
-    logger.warn(`Queue not available - executing ${jobName} job directly`);
-
-    // For email jobs, try to send directly
-    switch (jobName) {
-      case "verifyEmail":
-        return sendVerificationEmail({ data: jobData });
-      case "resetPassword":
-        return sendResetPasswordEmail({ data: jobData });
-      case "refundRequest":
-        return sendRefundRequest({ data: jobData });
-      case "refundConfirmation":
-        return sendRefundConfirmation({ data: jobData });
-      case "ContactMe":
-        return sendContactMeEmail({ data: jobData });
-      case "sendInvitation":
-        return sendInvitationEmail({ data: jobData });
-      case "deleteDocuments":
-        return deleteDocuments({ data: jobData });
-      default:
-        throw new Error(`Unknown job type: ${jobName}`);
-    }
+    logger.warn(`Queue unavailable — executing ${jobName} directly`);
+    return fallbackExecute(jobName, jobData);
   }
 
   try {
-    return await myQueue.add(jobName, jobData);
-  } catch (error) {
-    logger.warn(
-      `Failed to add job to queue, executing directly: ${error.message}`
-    );
+    const jobId = getJobUniqueId(jobName, jobData);
+    logger.debug(`Adding job with ID: ${jobId}`);
 
-    // Same fallback logic as above
-    switch (jobName) {
-      case "verifyEmail":
-        return sendVerificationEmail({ data: jobData });
-      case "resetPassword":
-        return sendResetPasswordEmail({ data: jobData });
-      case "refundRequest":
-        return sendRefundRequest({ data: jobData });
-      case "refundConfirmation":
-        return sendRefundConfirmation({ data: jobData });
-      case "ContactMe":
-        return sendContactMeEmail({ data: jobData });
-      case "sendInvitation":
-        return sendInvitationEmail({ data: jobData });
-      case "deleteDocuments":
-        return deleteDocuments({ data: jobData });
-      default:
-        throw new Error(`Unknown job type: ${jobName}`);
+    return await myQueue.add(jobName, jobData, {
+      jobId,
+      removeOnComplete: true,
+      removeOnFail: true,
+      attempts: 5,
+    });
+  } catch (error) {
+    if (/already exists/i.test(error.message)) {
+      logger.info(`Skipping duplicate job: ${jobName}`);
+      return { success: true, skipped: true, reason: "duplicate" };
     }
+
+    logger.warn(`Queue add failed, running inline: ${error.message}`);
+    return fallbackExecute(jobName, jobData);
   }
 };
 
+// --- inline fallback runner ---
+function fallbackExecute(jobName, jobData) {
+  switch (jobName) {
+    case "verifyEmail":
+      return sendVerificationEmail({ data: jobData });
+    case "resetPassword":
+      return sendResetPasswordEmail({ data: jobData });
+    case "cancellationNotification":
+      return sendCancellationNotification({ data: jobData });
+    case "lateCancellation":
+      return sendLateCancellation({ data: jobData });
+    case "refundConfirmation":
+      return sendRefundConfirmation({ data: jobData });
+    case "ContactMe":
+      return sendContactMeEmail({ data: jobData });
+    case "sendInvitation":
+      return sendInvitationEmail({ data: jobData });
+    case "deleteDocuments":
+      return deleteDocuments({ data: jobData });
+    default:
+      throw new Error(`Unknown job type: ${jobName}`);
+  }
+}
+
+module.exports = {
+  initializeQueue,
+  sendEmail: safeAdd,
+};
 //--------------------------------------------------- JOB HANDLERS ----------------------------------------------------//
 
 // Function to delete documents based on job data
@@ -193,8 +221,8 @@ const deleteDocuments = async (job) => {
       case "Payment":
         modelInstance = Payment;
         break;
-      case "TemporaryBooking":
-        modelInstance = TemporaryBooking;
+      case "Invitee":
+        modelInstance = Invitee;
         break;
       default:
         logger.error(`Unknown model: ${model}`);
@@ -270,34 +298,43 @@ const sendResetPasswordEmail = async (job) => {
 };
 
 const sendRefundRequest = async (job) => {
+  // This function is kept for backward compatibility but redirects to cancellationNotification
+  logger.warn(
+    "sendRefundRequest is deprecated. Use sendCancellationNotification instead."
+  );
+  return sendCancellationNotification(job);
+};
+
+const sendCancellationNotification = async (job) => {
   try {
     const { booking, payment, updatePaymentStatus, recipient } = job.data;
 
     if (!booking || !payment) {
-      throw new Error("Missing required data for refund request email");
+      throw new Error(
+        "Missing required data for cancellation notification email"
+      );
     }
 
-    const user = await User.findOne({ _id: booking.userId }, "name email")
+    const user = await User.findOne(
+      { _id: booking.userId },
+      "name email firstName lastName"
+    )
       .lean()
       .exec();
     if (!user) {
       logger.info(
-        `User not found for booking ${booking.bookingId}. Could not send refund email.`
+        `User not found for booking ${booking._id}. Could not send cancellation email.`
       );
-      throw new Error(`User not found for booking ${booking.bookingId}`);
+      throw new Error(`User not found for booking ${booking._id}`);
     }
 
     // Prepare data for email
     const eventStartTime = new Date(booking.eventStartTime);
     const currentTime = new Date();
-    const millisecondsIn72Hours = 72 * 60 * 60 * 1000;
 
-    const cancelledWithin72Hours =
-      eventStartTime - currentTime < millisecondsIn72Hours &&
-      eventStartTime - currentTime > 0;
     const eventDate = new Date(booking.eventStartTime).toLocaleDateString(
-      "en-GB",
-      { day: "2-digit", month: "long", year: "numeric" }
+      "en-US",
+      { day: "numeric", month: "long", year: "numeric" }
     );
     const eventTime = new Date(booking.eventStartTime).toLocaleTimeString(
       "en-US",
@@ -308,24 +345,19 @@ const sendRefundRequest = async (job) => {
           day: "2-digit",
           month: "long",
           year: "numeric",
-        }) +
-        " " +
-        new Date(payment.paymentCompletedDate).toLocaleTimeString("en-US", {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: true,
         })
       : "N/A";
-    const refundLink = `https://sandbox.api.getsafepay.com/dashboard/payments/details/${payment.tracker}`; //production: change to correct prod url
+    const refundLink = `${
+      process.env.SAFEPAY_DASHBOARD_URL ||
+      "https://sandbox.api.getsafepay.com/dashboard/payments"
+    }`;
 
-    // Use recipient from job data if provided (previously fetched from config),
-    // otherwise fetch it here
     let adminEmail = recipient;
     if (!adminEmail) {
       adminEmail = await Config.getValue("adminEmail");
       if (!adminEmail) {
         logger.error(
-          "Admin email not found in config, cannot send refund request"
+          "Admin email not found in config, cannot send cancellation notification"
         );
         throw new Error("Admin email configuration not found");
       }
@@ -334,39 +366,144 @@ const sendRefundRequest = async (job) => {
     const mailOptions = {
       from: "admin@fatimanaqvi.com",
       to: adminEmail,
-      subject: "[ACTION REQUIRED] Refund Request",
-      template: "refundRequest",
+      subject:
+        "[ACTION REQUIRED] Cancellation Notification - Eligible for Refund",
+      template: "cancellationNotification",
       context: {
-        name: user.name,
+        name:
+          user.firstName && user.lastName
+            ? `${user.firstName} ${user.lastName}`
+            : user.name || "Client",
         userEmail: user.email,
-        bookingId: booking.bookingId,
+        bookingId: booking._id.toString(),
         eventDate,
         eventTime,
+        cancelledBy: booking.cancellation.cancelledBy || "User",
         paymentAmount: payment.amount,
         paymentStatus: payment.transactionStatus,
         paymentCompleted: paymentCompletedDate,
         transactionReferenceNumber: payment.transactionReferenceNumber,
+        cancelCutoffDays: (await Config.getValue("cancelCutoffDays")) || 3,
         refundLink,
-        cancelledWithin72Hours,
-        frontend_url: process.env.FRONTEND_URL,
+        isAdmin: booking.cancellation.cancelledBy === "Admin",
+        frontend_url: process.env.FRONTEND_URL || "https://fatimatherapy.com",
         currentYear: new Date().getFullYear(),
       },
     };
 
     await transporter.sendMail(mailOptions);
-    logger.info(`Refund request email sent to ${adminEmail}`);
+    logger.info(`Cancellation notification email sent to ${adminEmail}`);
+
     //only update payment status if updatePaymentStatus is true and email is sent successfully
     if (updatePaymentStatus) {
       await Payment.updateOne(
         { _id: payment._id },
-        { transactionStatus: "Refund Requested" }
+        {
+          transactionStatus: "Refund Requested",
+          refundRequestedDate: new Date(),
+        }
       );
       logger.info(
         `Payment status updated to 'Refund Requested' for paymentId: ${payment._id}`
       );
     }
   } catch (error) {
-    logger.error(`[EMAIL] Error processing refund request: ${error}`);
+    logger.error(
+      `[EMAIL] Error processing cancellation notification: ${error}`
+    );
+    throw error; // Propagate error so that the job is retried
+  }
+};
+
+const sendLateCancellation = async (job) => {
+  try {
+    const { booking, payment, recipient } = job.data;
+
+    if (!booking || !payment) {
+      throw new Error("Missing required data for late cancellation email");
+    }
+
+    const user = await User.findOne(
+      { _id: booking.userId },
+      "name email firstName lastName"
+    )
+      .lean()
+      .exec();
+    if (!user) {
+      logger.info(
+        `User not found for booking ${booking._id}. Could not send late cancellation email.`
+      );
+      throw new Error(`User not found for booking ${booking._id}`);
+    }
+
+    // Prepare data for email
+    const eventStartTime = new Date(booking.eventStartTime);
+    const currentTime = new Date();
+
+    const eventDate = new Date(booking.eventStartTime).toLocaleDateString(
+      "en-US",
+      { day: "numeric", month: "long", year: "numeric" }
+    );
+    const eventTime = new Date(booking.eventStartTime).toLocaleTimeString(
+      "en-US",
+      { hour: "2-digit", minute: "2-digit", hour12: true }
+    );
+    const paymentCompletedDate = payment.paymentCompletedDate
+      ? new Date(payment.paymentCompletedDate).toLocaleDateString("en-GB", {
+          day: "2-digit",
+          month: "long",
+          year: "numeric",
+        })
+      : null;
+    const refundLink = `${
+      process.env.SAFEPAY_DASHBOARD_URL ||
+      "https://sandbox.api.getsafepay.com/dashboard/payments"
+    }`;
+
+    let adminEmail = recipient;
+    if (!adminEmail) {
+      adminEmail = await Config.getValue("adminEmail");
+      if (!adminEmail) {
+        logger.error(
+          "Admin email not found in config, cannot send late cancellation notification"
+        );
+        throw new Error("Admin email configuration not found");
+      }
+    }
+
+    const mailOptions = {
+      from: "admin@fatimanaqvi.com",
+      to: adminEmail,
+      subject: "Late Cancellation Notice - No Automatic Refund",
+      template: "lateCancellation",
+      context: {
+        name:
+          user.firstName && user.lastName
+            ? `${user.firstName} ${user.lastName}`
+            : user.name || "Client",
+        userEmail: user.email,
+        bookingId: booking._id.toString(),
+        eventDate,
+        eventTime,
+        cancelledBy: booking.cancellation.cancelledBy || "User",
+        paymentAmount: payment.amount,
+        paymentStatus: payment.transactionStatus,
+        paymentCompleted: paymentCompletedDate,
+        transactionReferenceNumber: payment.transactionReferenceNumber,
+        cancelCutoffDays: (await Config.getValue("cancelCutoffDays")) || 3,
+        refundLink,
+        isAdmin: booking.cancellation.cancelledBy === "Admin",
+        frontend_url: process.env.FRONTEND_URL || "https://fatimatherapy.com",
+        currentYear: new Date().getFullYear(),
+      },
+    };
+
+    await transporter.sendMail(mailOptions);
+    logger.info(`Late cancellation notification email sent to ${adminEmail}`);
+  } catch (error) {
+    logger.error(
+      `[EMAIL] Error processing late cancellation notification: ${error}`
+    );
     throw error; // Propagate error so that the job is retried
   }
 };

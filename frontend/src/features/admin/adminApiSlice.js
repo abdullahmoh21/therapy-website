@@ -190,6 +190,31 @@ export const adminApiSlice = apiSlice.injectEndpoints({
       ],
     }),
 
+    getBookingTimeline: builder.query({
+      query: () => "/admin/bookings/timeline",
+      validateStatus: (response, result) => {
+        if (response.status === undefined) {
+          throw new Error("No response from server");
+        }
+        return response.status === 200 && !result.isError;
+      },
+    }),
+
+    // Single booking details - only fetched when needed
+    getAdminBookingDetail: builder.query({
+      query: (bookingId) => ({
+        url: `/admin/bookings/${bookingId}`,
+        method: "GET",
+      }),
+      validateStatus: (response, result) => {
+        if (response.status === undefined) {
+          throw new Error("No response from server");
+        }
+        return response.status === 200 && !result.isError;
+      },
+      providesTags: (result, error, arg) => [{ type: "Booking", id: arg }],
+    }),
+
     // -------------------- PAYMENT ENDPOINTS --------------------
     getAdminPayments: builder.query({
       query: (params) => ({
@@ -231,56 +256,66 @@ export const adminApiSlice = apiSlice.injectEndpoints({
       invalidatesTags: ["Payment"],
     }),
 
-    // -------------------- METRICS ENDPOINT --------------------
-    getMetrics: builder.query({
-      query: () => "/admin/statistics",
+    markPaymentAsPaid: builder.mutation({
+      query: (paymentId) => ({
+        url: `/admin/payments/${paymentId}/paid`,
+        method: "POST",
+      }),
       validateStatus: (response, result) => {
         if (response.status === undefined) {
           throw new Error("No response from server");
         }
         return response.status === 200 && !result.isError;
       },
-      providesTags: ["Metrics"],
-      transformResponse: (response) => {
-        // Transform backend statistics into the format expected by the frontend
-        return {
-          userMetrics: {
-            totalUsers: response.totalUsers || 0,
-            totalAdmins: response.totalAdmins || 0,
-            newClients: response.newClients || 0,
-          },
-          taskMetrics: {
-            thirtyDays: {
-              totalTasks_30d: response.totalBookingsLast30Days || 0,
-              completedTasks_30d: response.completedBookingsLast30Days || 0,
-              incompleteTasks_30d:
-                response.totalBookingsLast30Days -
-                (response.completedBookingsLast30Days || 0),
-              tasksByPriority: {
-                high: response.highPriorityBookings_30d || 0,
-                medium: response.mediumPriorityBookings_30d || 0,
-                low: response.lowPriorityBookings_30d || 0,
-              },
-            },
-            allTime: {
-              lockedTasks: 0, // These don't apply to bookings but are used in the UI
-              overDueTasks: 0, // These don't apply to bookings but are used in the UI
-              totalTasks: response.totalBookings || 0,
-              completedTasks: response.completedBookings || 0,
-              incompleteTasks:
-                response.totalBookings - (response.completedBookings || 0),
-              highPriorityTasks: response.highPriorityBookings || 0,
-              mediumPriorityTasks: response.mediumPriorityBookings || 0,
-              lowPriorityTasks: response.lowPriorityBookings || 0,
-            },
-          },
-          financialMetrics: {
-            totalRevenue: response.totalRevenue || 0,
-            totalProfit: response.totalProfit || 0,
-          },
-          topUsersByCompletedTasks_30d: [], // This would need to be added to the backend
-        };
+      invalidatesTags: (result, error, arg) => {
+        // If the backend returns the associated bookingId in the response
+        const bookingId = result?.bookingId;
+
+        return [
+          { type: "Booking", id: "LIST" },
+          { type: "Payment", id: "LIST" },
+          { type: "Payment", id: arg },
+          // If we have a bookingId in the result, invalidate that specific booking
+          ...(bookingId ? [{ type: "Booking", id: bookingId }] : []),
+          // Also invalidate any existing booking detail queries
+          { type: "Booking", id: undefined },
+        ];
       },
+    }),
+
+    // -------------------- METRICS ENDPOINTS --------------------
+
+    getMonthlyMetrics: builder.query({
+      query: () => "/admin/metrics/month",
+      validateStatus: (response, result) => {
+        if (response.status === undefined) {
+          throw new Error("No response from server");
+        }
+        return response.status === 200 && !result.isError;
+      },
+      providesTags: ["MonthlyMetrics"],
+    }),
+
+    getYearlyMetrics: builder.query({
+      query: () => "/admin/metrics/year",
+      validateStatus: (response, result) => {
+        if (response.status === undefined) {
+          throw new Error("No response from server");
+        }
+        return response.status === 200 && !result.isError;
+      },
+      providesTags: ["YearlyMetrics"],
+    }),
+
+    getGeneralMetrics: builder.query({
+      query: () => "/admin/metrics/general",
+      validateStatus: (response, result) => {
+        if (response.status === undefined) {
+          throw new Error("No response from server");
+        }
+        return response.status === 200 && !result.isError;
+      },
+      providesTags: ["GeneralMetrics"],
     }),
 
     // -------------------- SYSTEM HEALTH & CONFIG ENDPOINTS --------------------
@@ -336,6 +371,21 @@ export const adminApiSlice = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ["Invitation"],
     }),
+
+    // Get user details - fetch a single user's full details
+    getUserDetails: builder.query({
+      query: (userId) => ({
+        url: `/admin/users/${userId}`,
+        method: "GET",
+      }),
+      validateStatus: (response, result) => {
+        if (response.status === undefined) {
+          throw new Error("No response from server");
+        }
+        return response.status === 200 && !result.isError;
+      },
+      providesTags: (result, error, arg) => [{ type: "User", id: arg }],
+    }),
   }),
 });
 
@@ -346,18 +396,24 @@ export const {
   useUpdateUserMutation,
   useInviteUserMutation,
   useResendInvitationMutation,
+  useGetUserDetailsQuery,
 
   // Booking endpoints
   useGetAdminBookingsQuery,
+  useGetBookingTimelineQuery,
   useUpdateAdminBookingMutation,
   useDeleteAdminBookingMutation,
+  useGetAdminBookingDetailQuery,
 
   // Payment endpoints
   useGetAdminPaymentsQuery,
   useUpdateAdminPaymentMutation,
+  useMarkPaymentAsPaidMutation,
 
-  // Metrics endpoint
-  useGetMetricsQuery,
+  // Metrics endpoints
+  useGetMonthlyMetricsQuery,
+  useGetYearlyMetricsQuery,
+  useGetGeneralMetricsQuery,
 
   // System Health & Config endpoints
   useGetSystemHealthQuery,

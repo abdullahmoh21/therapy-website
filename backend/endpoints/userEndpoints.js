@@ -47,9 +47,6 @@ router
   .route("/")
   .get(redisCaching(), userController.getMyData)
   .patch(expressJoiValidation.body(updateMyUser), userController.updateMyUser);
-
-router.route("/bookings").get(redisCaching(), userController.getAllMyBookings);
-
 //formats any joi error into JSON for the client
 router.use((err, req, res, next) => {
   if (err?.error?.isJoi) {

@@ -9,20 +9,6 @@ const pastBookingsAdapter = createEntityAdapter({
 });
 
 const initialState = usersAdapter.getInitialState();
-const initialPastBookingsState = pastBookingsAdapter.getInitialState();
-
-// Helper functions for booking data formatting
-const formatDateTime = (dateString, includeTime = false) => {
-  if (!dateString) return "-";
-  const date = new Date(dateString);
-  const optionsDate = { year: "numeric", month: "short", day: "numeric" };
-  const optionsTime = { hour: "2-digit", minute: "2-digit", hour12: true };
-  let formatted = date.toLocaleDateString("en-US", optionsDate);
-  if (includeTime) {
-    formatted += ", " + date.toLocaleTimeString("en-US", optionsTime);
-  }
-  return formatted;
-};
 
 export const usersApiSlice = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
@@ -44,52 +30,6 @@ export const usersApiSlice = apiSlice.injectEndpoints({
         } else return [];
       },
     }),
-    getPastBookings: builder.query({
-      query: (params) => ({ url: "/user/bookings", params }),
-      validateStatus: (response, result) => {
-        if (response.status === undefined) {
-          throw new Error("No response from server");
-        }
-        return response.status === 200 && !result.isError;
-      },
-      transformResponse: (response) => {
-        const rawBookings = response.bookings || [];
-        // Backend now sorts and provides all necessary fields.
-        // Frontend processing focuses on formatting for display if still needed.
-        const processedBookings = rawBookings.map((booking) => ({
-          ...booking,
-          payment: booking.payment || {},
-          formattedEventStartTime: formatDateTime(booking.eventStartTime, true),
-          transactionStatusDisplay: getStatusDisplay(
-            booking.payment?.transactionStatus
-          ),
-          customerBookingId: booking.bookingId, // Already provided as bookingId by backend
-          // 'status' is booking's own status, directly from backend
-        }));
-        // Removed client-side .sort() - relying on backend sort
-
-        return {
-          bookings: pastBookingsAdapter.setAll(
-            initialPastBookingsState,
-            processedBookings
-          ),
-          pagination: {
-            totalBookings: response.totalBookings || 0,
-            currentPage: response.page || 1, // Assuming backend returns 1-indexed page
-            totalPages: response.totalPages || 1,
-          },
-        };
-      },
-      providesTags: (result) => {
-        if (!result?.bookings?.ids) {
-          return [{ type: "PastBookings", id: "LIST" }];
-        }
-        return [
-          { type: "PastBookings", id: "LIST" },
-          ...result.bookings.ids.map((id) => ({ type: "PastBookings", id })),
-        ];
-      },
-    }),
     updateMyUser: builder.mutation({
       query: (initialUserData) => ({
         url: "/user",
@@ -103,7 +43,10 @@ export const usersApiSlice = apiSlice.injectEndpoints({
           console.error("Response status is undefined", response);
           return false;
         }
-        return response.status === 200 && !result.isError;
+        return (
+          (response.status === 200 || response.status === 201) &&
+          !result.isError
+        );
       },
     }),
     resendEmailVerification: builder.mutation({
@@ -184,7 +127,6 @@ export const usersApiSlice = apiSlice.injectEndpoints({
 
 export const {
   useGetMyUserQuery,
-  useGetPastBookingsQuery,
   useUpdateMyUserMutation,
   useResendEmailVerificationMutation,
   useVerifyEmailMutation,
