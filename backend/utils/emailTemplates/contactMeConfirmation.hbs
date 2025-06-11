@@ -47,7 +47,7 @@
       </div>
 
       <div class="email-body">
-        <p>Dear {{name}},</p>
+        <p>Dear {{#if name}}{{name}}{{else}}Client{{/if}},</p>
         <p>
           Thank you for reaching out. We have received your inquiry and our team
           will get back to you shortly.

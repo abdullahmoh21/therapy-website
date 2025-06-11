@@ -52,7 +52,7 @@
 
       <!-- Message -->
       <div class="message">
-        <p>Dear {{name}},</p>
+        <p>Dear {{#if name}}{{name}}{{else}}Client{{/if}},</p>
         <p>
           You have been invited to register for Fatima's Clinic. Please complete
           your registration by clicking the button below:
