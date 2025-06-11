@@ -17,7 +17,11 @@ const TermsAndConditions = () => {
           className="container mx-auto text-center"
         >
           <NavLink to="/" className="inline-block mb-4">
-            <img src={logo} alt="Logo" className="h-[90px] mx-auto" />
+            <img
+              src={logo}
+              alt="Logo"
+              className="w-[120px] sm:w-[160px] md:w-[180px] h-auto"
+            />
           </NavLink>
           <h1 className="orelega-one text-4xl md:text-5xl text-lightPink leading-tight">
             Terms and Conditions

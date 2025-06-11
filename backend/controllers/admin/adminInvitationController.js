@@ -1,8 +1,9 @@
-const Invitee = require("../models/Invitee");
+const Invitee = require("../../models/Invitee");
 const asyncHandler = require("express-async-handler");
-const logger = require("../logs/logger");
+const { invalidateByEvent } = require("../../middleware/redisCaching");
+const logger = require("../../logs/logger");
 const crypto = require("crypto");
-const { sendEmail } = require("../utils/myQueue");
+const { sendEmail } = require("../../utils/myQueue");
 
 //@desc Get all invitations with filters
 //@param {Object} req with valid role, optional search, role filter
@@ -93,6 +94,7 @@ const deleteInvitation = asyncHandler(async (req, res) => {
     if (!result) {
       return res.status(404).json({ message: "Invitation not found" });
     }
+    await invalidateByEvent("invitation-deleted");
 
     logger.info(`Admin deleted invitation: ${invitationId}`);
 
@@ -172,6 +174,7 @@ const inviteUser = asyncHandler(async (req, res) => {
         name: name,
         link: invitationUrl,
       });
+      await invalidateByEvent("invitation-created");
     } catch (err) {
       return res.sendStatus(500);
     }
@@ -256,7 +259,7 @@ const resendInvitation = asyncHandler(async (req, res) => {
 });
 
 // Need to import User model for invite functionality
-const User = require("../models/User");
+const User = require("../../models/User");
 
 module.exports = {
   inviteUser,

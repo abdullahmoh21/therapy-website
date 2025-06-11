@@ -1,7 +1,7 @@
-const Payment = require("../models/Payment");
+const Payment = require("../../models/Payment");
 const asyncHandler = require("express-async-handler");
-const logger = require("../logs/logger");
-const { invalidateByEvent } = require("../middleware/redisCaching");
+const logger = require("../../logs/logger");
+const { invalidateByEvent } = require("../../middleware/redisCaching");
 
 //@desc returns all payments
 //@param valid admin jwt token

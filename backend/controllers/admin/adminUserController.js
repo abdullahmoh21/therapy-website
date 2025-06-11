@@ -1,11 +1,11 @@
-const User = require("../models/User");
+const User = require("../../models/User");
 const asyncHandler = require("express-async-handler");
-const logger = require("../logs/logger");
-const Booking = require("../models/Booking");
-const Payment = require("../models/Payment");
-const { invalidateByEvent } = require("../middleware/redisCaching");
+const logger = require("../../logs/logger");
+const Booking = require("../../models/Booking");
+const Payment = require("../../models/Payment");
+const { invalidateByEvent } = require("../../middleware/redisCaching");
 const Joi = require("joi");
-const { emailSchema } = require("../utils/validation/ValidationSchemas");
+const { emailSchema } = require("../../utils/validation/ValidationSchemas");
 
 //@desc Get all users
 //@param {Object} req with valid role
