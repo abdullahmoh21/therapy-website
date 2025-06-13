@@ -359,7 +359,9 @@ const Billing = () => {
         <h3 className="text-xl font-semibold text-textColor">
           No Booking History
         </h3>
-        <p className="text-textColor">You haven't made any bookings yet.</p>
+        <p className="text-textColor">
+          Only bookings in the past will show up here.
+        </p>
       </div>
     );
   }
