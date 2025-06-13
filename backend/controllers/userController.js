@@ -231,7 +231,7 @@ const resetPassword = async (req, res) => {
   }
 
   user.password = await bcrypt.hash(password, 10);
-  user.resetPasswordTokenHash = undefined;
+  user.resetPasswordEncryptedToken = undefined;
   user.resetPasswordExp = undefined;
   await user.save();
   logger.info(`Password reset to ${password}`);
