@@ -1,4 +1,4 @@
-# Fatima Website - Full-Stack Booking Management System
+# Fatima's Therapy Services - Full-Stack Booking Management System
 
 A robust, secure, and scalable booking management system built with modern web technologies. This project implements a comprehensive solution for managing client sessions, bookings, payments, and user accounts with high availability and fault tolerance. You can view the website [here](https://www.fatimanaqvi.com)
 
@@ -158,7 +158,7 @@ A robust, secure, and scalable booking management system built with modern web t
 ### Installation
 
 1. Clone the repository
-2. Create `.env.production` file based on `.env.example`
+2. Create `.env` file in the `./backend` directory based on `.env.example`
 3. Run `docker-compose up -d` to start all services
 4. Access the application at `https://yourdomain.com`
 

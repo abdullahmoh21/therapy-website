@@ -18,7 +18,7 @@ const PersistLogin = () => {
     useRefreshMutation();
 
   useEffect(() => {
-    if (effectRan.current === true || process.env.NODE_ENV !== "development") {
+    if (effectRan.current === true) {
       // React 18 Strict Mode
 
       const verifyRefreshToken = async () => {
