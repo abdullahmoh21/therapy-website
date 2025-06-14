@@ -100,7 +100,7 @@ const ResetPassword = () => {
       if (error.status === 400) {
         toast.error(toastWithLink);
       } else if (error.status === 500) {
-        toast.error(`An error occured. Please try again later.`);
+        toast.error(`An error occurred. Please try again later.`);
       } else {
         toast.error(
           `Could not connect. Please check your internet and try again.`
