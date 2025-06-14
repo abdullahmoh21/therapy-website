@@ -86,5 +86,7 @@ bookingSchema.plugin(autoIncrement, {
   start_seq: 208,
   unique: true,
 });
+bookingSchema.index({ eventStartTime: 1 });
+bookingSchema.index({ status: 1 });
 
 module.exports = mongoose.model("Booking", bookingSchema);
