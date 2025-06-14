@@ -32,7 +32,7 @@ async function bootstrap() {
   }
 
   try {
-    calendlyOk = await connectCalendly();
+    const calendlyOk = await connectCalendly();
     if (!calendlyOk) throw new Error("webhook not live");
   } catch (err) {
     logger.error("Could not connect to Calendly — aborting startup.");
