@@ -7,16 +7,16 @@ const paymentSchema = new Schema(
     bookingId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Booking",
+      index: true, // Keep this as it's a foreign key lookup
     },
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      index: true,
+      index: true, // Keep this as it's a foreign key lookup
     },
     tracker: {
       type: String,
-      index: true,
     },
     transactionReferenceNumber: {
       type: String,
@@ -54,6 +54,7 @@ const paymentSchema = new Schema(
         "Error",
       ],
       default: "Not Initiated",
+      index: true,
     },
     errorMessage: {
       type: String,
@@ -73,5 +74,8 @@ const paymentSchema = new Schema(
   },
   { timestamps: true }
 );
+
+// Keep this important compound index for related data lookups
+paymentSchema.index({ userId: 1, bookingId: 1 });
 
 module.exports = mongoose.model("Payment", paymentSchema);

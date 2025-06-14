@@ -58,7 +58,6 @@ const configSchema = new mongoose.Schema(
       required: true,
       unique: true,
       trim: true,
-      index: true,
     },
     value: {
       type: mongoose.Schema.Types.Mixed,

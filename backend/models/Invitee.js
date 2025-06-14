@@ -43,6 +43,5 @@ const inviteeSchema = new Schema({
 
 // Index for quickly looking up active invitations by email and token
 inviteeSchema.index({ email: 1, token: 1, isUsed: 1 });
-inviteeSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 module.exports = mongoose.model("Invitee", inviteeSchema);
