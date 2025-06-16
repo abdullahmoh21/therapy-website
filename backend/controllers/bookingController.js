@@ -223,6 +223,60 @@ async function cancelBooking({
 }
 
 async function deleteEvent(eventURI, reasonText = "No user found") {
+  // First, try to find booking and user info in our database
+  let userEmail = null;
+  let userName = null;
+  let eventStartTime = null;
+  let isRegisteredUser = false;
+  let calendlyEmail = null;
+
+  try {
+    // Try to get the event info from Calendly first to capture the email
+    // This helps when we need to notify non-registered users
+    const eventDetailsResponse = await axios.get(eventURI, {
+      headers: {
+        Authorization: `Bearer ${process.env.CALENDLY_API_KEY}`,
+      },
+    });
+
+    // Get email from Calendly if available
+    if (
+      eventDetailsResponse.data &&
+      eventDetailsResponse.data.resource &&
+      eventDetailsResponse.data.resource.event_memberships &&
+      eventDetailsResponse.data.resource.event_memberships[0] &&
+      eventDetailsResponse.data.resource.event_memberships[0].user &&
+      eventDetailsResponse.data.resource.event_memberships[0].user.email
+    ) {
+      calendlyEmail =
+        eventDetailsResponse.data.resource.event_memberships[0].user.email;
+    }
+
+    // Try to find booking in our system
+    const booking = await Booking.findOne({ scheduledEventURI: eventURI })
+      .lean()
+      .exec();
+
+    if (booking && booking.userId) {
+      // Get user details from our database
+      const user = await User.findById(booking.userId).lean().exec();
+
+      if (user && user.email) {
+        userEmail = user.email;
+        userName =
+          user.firstName && user.lastName
+            ? `${user.firstName} ${user.lastName}`
+            : user.name || null;
+        eventStartTime = booking.eventStartTime;
+        isRegisteredUser = true;
+      }
+    }
+  } catch (err) {
+    logger.error(`Error finding user data for deleted event: ${err.message}`);
+    // Continue with deletion even if we can't find user data
+  }
+
+  // Now delete the event in Calendly
   const options = {
     method: "POST",
     url: `${eventURI}/cancellation`,
@@ -232,8 +286,67 @@ async function deleteEvent(eventURI, reasonText = "No user found") {
     },
     data: { reason: reasonText },
   };
-  await axios.request(options);
-  logger.info(`Event deleted: ${eventURI} – ${reasonText}`);
+
+  try {
+    await axios.request(options);
+    logger.info(`Event deleted: ${eventURI} – ${reasonText}`);
+
+    // Send appropriate email based on user status
+    if (isRegisteredUser && userEmail) {
+      // Format the date and time for registered users
+      const formattedDate = eventStartTime
+        ? new Date(eventStartTime).toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })
+        : "your scheduled session";
+
+      const formattedTime = eventStartTime
+        ? new Date(eventStartTime).toLocaleTimeString("en-US", {
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+        : "";
+
+      // Send the eventDeleted email to registered users
+      await sendEmail("eventDeleted", {
+        recipient: userEmail,
+        name: userName,
+        eventDate: formattedDate,
+        eventTime: formattedTime,
+        reason: reasonText,
+      });
+
+      logger.info(
+        `Event deletion notification sent to registered user: ${userEmail}`
+      );
+    } else if (calendlyEmail) {
+      // Send unauthorized booking email to non-registered users or when we can't find the user in our system
+      await sendEmail("unauthorizedBooking", {
+        calendlyEmail: calendlyEmail,
+      });
+
+      logger.info(`Unauthorized booking email sent to: ${calendlyEmail}`);
+    } else {
+      logger.info(
+        "No user email found from any source, could not send notification"
+      );
+
+      // Notify admin if we couldn't send any email
+      const adminEmail = await Config.getValue("adminEmail");
+      if (adminEmail) {
+        await sendEmail("alert", {
+          recipient: adminEmail,
+          title: "Event Deleted Without User Notification",
+          message: `An event (${eventURI}) was deleted with reason: "${reasonText}". We could not notify any user because no email was found.`,
+        });
+      }
+    }
+  } catch (err) {
+    logger.error(`Could not delete booking. Request failed with err: ${err}`);
+    throw err; // Propagate the error
+  }
 }
 
 async function processRefundRequest(booking) {
