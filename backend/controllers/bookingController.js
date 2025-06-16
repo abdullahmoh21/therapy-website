@@ -128,7 +128,7 @@ async function createBooking({
     try {
       await deleteEvent(eventURI, "Session price not set");
     } catch (err) {}
-    return res.status(200).send();
+    return;
   }
   const [existingBooking, user] = await Promise.all([
     Booking.findOne({ scheduledEventURI: eventURI }).lean(),
@@ -144,7 +144,7 @@ async function createBooking({
     } catch (err) {
       logger.error(`Could not delete booking. request failed with err: ${err}`);
     }
-    return res.status(200).send();
+    return;
   }
 
   const transactionReferenceNumber = `T-${uid.rnd()}`;
