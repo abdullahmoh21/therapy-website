@@ -1,10 +1,10 @@
 // Import specialized controller modules
-const userController = require("./adminControllers/adminUserController");
-const invitationController = require("./adminControllers/adminInvitationController");
-const bookingController = require("./adminControllers/adminBookingController");
-const paymentController = require("./adminControllers/adminPaymentController");
-const metricsController = require("./adminControllers/adminMetricsController");
-const systemController = require("./adminControllers/adminSystemController");
+const userController = require("./admin/adminUserController");
+const invitationController = require("./admin/adminInvitationController");
+const bookingController = require("./admin/adminBookingController");
+const paymentController = require("./admin/adminPaymentController");
+const metricsController = require("./admin/adminMetricsController");
+const systemController = require("./admin/adminSystemController");
 
 module.exports = {
   // User controller functions
