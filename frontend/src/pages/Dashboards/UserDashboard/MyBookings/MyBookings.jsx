@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { ProgressSpinner } from "primereact/progressspinner";
+import { useDispatch } from "react-redux";
 import {
   BiCalendar,
   BiCheckCircle,
@@ -15,15 +16,19 @@ import {
 } from "react-icons/bi";
 import {
   useGetMyActiveBookingsQuery,
-  useGetNewBookingLinkQuery,
+  bookingsApiSlice,
 } from "../../../../features/bookings/bookingApiSlice";
 import { useGetPaymentLinkMutation } from "../../../../features/payments/paymentApiSlice";
 import { useGetMyUserQuery } from "../../../../features/users/usersApiSlice";
 import NoBooking from "./NoBooking";
 import DashboardHeader from "./MyBookingHeader";
 import { toast } from "react-toastify";
+import CancelConfirmationPopup from "./CancelConfirmationPopup";
+import NoCancellationPopup from "./NoCancellationPopup";
+import PaymentInfoPopup from "./PaymentInfoPopup";
 
 const MyBookings = () => {
+  const dispatch = useDispatch();
   const [bookings, setBookings] = useState([]);
   const [showCancelPopup, setShowCancelPopup] = useState(false);
   const [showNoCancelPopup, setShowNoCancelPopup] = useState(false);
@@ -32,6 +37,10 @@ const MyBookings = () => {
   const [refundError, setRefundError] = useState(null);
   const [userData, setUserData] = useState(null);
   const [processingPaymentId, setProcessingPaymentId] = useState(null);
+  const [maxBookingsReached, setMaxBookingsReached] = useState(false);
+  const [maxAllowedBookings, setMaxAllowedBookings] = useState(null);
+  const [isGettingBookingLink, setIsGettingBookingLink] = useState(false);
+  const [showPaymentInfoPopup, setShowPaymentInfoPopup] = useState(false);
 
   const {
     data: bookingData,
@@ -42,18 +51,39 @@ const MyBookings = () => {
     refetch: refetchBookings,
   } = useGetMyActiveBookingsQuery();
 
-  const {
-    data: bookingLink,
-    isLoading: gettingBookingLink,
-    refetch: refetchBookingLink,
-    error: newBookingLinkError,
-    isError: isNewBookingLinkError,
-  } = useGetNewBookingLinkQuery();
-
   const { data: userDataResult } = useGetMyUserQuery();
 
   const [triggerGetPaymentLink, { isLoading: gettingPaymentLink }] =
     useGetPaymentLinkMutation();
+
+  // Function to get a new booking link when the button is clicked
+  const handleGetBookingLink = async () => {
+    try {
+      setIsGettingBookingLink(true);
+
+      // Use dispatch to manually trigger the API endpoint
+      const result = await dispatch(
+        bookingsApiSlice.endpoints.getNewBookingLink.initiate(undefined, {
+          forceRefetch: true,
+        })
+      );
+
+      setIsGettingBookingLink(false);
+
+      if (result.data?.link) {
+        window.location.href = result.data.link;
+        return result.data.link;
+      } else {
+        toast.error("No booking link available. Please try again.");
+        return null;
+      }
+    } catch (error) {
+      console.error("Error getting booking link:", error);
+      setIsGettingBookingLink(false);
+      toast.error("Could not get booking link. Please try again.");
+      return null;
+    }
+  };
 
   // Check for Calendly redirect URL parameters
   useEffect(() => {
@@ -147,6 +177,26 @@ const MyBookings = () => {
     }
   };
 
+  const handleCloseCancelPopup = () => {
+    setShowCancelPopup(false);
+    document.body.style.overflow = "auto";
+  };
+
+  const handleCloseNoCancelPopup = () => {
+    setShowNoCancelPopup(false);
+    document.body.style.overflow = "auto";
+  };
+
+  const handleClosePaymentInfoPopup = () => {
+    setShowPaymentInfoPopup(false);
+    document.body.style.overflow = "auto";
+  };
+
+  const handlePaymentButtonClick = () => {
+    setShowPaymentInfoPopup(true);
+    document.body.style.overflow = "hidden";
+  };
+
   const getStatusStyles = (status) => {
     switch (status) {
       case "Completed":
@@ -176,9 +226,6 @@ const MyBookings = () => {
     }
   };
 
-  const maxReached =
-    isNewBookingLinkError && newBookingLinkError?.status === 403;
-
   if (isLoadingBookings) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
@@ -203,9 +250,10 @@ const MyBookings = () => {
   if (bookingsLoaded && bookings.length === 0) {
     return (
       <NoBooking
-        Bookinglink={bookingLink}
-        gettingBookingLink={gettingBookingLink}
+        gettingBookingLink={isGettingBookingLink}
+        bookingLink={null}
         userData={userData}
+        getBookingLink={handleGetBookingLink}
       />
     );
   }
@@ -215,11 +263,9 @@ const MyBookings = () => {
       <DashboardHeader
         userData={userData}
         showBookButton={true}
-        bookingLink={bookingLink}
-        gettingBookingLink={gettingBookingLink}
-        maxReached={maxReached}
-        newBookingLinkError={newBookingLinkError}
-        refetchBookingLink={refetchBookingLink}
+        getBookingLink={handleGetBookingLink}
+        maxBookingsReached={maxBookingsReached}
+        maxAllowedBookings={maxAllowedBookings}
       />
 
       <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
@@ -296,26 +342,11 @@ const MyBookings = () => {
                 <div className="p-6 bg-gray-50 flex flex-wrap gap-2">
                   {b.transactionStatus === "Not Initiated" && (
                     <button
-                      disabled={processingPaymentId !== null}
-                      onClick={() => redirectToPayment(b._id)}
-                      className={`flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-lg font-medium transition ${
-                        processingPaymentId !== null
-                          ? processingPaymentId === b._id
-                            ? "bg-green-500 text-white cursor-not-allowed"
-                            : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                          : "bg-green-500 hover:bg-green-600 text-white"
-                      }`}
+                      onClick={handlePaymentButtonClick}
+                      className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-lg font-medium transition bg-gray-400 text-white hover:bg-gray-500"
                     >
-                      {processingPaymentId === b._id ? (
-                        <BiLoaderAlt className="animate-spin" />
-                      ) : (
-                        <BiDollarCircle />
-                      )}
-                      <span>
-                        {processingPaymentId === b._id
-                          ? "Processing..."
-                          : "Pay"}
-                      </span>
+                      <BiDollarCircle />
+                      <span>Pay</span>
                     </button>
                   )}
 
@@ -369,192 +400,29 @@ const MyBookings = () => {
           );
         })}
       </div>
-      {showCancelPopup && selectedBooking && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-          onClick={() => {
-            setShowCancelPopup(false);
-            document.body.style.overflow = "auto";
-          }}
-        >
-          <div
-            className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full relative"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl"
-              onClick={() => {
-                setShowCancelPopup(false);
-                document.body.style.overflow = "auto";
-              }}
-            >
-              &times;
-            </button>
-            <h2 className="text-2xl font-semibold mb-4 text-gray-800">
-              Cancel Confirmation
-            </h2>
-            <p className="text-gray-600 mb-6">
-              You’re cancelling your{" "}
-              <span className="font-medium">
-                {selectedBooking.eventName === "15 Minute Consultation"
-                  ? "Free Consultation"
-                  : "Therapy Session"}
-              </span>{" "}
-              on{" "}
-              <span className="font-medium">
-                {formatDateTime(selectedBooking.eventStartTime).date} at{" "}
-                {formatDateTime(selectedBooking.eventStartTime).time}
-              </span>
-              .
-            </p>
 
-            <div className="mb-6 p-4 bg-gray-50 rounded-lg text-sm text-gray-700">
-              {selectedBooking.transactionStatus === "Completed" ? (
-                checkRefundEligibility(selectedBooking) ? (
-                  <div className="p-3 bg-green-50 border-l-4 border-green-400 rounded">
-                    <div className="flex items-start">
-                      <BiCheckCircle className="text-green-500 mt-0.5 mr-2 text-lg flex-shrink-0" />
-                      <div>
-                        <p className="font-medium text-green-700">
-                          Eligible for full refund
-                        </p>
-                        <ul className="mt-2 text-sm text-gray-600 space-y-1">
-                          <li>• Admin will be notified once you cancel</li>
-                          <li>
-                            • Your refund will be initiated within 1–2 business
-                            days
-                          </li>
-                          <li>
-                            • You'll receive a confirmation email when processed
-                          </li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="flex items-center text-orange-600">
-                    <BiInfoCircle className="mr-2" /> Too late for refund.
-                  </p>
-                )
-              ) : selectedBooking.transactionStatus === "Not Initiated" ? (
-                <p className="flex items-center">
-                  <BiInfoCircle className="mr-2" /> Unpaid bookings cancel
-                  immediately.
-                </p>
-              ) : (
-                <p className="flex items-center">
-                  <BiInfoCircle className="mr-2" /> This is a free consultation.
-                </p>
-              )}
-            </div>
+      <CancelConfirmationPopup
+        show={showCancelPopup}
+        onClose={handleCloseCancelPopup}
+        booking={selectedBooking}
+        loading={loading}
+        refundError={refundError}
+        formatDateTime={formatDateTime}
+        checkRefundEligibility={checkRefundEligibility}
+        handleRefundRequest={handleRefundRequest}
+        handleCancellation={handleCancellation}
+      />
 
-            {loading && (
-              <div className="flex items-center justify-center mb-4 text-gray-600">
-                <BiLoaderAlt className="animate-spin mr-2" /> Processing...
-              </div>
-            )}
-            {refundError && (
-              <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md flex items-center">
-                <BiErrorCircle className="mr-2" />
-                {refundError}
-              </div>
-            )}
+      <NoCancellationPopup
+        show={showNoCancelPopup}
+        onClose={handleCloseNoCancelPopup}
+        booking={selectedBooking}
+      />
 
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => {
-                  setShowCancelPopup(false);
-                  document.body.style.overflow = "auto";
-                }}
-                disabled={loading}
-                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition"
-              >
-                Keep It
-              </button>
-              <button
-                onClick={() => {
-                  if (
-                    selectedBooking.transactionStatus === "Completed" &&
-                    checkRefundEligibility(selectedBooking)
-                  ) {
-                    handleRefundRequest(selectedBooking.cancelURL);
-                  } else {
-                    handleCancellation(selectedBooking.cancelURL);
-                  }
-                }}
-                disabled={loading}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-white font-medium transition ${
-                  loading
-                    ? "bg-red-300 cursor-not-allowed"
-                    : "bg-red-500 hover:bg-red-600"
-                }`}
-              >
-                {loading ? (
-                  <BiLoaderAlt className="animate-spin" />
-                ) : (
-                  <BiXCircle />
-                )}
-                <span>Proceed</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showNoCancelPopup && selectedBooking && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-          onClick={() => {
-            setShowNoCancelPopup(false);
-            document.body.style.overflow = "auto";
-          }}
-        >
-          <div
-            className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full relative"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl"
-              onClick={() => {
-                setShowNoCancelPopup(false);
-                document.body.style.overflow = "auto";
-              }}
-            >
-              &times;
-            </button>
-            <div className="mb-4 text-red-500 flex justify-center">
-              <BiErrorCircle className="text-5xl" />
-            </div>
-            <h2 className="text-2xl font-semibold mb-4 text-gray-800 text-center">
-              Cancellation Not Available
-            </h2>
-            <div className="text-gray-600 mb-6 space-y-3">
-              <p>
-                You can no longer cancel this booking as it's too close to the
-                appointment time.
-              </p>
-              <p>
-                If this is an emergency, please contact your therapist directly.
-              </p>
-              <p className="font-medium">
-                You are still expected to pay for this session. If you have
-                already paid, thank you for your understanding.
-              </p>
-            </div>
-            <div className="flex justify-center">
-              <button
-                onClick={() => {
-                  setShowNoCancelPopup(false);
-                  document.body.style.overflow = "auto";
-                }}
-                className="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition font-medium"
-              >
-                I Understand
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <PaymentInfoPopup
+        show={showPaymentInfoPopup}
+        onClose={handleClosePaymentInfoPopup}
+      />
     </div>
   );
 };
