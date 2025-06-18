@@ -52,9 +52,8 @@ router
   .delete(adminController.deleteInvitation);
 router.route("/invite/:inviteId/resend").post(adminController.resendInvitation);
 
-// System Health & Config routes
+// System Health route
 router.route("/system-health").get(adminController.getSystemHealth);
-router.route("/config/:key").patch(adminController.updateConfig);
 
 //formats any joi error into JSON for the client
 router.use((err, req, res, next) => {

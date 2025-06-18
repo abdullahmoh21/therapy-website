@@ -45,7 +45,18 @@ const CONFIG_DEFAULTS = {
   adminEmail: "abdullahmohsin21007@gmail.com",
   devEmail: "abdullahmohsin21007@gmail.com",
   maxBookings: "3",
-  cancelCutoffDays: 2,
+  bankAccounts: [
+    {
+      bankAccount: "Meezan Bank",
+      accountNo: "12345678901234",
+      accountTitle: "Fatima Mohsin Naqvi",
+    },
+    {
+      bankAccount: "Jazz Cash",
+      accountNo: "03001234567",
+      accountTitle: "Fatima Mohsin Naqvi",
+    },
+  ],
 };
 
 // Track error logged state to prevent log spam
@@ -62,6 +73,11 @@ const configSchema = new mongoose.Schema(
     value: {
       type: mongoose.Schema.Types.Mixed,
       required: true,
+    },
+    displayName: {
+      type: String,
+      required: true,
+      trim: true,
     },
     description: {
       type: String,
@@ -171,11 +187,38 @@ configSchema.statics.setValue = async function (key, value) {
       throw new Error("Database connection unavailable");
     }
 
-    const result = await this.findOneAndUpdate(
-      { key },
-      { value },
-      { upsert: true, new: true, runValidators: true }
-    ).maxTimeMS(5000);
+    // First check if the config exists
+    const existingConfig = await this.findOne({ key }).lean();
+
+    let result;
+    if (existingConfig) {
+      // If it exists, just update the value directly
+      result = await this.findOneAndUpdate(
+        { key },
+        { $set: { value } },
+        { new: true, runValidators: true }
+      ).maxTimeMS(5000);
+
+      if (!result) {
+        throw new Error(`Failed to update config with key: ${key}`);
+      }
+    } else {
+      // If it doesn't exist, we need to provide all required fields
+      logger.warn(
+        `Attempted to update non-existent config key: ${key}. Creating with defaults.`
+      );
+
+      // Create with all required fields
+      const newConfig = new this({
+        key,
+        value,
+        displayName: key.charAt(0).toUpperCase() + key.slice(1), // Capitalize first letter
+        description: `Auto-generated for key ${key}`,
+        editable: true,
+      });
+
+      result = await newConfig.save();
+    }
 
     // Update Redis cache if available
     if (isRedisAvailable() && result) {
@@ -189,7 +232,7 @@ configSchema.statics.setValue = async function (key, value) {
         logger.debug(`Updated Redis cache for config ${key}`);
       } catch (redisError) {
         logger.error(
-          `Failed to update Redis cache for config ${key}: ${redisError.message}`
+          `Failed to cache config ${key} in Redis: ${redisError.message}`
         );
       }
     }
@@ -202,6 +245,7 @@ configSchema.statics.setValue = async function (key, value) {
     return result;
   } catch (err) {
     logger.error(`Error setting config value for key=${key}: ${err.message}`);
+    logger.error(err.stack); // Add stack trace for debugging
     throw err;
   }
 };
@@ -254,37 +298,112 @@ configSchema.statics.initializeConfig = async function () {
       {
         key: "sessionPrice",
         value: 8000,
+        displayName: "Session Price",
         description: "Price per 1-hour session in PKR",
       },
       {
         key: "adminEmail",
         value: "abdullahmohsin21007@gmail.com",
+        displayName: "Admin Email",
         description: "Admin email for system notifications",
       },
       {
         key: "devEmail",
         value: "abdullahmohsin21007@gmail.com",
+        displayName: "Developer Email",
         description: "Developer email for technical alerts",
       },
       {
         key: "maxBookings",
         value: "3",
+        displayName: "Maximum Bookings",
         description: "Maximum number of active booking allowed at a time.",
       },
       {
-        key: "cancelCutoffDays",
+        key: "noticePeriod",
         value: 2,
+        displayName: "Cancellation Notice Period",
         description:
-          "The cutoff period for cancellations in days. If set to '2', users will only be able to cancel up to 2 days before a booking.",
+          "The notice period for cancellations in days. If set to '2', users will only be able to cancel up to 2 days before a booking.",
+      },
+      {
+        key: "bankAccounts",
+        value: [
+          {
+            bankAccount: "Meezan Bank",
+            accountNo: "12345678901234",
+            accountTitle: "Fatima Mohsin Naqvi",
+          },
+          {
+            bankAccount: "Jazz Cash",
+            accountNo: "03001234567",
+            accountTitle: "Fatima Mohsin Naqvi",
+          },
+        ],
+        displayName: "Payment Accounts",
+        description:
+          "Bank account details for payments. Please ensure they are correct since all clients will see on their dashboard.",
       },
     ];
 
+    // Get all required key names for comparison
+    const requiredKeyNames = requiredKeys.map((item) => item.key);
+
+    // Get all existing config keys from database
+    const existingConfigs = await Config.find({}).lean();
+
+    // Find keys to delete (keys in DB but not in requiredKeys)
+    const keysToDelete = existingConfigs
+      .filter((config) => !requiredKeyNames.includes(config.key))
+      .map((config) => config.key);
+
+    // Delete outdated keys
+    if (keysToDelete.length > 0) {
+      logger.info(`Deleting outdated config keys: ${keysToDelete.join(", ")}`);
+      await Config.deleteMany({ key: { $in: keysToDelete } });
+
+      // Invalidate Redis cache for deleted keys
+      if (isRedisAvailable()) {
+        try {
+          const redisClient = require("../utils/redisClient");
+          for (const key of keysToDelete) {
+            await redisClient.del(getRedisCacheKey(key));
+          }
+        } catch (redisError) {
+          logger.error(
+            `Error clearing Redis cache for deleted keys: ${redisError.message}`
+          );
+        }
+      }
+
+      // Clean up local cache if needed
+      const localCache = loadLocalCache();
+      let localCacheChanged = false;
+      for (const key of keysToDelete) {
+        if (key in localCache) {
+          delete localCache[key];
+          localCacheChanged = true;
+        }
+      }
+      if (localCacheChanged) {
+        saveLocalCache(localCache);
+      }
+    }
+
+    // Create lookup object for required keys for easy access
+    const requiredKeysMap = requiredKeys.reduce((acc, item) => {
+      acc[item.key] = item;
+      return acc;
+    }, {});
+
+    // Add/update required keys
     for (const item of requiredKeys) {
       try {
         // Check if item exists
         const existing = await Config.findOne({ key: item.key }).lean();
 
         if (!existing) {
+          // Create new config if it doesn't exist
           logger.info(`Initializing config key: ${item.key}`);
           await Config.create(item);
 
@@ -297,18 +416,46 @@ configSchema.statics.initializeConfig = async function () {
               JSON.stringify(item.value)
             );
           }
-        } else if (isRedisAvailable()) {
-          // Cache existing values in Redis
-          const redisClient = require("../utils/redisClient");
-          // Store without expiry (permanent)
-          await redisClient.set(
-            getRedisCacheKey(item.key),
-            JSON.stringify(existing.value)
-          );
+        } else {
+          // Check if displayName is missing or needs to be updated
+          const displayNameChanged =
+            !existing.displayName || existing.displayName !== item.displayName;
+
+          // Check if description is missing or needs to be updated
+          const descriptionChanged =
+            !existing.description ||
+            (item.description && existing.description !== item.description);
+
+          if (displayNameChanged || descriptionChanged) {
+            const updateFields = {};
+
+            if (displayNameChanged) {
+              logger.info(`Updating displayName for config key: ${item.key}`);
+              updateFields.displayName = item.displayName;
+            }
+
+            if (descriptionChanged) {
+              logger.info(`Updating description for config key: ${item.key}`);
+              updateFields.description = item.description;
+            }
+
+            // Update only the necessary fields
+            await Config.updateOne({ key: item.key }, { $set: updateFields });
+          }
+
+          // Cache in Redis regardless of updates
+          if (isRedisAvailable()) {
+            const redisClient = require("../utils/redisClient");
+            // Store without expiry (permanent)
+            await redisClient.set(
+              getRedisCacheKey(item.key),
+              JSON.stringify(existing.value)
+            );
+          }
         }
       } catch (err) {
         logger.error(
-          `Failed to initialize config key ${item.key}: ${err.message}`
+          `Failed to initialize/update config key ${item.key}: ${err.message}`
         );
       }
     }
