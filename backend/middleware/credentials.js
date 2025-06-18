@@ -1,11 +1,10 @@
 const logger = require("../logs/logger");
-const { getOrigins } = require("../config/corsOptions");
+const allowedOrigins = require("../config/allowedOrigins");
 
 const credentials = (req, res, next) => {
   const origin = req.headers.origin;
-  const currentAllowedOrigins = getOrigins();
 
-  if (currentAllowedOrigins.includes(origin)) {
+  if (origin && allowedOrigins.includes(origin)) {
     res.header("Access-Control-Allow-Origin", origin);
     res.header("Access-Control-Allow-Credentials", "true");
     res.header(
