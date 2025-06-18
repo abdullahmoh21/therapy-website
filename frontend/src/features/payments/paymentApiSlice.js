@@ -19,6 +19,15 @@ export const paymentsApiSlice = apiSlice.injectEndpoints({
       },
       providesTags: (result, error, id) => [{ type: "Payment", id }],
     }),
+    getBankDetails: builder.query({
+      query: (id) => `/config/bank-account`,
+      validateStatus: (response, result) => {
+        if (response.status === undefined) {
+          throw new Error("No response from server");
+        }
+        return response.status === 200 && !result.isError;
+      },
+    }),
     getPaymentLink: builder.mutation({
       query: (bookingId) => ({
         url: "/payments",
@@ -35,5 +44,8 @@ export const paymentsApiSlice = apiSlice.injectEndpoints({
   }),
 });
 
-export const { useGetPaymentQuery, useGetPaymentLinkMutation } =
-  paymentsApiSlice;
+export const {
+  useGetPaymentQuery,
+  useGetPaymentLinkMutation,
+  useGetBankDetailsQuery,
+} = paymentsApiSlice;
