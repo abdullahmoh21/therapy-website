@@ -1,11 +1,5 @@
-import React, { useState, useEffect } from "react";
-import {
-  useGetSystemHealthQuery,
-  useUpdateConfigMutation,
-} from "../../../features/admin/adminApiSlice";
-import { ProgressSpinner } from "primereact/progressspinner";
-import { InputText } from "primereact/inputtext";
-import { toast } from "react-toastify";
+import React from "react";
+import { useGetSystemHealthQuery } from "../../../features/admin/adminApiSlice";
 import {
   FaServer,
   FaDatabase,
@@ -14,9 +8,6 @@ import {
   FaExclamationTriangle,
   FaTimesCircle,
   FaInfoCircle,
-  FaSave,
-  FaEdit,
-  FaUndo,
   FaMicrochip,
 } from "react-icons/fa";
 import { SiRedis } from "react-icons/si";
@@ -54,87 +45,6 @@ const StatusIndicator = ({ status }) => {
   );
 };
 
-const ConfigItem = ({ configKey, data, onSave, isSaving }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [currentValue, setCurrentValue] = useState(data.value);
-
-  useEffect(() => {
-    setCurrentValue(data.value); // Update local state if data changes from parent
-  }, [data.value]);
-
-  const handleSave = () => {
-    onSave(configKey, currentValue);
-    setIsEditing(false);
-  };
-
-  const handleCancel = () => {
-    setCurrentValue(data.value);
-    setIsEditing(false);
-  };
-
-  const getInputType = (value) => {
-    if (typeof value === "number") return "number";
-    if (typeof value === "boolean") return "checkbox"; // Or select/radio
-    return "text";
-  };
-
-  return (
-    <div className="mb-4 p-4 rounded-lg bg-white border border-gray-200 shadow-sm">
-      <div className="flex justify-between items-start">
-        <div>
-          <h4 className="font-semibold text-lg text-gray-800">{configKey}</h4>
-          {data.description && (
-            <p className="text-sm text-gray-600 mt-1">{data.description}</p>
-          )}
-        </div>
-        {data.editable && !isEditing && (
-          <button
-            className="p-2 text-gray-500 hover:text-gray-700 rounded transition-colors"
-            title="Edit"
-            onClick={() => setIsEditing(true)}
-          >
-            <FaEdit />
-          </button>
-        )}
-      </div>
-      <div className="mt-3">
-        {isEditing ? (
-          <div className="flex items-center gap-3">
-            <InputText
-              id={`config-${configKey}`}
-              value={currentValue}
-              onChange={(e) => setCurrentValue(e.target.value)}
-              type={getInputType(data.value)}
-              className="flex-grow"
-              step={typeof data.value === "number" ? "0.01" : undefined}
-            />
-            <button
-              className="p-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
-              onClick={handleSave}
-              disabled={isSaving}
-              title="Save"
-            >
-              <FaSave />
-            </button>
-            <button
-              className="p-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
-              onClick={handleCancel}
-              disabled={isSaving}
-              title="Cancel"
-            >
-              <FaUndo />
-            </button>
-          </div>
-        ) : (
-          <p className="text-gray-700 font-mono bg-gray-50 px-3 py-2 rounded inline-block mt-1">
-            {String(data.value)}
-          </p>
-        )}
-      </div>
-    </div>
-  );
-};
-
 const SystemHealth = () => {
   const {
     data: healthData,
@@ -146,23 +56,6 @@ const SystemHealth = () => {
     pollingInterval: 30000, // Refetch every 30 seconds
     refetchOnMountOrArgChange: true,
   });
-
-  const [updateConfig, { isLoading: isUpdatingConfig }] =
-    useUpdateConfigMutation();
-
-  const handleSaveConfig = async (key, value) => {
-    try {
-      await updateConfig({ key, value }).unwrap();
-      toast.success(`Configuration '${key}' updated successfully!`);
-      refetch(); // Refetch health data to show updated value
-    } catch (err) {
-      toast.error(
-        `Failed to update configuration '${key}': ${
-          err?.data?.message || err.error || "Server error"
-        }`
-      );
-    }
-  };
 
   if (isLoading) {
     return <LoadingPage />;
@@ -192,7 +85,7 @@ const SystemHealth = () => {
     );
   }
 
-  const { server, redis, memory, database, configurations } = healthData || {};
+  const { server, redis, memory, database } = healthData || {};
 
   const formatUptime = (seconds) => {
     const d = Math.floor(seconds / (3600 * 24));
@@ -207,7 +100,7 @@ const SystemHealth = () => {
       <header className="mb-8">
         <h1 className="text-3xl font-bold text-gray-800">System Health</h1>
         <p className="mt-2 text-gray-600">
-          Monitor server performance and manage system configurations
+          Monitor server performance and system status
         </p>
       </header>
 
@@ -528,30 +421,6 @@ const SystemHealth = () => {
               <span>Total: {memory?.systemTotalMB} MB</span>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* System Configuration */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        <div className="p-4 bg-gray-50 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-800">
-            System Configuration
-          </h2>
-        </div>
-        <div className="p-5">
-          {configurations && Object.keys(configurations).length > 0 ? (
-            Object.entries(configurations).map(([key, configData]) => (
-              <ConfigItem
-                key={key}
-                configKey={key}
-                data={configData}
-                onSave={handleSaveConfig}
-                isSaving={isUpdatingConfig}
-              />
-            ))
-          ) : (
-            <p className="text-gray-500 italic">No configurations found.</p>
-          )}
         </div>
       </div>
     </div>

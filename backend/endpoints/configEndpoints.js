@@ -3,7 +3,10 @@ const router = express.Router();
 const mongoose = require("mongoose");
 const Config = require("../models/Config");
 const { verifyJWT } = require("../middleware/verifyJWT");
-const asyncHandler = require("express-async-handler"); // You need to add this import
+const { verifyAdmin } = require("../middleware/verifyJWT");
+const asyncHandler = require("express-async-handler");
+const logger = require("../logs/logger");
+const { redisCaching } = require("../middleware/redisCaching");
 
 //@desc returns the current session price for display in frontend
 //@param {Object} req with valid JWT
@@ -22,11 +25,100 @@ const getSessionPrice = asyncHandler(async (req, res) => {
 //@route GET /config/noticePeriod
 //@access Private
 const getNoticePeriod = asyncHandler(async (req, res) => {
-  const noticePeriod = await Config.getValue("cancelCutoffDays");
+  const noticePeriod = await Config.getValue("noticePeriod");
   if (!noticePeriod) {
     return res.sendStatus(503);
   }
   return res.status(200).json({ noticePeriod });
+});
+
+//@desc returns all the bank account details
+//@param {Object} req with valid JWT
+//@route GET /config/bank-account
+//@access Private
+const getBankAccountDetails = asyncHandler(async (req, res) => {
+  const bankAccounts = await Config.getValue("bankAccounts");
+  if (!bankAccounts) {
+    return res.sendStatus(503);
+  }
+  return res.status(200).json(bankAccounts);
+});
+
+//@desc Get all configuration values
+//@param valid admin jwt token
+//@route GET /config/all
+//@access Private(admin)
+const getAllConfigs = asyncHandler(async (req, res) => {
+  try {
+    const configurations = await Config.find({}).lean();
+
+    res.status(200).json({
+      configurations: configurations.reduce((acc, config) => {
+        acc[config.key] = {
+          value: config.value,
+          description: config.description,
+          displayName: config.displayName,
+          editable: config.editable,
+          _id: config._id,
+        };
+        return acc;
+      }, {}),
+    });
+  } catch (error) {
+    logger.error(`Error fetching all configurations: ${error.message}`);
+    res.status(500).json({ message: "Failed to fetch configuration data" });
+  }
+});
+
+//@desc Update configuration value
+//@param valid admin jwt token
+//@route PATCH /config/:key
+//@access Private(admin)
+const updateConfig = asyncHandler(async (req, res) => {
+  const { key } = req.params;
+  const { value } = req.body;
+
+  if (value === undefined) {
+    return res.status(400).json({ message: "Value is required" });
+  }
+
+  try {
+    // First check if the config exists
+    const configItem = await Config.findOne({ key });
+
+    // If config exists, update it using setValue method
+    let updatedConfig;
+    try {
+      updatedConfig = await Config.setValue(key, value);
+
+      logger.info(`Admin updated config key '${key}'`);
+
+      return res.status(200).json({
+        message: `Configuration '${key}' updated successfully`,
+        config: {
+          key: updatedConfig.key,
+          value: updatedConfig.value,
+          description: updatedConfig.description,
+          displayName: updatedConfig.displayName,
+          editable: updatedConfig.editable !== false, // Default to true if undefined
+          _id: updatedConfig._id,
+        },
+      });
+    } catch (updateError) {
+      logger.error(`Error in setValue: ${updateError.message}`);
+      return res.status(500).json({
+        message: "Failed to update configuration",
+        error: updateError.message,
+      });
+    }
+  } catch (error) {
+    logger.error(`Error updating configuration '${key}': ${error.message}`);
+    logger.error(error.stack); // Log the full stack trace
+    return res.status(500).json({
+      message: "Failed to update configuration",
+      error: error.message,
+    });
+  }
 });
 
 // Define routes after defining handler functions
@@ -35,5 +127,11 @@ router.get("/sessionPrice", getSessionPrice);
 router.use(verifyJWT);
 
 router.get("/noticePeriod", getNoticePeriod);
+router.get("/bank-account", getBankAccountDetails);
+
+// Admin-only routes
+router.use(verifyAdmin);
+router.get("/all", redisCaching(), getAllConfigs);
+router.patch("/:key", updateConfig);
 
 module.exports = router;
