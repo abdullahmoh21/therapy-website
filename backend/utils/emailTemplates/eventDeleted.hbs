@@ -1,0 +1,102 @@
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Booking Canceled</title>
+    <style>
+      body { font-family: Arial, sans-serif; background-color: #f9f9f9; margin:
+      0; padding: 0; color: #333; } .email-container { max-width: 600px; margin:
+      40px auto; background-color: #ffffff; border: 1px solid #eee; border-left:
+      4px solid #e27a82; border-radius: 8px; padding: 24px; } .header {
+      text-align: center; margin-bottom: 20px; } .header img { max-height: 40px;
+      display: block; margin: 0 auto 10px; } .fallback-logo { color: #e27a82;
+      font-weight: bold; font-size: 18px; } .title { font-size: 20px;
+      font-weight: bold; color: #e27a82; margin-bottom: 20px; text-align:
+      center; } .email-body { font-size: 16px; line-height: 1.5; } .button-link
+      { display: block; width: fit-content; margin: 20px auto; background-color:
+      #e27a82 !important; color: #ffffff !important; padding: 12px 24px;
+      border-radius: 6px; text-decoration: none !important; text-align: center;
+      font-size: 16px; font-weight: bold; } .button-link:hover {
+      background-color: #c86a67 !important; color: #ffffff !important; }
+      a:not(.button-link) { color: #0066cc; text-decoration: underline;
+      word-break: break-word; } .footer { font-size: 13px; color: #777;
+      text-align: center; margin-top: 40px; border-top: 1px solid #eee;
+      padding-top: 16px; } .alert-box { background-color: #f8d7da; border-left:
+      4px solid #e27a82; padding: 15px; margin-bottom: 20px; }
+    </style>
+  </head>
+  <body>
+    <div class="email-container">
+      <!-- Clickable Logo with Fallback -->
+      <div class="header">
+        <div style="height: 100px; margin-bottom: 20px; text-align: center">
+          <a
+            href="{{frontend_url}}"
+            target="_blank"
+            style="display: inline-block"
+          >
+            <img
+              src="{{frontend_url}}/logo.png"
+              alt="Fatima's Therapy Services"
+              width="100"
+              height="100"
+              style="max-height: 100%; display: block; margin: 0 auto"
+              onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\'color:#E27A82;font-size:18px;font-weight:bold;\'>Fatima's Therapy Services</div>';"
+            />
+          </a>
+        </div>
+      </div>
+
+      <!-- Title -->
+      <div class="title">Booking Canceled</div>
+
+      <!-- Message Body -->
+      <div class="email-body">
+        <p>Dear {{#if name}}{{name}}{{else}}Client{{/if}},</p>
+
+        <div class="alert-box">
+          <p>Your booking for
+            {{eventDate}}
+            at
+            {{eventTime}}
+            has been canceled.</p>
+        </div>
+
+        <p>
+          {{#if reason}}
+            <strong>Reason:</strong>
+            {{reason}}
+          {{else}}
+            This was done due to an issue with the booking process.
+          {{/if}}
+        </p>
+
+        <p>
+          If you wish to book another session, please visit our website or
+          contact us directly.
+        </p>
+
+        <a
+          href="{{frontend_url}}/signin"
+          target="_blank"
+          class="button-link"
+        >Book Again</a>
+
+        <p>
+          If you have any questions or concerns, please feel free to contact us.
+        </p>
+
+        <p>We apologize for any inconvenience this may have caused.</p>
+      </div>
+
+      <!-- Footer -->
+      <div class="footer">
+        Regards,<br />
+        Fatima's Therapy Services<br />
+        &copy;
+        {{currentYear}}
+        All rights reserved.
+      </div>
+    </div>
+  </body>
+</html>
