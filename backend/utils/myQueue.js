@@ -16,9 +16,7 @@ function stableStringify(obj) {
   return JSON.stringify(obj, Object.keys(obj).sort());
 }
 
-// Function to get unique identifiers for each job type
-
-const getJobUniqueId = (jobName, jobData) => {
+function getJobUniqueId(jobName, jobData) {
   let stableKey;
 
   switch (jobName) {
@@ -43,6 +41,9 @@ const getJobUniqueId = (jobName, jobData) => {
     case "sendInvitation":
       stableKey = jobData.recipient;
       break;
+    case "adminAlert":
+      stableKey = `${jobData.alertType}:${Date.now()}`; // Include timestamp to allow multiple alerts of same type
+      break;
     default:
       // Always-unique fallback
       stableKey = stableStringify(jobData);
@@ -52,7 +53,7 @@ const getJobUniqueId = (jobName, jobData) => {
     .createHash("sha256")
     .update(String(stableKey))
     .digest("hex")}`;
-};
+}
 
 const initializeQueue = async () => {
   const redisAvailable = await checkRedisAvailability();
@@ -95,6 +96,12 @@ const initializeQueue = async () => {
             return deleteDocuments(job);
           case "sendInvitation":
             return sendInvitationEmail(job);
+          case "eventDeleted":
+            return sendEventDeletedEmail(job);
+          case "unauthorizedBooking":
+            return sendUnauthorizedBookingEmail(job);
+          case "adminAlert":
+            return sendAdminAlertEmail(job);
           default:
             logger.error(`[QUEUE SWITCH] Unknown job name: ${job.name}`);
             return { success: false, error: "Unknown job type" };
@@ -176,7 +183,7 @@ const safeAdd = async (jobName, jobData) => {
 };
 
 // --- inline fallback runner ---
-function fallbackExecute(jobName, jobData) {
+const fallbackExecute = function (jobName, jobData) {
   switch (jobName) {
     case "verifyEmail":
       return sendVerificationEmail({ data: jobData });
@@ -194,10 +201,16 @@ function fallbackExecute(jobName, jobData) {
       return sendInvitationEmail({ data: jobData });
     case "deleteDocuments":
       return deleteDocuments({ data: jobData });
+    case "eventDeleted":
+      return sendEventDeletedEmail({ data: jobData });
+    case "unauthorizedBooking":
+      return sendUnauthorizedBookingEmail({ data: jobData });
+    case "adminAlert":
+      return sendAdminAlertEmail({ data: jobData });
     default:
       throw new Error(`Unknown job type: ${jobName}`);
   }
-}
+};
 
 module.exports = {
   initializeQueue,
@@ -205,7 +218,6 @@ module.exports = {
 };
 //--------------------------------------------------- JOB HANDLERS ----------------------------------------------------//
 
-// Function to delete documents based on job data
 const deleteDocuments = async (job) => {
   try {
     const { documentIds, model } = job.data;
@@ -383,7 +395,8 @@ const sendCancellationNotification = async (job) => {
         paymentStatus: payment.transactionStatus,
         paymentCompleted: paymentCompletedDate,
         transactionReferenceNumber: payment.transactionReferenceNumber,
-        cancelCutoffDays: (await Config.getValue("cancelCutoffDays")) || 3,
+        cancelCutoffDays:
+          (await Config.getValue("noticePeriod")) || "Unavailable",
         refundLink,
         isAdmin: booking.cancellation.cancelledBy === "Admin",
         frontend_url: process.env.FRONTEND_URL || "https://fatimatherapy.com",
@@ -490,7 +503,8 @@ const sendLateCancellation = async (job) => {
         paymentStatus: payment.transactionStatus,
         paymentCompleted: paymentCompletedDate,
         transactionReferenceNumber: payment.transactionReferenceNumber,
-        cancelCutoffDays: (await Config.getValue("cancelCutoffDays")) || 3,
+        cancelCutoffDays:
+          (await Config.getValue("noticePeriod")) || "Unavailable",
         refundLink,
         isAdmin: booking.cancellation.cancelledBy === "Admin",
         frontend_url: process.env.FRONTEND_URL || "https://fatimatherapy.com",
@@ -664,7 +678,227 @@ const sendInvitationEmail = async (job) => {
   }
 };
 
-module.exports = {
-  initializeQueue,
-  sendEmail: safeAdd,
+const sendEventDeletedEmail = async (job) => {
+  try {
+    const { recipient, name, eventDate, eventTime, reason } = job.data;
+
+    if (!recipient) {
+      logger.error("Cannot send event deleted email: no recipient provided");
+      return;
+    }
+
+    const mailOptions = {
+      from: "bookings@fatimanaqvi.com",
+      to: recipient,
+      subject: "Booking Canceled",
+      replyTo: "no-reply@fatimanaqvi.com",
+      template: "eventDeleted",
+      context: {
+        name,
+        eventDate,
+        eventTime,
+        reason,
+        frontend_url: process.env.FRONTEND_URL || "https://fatimatherapy.com",
+        currentYear: new Date().getFullYear(),
+      },
+    };
+
+    await transporter.sendMail(mailOptions);
+    logger.info(`Event deleted email sent to ${recipient}`);
+    return { success: true };
+  } catch (error) {
+    logger.error(
+      `[EMAIL] Error sending event deleted email to ${job.data.recipient}: ${error}`
+    );
+    throw error; // Propagate error for external handling
+  }
 };
+
+const sendUnauthorizedBookingEmail = async (job) => {
+  try {
+    const { recipient, calendlyEmail } = job.data;
+
+    // Determine which email to use - if recipient is provided use that, otherwise use calendlyEmail
+    const emailTo = recipient || calendlyEmail;
+
+    if (!emailTo) {
+      logger.error(
+        "Cannot send unauthorized booking email: no recipient provided"
+      );
+      return;
+    }
+
+    // Get admin email for contact information
+    const adminEmail = await Config.getValue("adminEmail");
+
+    const mailOptions = {
+      from: "bookings@fatimanaqvi.com",
+      to: emailTo,
+      subject: "Booking Request Canceled",
+      replyTo: adminEmail,
+      template: "unauthorizedBooking",
+      context: {
+        adminEmail,
+        frontend_url: process.env.FRONTEND_URL || "https://fatimatherapy.com",
+        currentYear: new Date().getFullYear(),
+      },
+    };
+
+    await transporter.sendMail(mailOptions);
+    logger.info(`Unauthorized booking email sent to ${emailTo}`);
+    return { success: true };
+  } catch (error) {
+    logger.error(
+      `[EMAIL] Error sending unauthorized booking email to ${
+        job.data.recipient || job.data.calendlyEmail
+      }: ${error}`
+    );
+    throw error; // Propagate error for external handling
+  }
+};
+
+const sendAdminAlertEmail = async (job) => {
+  try {
+    const { alertType, extraData = {} } = job.data;
+
+    // Get alert configuration including recipient type
+    const alertConfig = getAlertConfig(alertType, extraData);
+
+    // Get recipient email(s) based on config
+    let recipientEmails = [];
+
+    // Determine which email(s) to use based on recipient type
+    if (alertConfig.recipient === "dev" || alertConfig.recipient === "both") {
+      const devEmail = await Config.getValue("devEmail");
+      if (devEmail) recipientEmails.push(devEmail);
+    }
+
+    if (alertConfig.recipient === "admin" || alertConfig.recipient === "both") {
+      const adminEmail = await Config.getValue("adminEmail");
+      if (adminEmail) recipientEmails.push(adminEmail);
+    }
+
+    // Fallback if no emails were found
+    if (recipientEmails.length === 0) {
+      logger.warn(
+        `No recipient emails found for alert: ${alertType}, using defaults`
+      );
+      if (alertConfig.recipient === "dev" || alertConfig.recipient === "both") {
+        recipientEmails.push(
+          process.env.DEFAULT_DEV_EMAIL || "abdullahmohsin21007@gmail.com"
+        );
+      }
+      if (
+        alertConfig.recipient === "admin" ||
+        alertConfig.recipient === "both"
+      ) {
+        recipientEmails.push(
+          process.env.DEFAULT_ADMIN_EMAIL || "abdullahmohsin21007@gmail.com"
+        );
+      }
+    }
+
+    // Send the email to all recipients
+    const info = await transporter.sendMail({
+      from: "alert@fatimanaqvi.com",
+      to: recipientEmails.join(", "), // Join all emails with comma
+      subject: alertConfig.subject,
+      template: "alert",
+      context: {
+        title: alertConfig.title,
+        message: alertConfig.message,
+        actionText: alertConfig.actionText || null,
+        actionLink: alertConfig.actionLink || null,
+        currentYear: new Date().getFullYear(),
+      },
+    });
+
+    logger.info(
+      `Admin alert sent to ${recipientEmails.join(", ")}: ${alertType}`
+    );
+    return info;
+  } catch (error) {
+    logger.error(`Error sending admin alert email: ${error.message}`);
+    throw error; // Propagate error for retry
+  }
+};
+
+// Helper function to get alert configuration
+function getAlertConfig(alertType, extraData) {
+  const configs = {
+    mongoDisconnected: {
+      subject: "ALERT: MongoDB Connection Lost",
+      title: "Database Connection Error",
+      message:
+        "The application has lost connection to MongoDB. Services requiring database access may be unavailable.",
+      actionText: "View System Status",
+      actionLink: `${process.env.FRONTEND_URL}/admin/systemhealth`,
+      recipient: "dev",
+    },
+    mongoReconnected: {
+      subject: "INFO: MongoDB Connection Restored",
+      title: "Database Connection Restored",
+      message:
+        "The connection to MongoDB has been successfully restored. All services should now be functioning normally.",
+      recipient: "dev",
+    },
+    redisDisconnected: {
+      subject: "ALERT: Redis Connection Lost",
+      title: "Cache Connection Error",
+      message:
+        "The application has lost connection to Redis. Caching and rate limiting may be affected.",
+      recipient: "dev",
+    },
+    redisReconnected: {
+      subject: "INFO: Redis Connection Restored",
+      title: "Cache Connection Restored",
+      message:
+        "The connection to Redis has been successfully restored. Caching functionality is now operational.",
+      recipient: "dev",
+    },
+    redisDisconnectedInitial: {
+      subject: "ALERT: Redis Connection Failed",
+      title: "Redis Connection Failed",
+      message:
+        "The application failed to establish an initial connection to Redis. The system will function with degraded performance.",
+      recipient: "dev",
+    },
+    calendlyDisconnected: {
+      subject: "ALERT: Calendly Connection Lost",
+      title: "Calendly Integration Error",
+      message:
+        "The application has lost connection to Calendly. Booking functionality may be affected.",
+      recipient: "both",
+    },
+    calendlyWebhookDown: {
+      subject: "ALERT: Calendly Webhook Down",
+      title: "Calendly Webhook Error",
+      message:
+        "The application failed to establish a webhook connection to Calendly. Booking functionality may be affected",
+      recipient: "both",
+    },
+    serverError: {
+      subject: "ALERT: Server Error",
+      title: "Server Error",
+      message: "An error occurred on the server that requires attention.",
+      recipient: "dev",
+    },
+  };
+
+  const config = configs[alertType] || {
+    subject: `ALERT: ${alertType}`,
+    title: "System Alert",
+    message: `An alert of type ${alertType} was triggered.`,
+    recipient: "admin", // Default to admin for unknown alert types
+  };
+
+  // Add any extra data to the message if provided
+  if (extraData && Object.keys(extraData).length > 0) {
+    config.message += "\n\nAdditional Information:\n";
+    Object.entries(extraData).forEach(([key, value]) => {
+      config.message += `\n${key}: ${value}`;
+    });
+  }
+
+  return config;
+}

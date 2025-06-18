@@ -60,16 +60,13 @@ const baseLogger = winston.createLogger({
     // Console transport with readable format
     new winston.transports.Console({
       level: "success",
-      format: winston.format.combine(
-        winston.format.colorize(),
-        consoleFormat
-      ),
+      format: winston.format.combine(winston.format.colorize(), consoleFormat),
     }),
     // Error log file transport with JSON format
     new winston.transports.File({
       filename: "logs/errors.log",
       level: "error",
-      format: winston.format.json()
+      format: winston.format.json(),
     }),
   ],
 });

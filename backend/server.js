@@ -1,4 +1,5 @@
 require("dotenv").config();
+console.log("NODE_ENV from top of server.js:", process.env.NODE_ENV);
 const express = require("express");
 const path = require("path");
 const mongoose = require("mongoose");
@@ -13,9 +14,8 @@ const checkBlocked = require("./middleware/rateLimiting/checkBlocked");
 const dependencyGuard = require("./middleware/dependencyGuard");
 const { connectDB, isMongoAvailable } = require("./utils/connectDB");
 const { redisClient } = require("./utils/redisClient");
-const { initializeQueue } = require("./utils/myQueue");
+const { initializeQueue, sendEmail } = require("./utils/myQueue");
 const connectCalendly = require("./utils/connectCalendly");
-const { sendAdminAlert } = require("./utils/emailTransporter");
 const startUpdateBookingStatusCron = require("./utils/cron/UpdateBookingStatus");
 const Config = require("./models/Config");
 const logger = require("./logs/logger");
@@ -37,9 +37,10 @@ async function bootstrap() {
   } catch (err) {
     logger.error("Could not connect to Calendly — aborting startup.");
     if (process.env.NODE_ENV === "production") {
-      await sendAdminAlert("calendlyWebhookDown", { error: err.message }).catch(
-        () => {}
-      );
+      await sendEmail("adminAlert", {
+        alertType: "calendlyWebhookDown",
+        extraData: { error: err.message },
+      }).catch(() => {});
     }
     process.exit(1);
   }
@@ -51,7 +52,9 @@ async function bootstrap() {
       `Redis unavailable — continuing in degraded mode: ${err.message}`
     );
     if (process.env.NODE_ENV === "production") {
-      await sendAdminAlert("redisDisconnectedInitial").catch(() => {});
+      await sendEmail("adminAlert", {
+        alertType: "redisDisconnectedInitial",
+      }).catch(() => {});
     }
   }
 
@@ -73,9 +76,10 @@ async function bootstrap() {
   server.on("error", async (error) => {
     logger.error(`Server error: ${error.message}`);
     if (process.env.NODE_ENV === "production") {
-      await sendAdminAlert("serverError", { error: error.message }).catch(
-        () => {}
-      );
+      await sendEmail("adminAlert", {
+        alertType: "serverError",
+        extraData: { error: error.message },
+      }).catch(() => {});
     }
   });
 }
@@ -83,6 +87,8 @@ async function bootstrap() {
 // --- Express setup (no I/O here) ---
 const app = express();
 app.set("trust proxy", 1);
+
+// Apply other middleware after CORS
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -109,7 +115,7 @@ app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 app.use(cookieParser());
 app.use(credentials); // This MUST come before cors middleware
-app.use(cors(require("./config/corsOptions")));
+app.use(cors(require("./config/corsOptions").corsOptions));
 
 // Routes
 app.use("/api/auth", require("./endpoints/authEndpoints"));
