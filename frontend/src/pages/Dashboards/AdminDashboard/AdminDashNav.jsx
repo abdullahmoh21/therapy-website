@@ -53,6 +53,7 @@ const AdminDashboard = () => {
     { path: "/admin/bookings", label: "Bookings" },
     { path: "/admin/users", label: "Users" },
     { path: "/admin/metrics", label: "Metrics" },
+    { path: "/admin/config", label: "Configuration" },
     { path: "/admin/system", label: "System Health" },
   ];
 
