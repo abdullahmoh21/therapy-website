@@ -5,8 +5,6 @@ import { getStatusDisplay } from "../../pages/Dashboards/UserDashboard/Billing/b
 const bookingsAdapter = createEntityAdapter({
   selectId: (booking) => booking._id,
 });
-
-// Create a separate adapter for past bookings to avoid conflicts
 const pastBookingsAdapter = createEntityAdapter({
   selectId: (booking) => booking._id,
 });
@@ -50,8 +48,6 @@ export const bookingsApiSlice = apiSlice.injectEndpoints({
       transformResponse: (response) => {
         try {
           const rawBookings = response.bookings || [];
-          // Backend now sorts and provides all necessary fields.
-          // Frontend processing focuses on formatting for display if still needed.
           const processedBookings = rawBookings.map((booking) => ({
             ...booking,
             payment: booking.payment || {},
@@ -59,7 +55,6 @@ export const bookingsApiSlice = apiSlice.injectEndpoints({
               booking.eventStartTime,
               true
             ),
-            // We don't need transactionStatusDisplay anymore as we'll use getStatusDisplay directly in the component
             customerBookingId: booking.bookingId,
           }));
 
@@ -134,8 +129,8 @@ export const bookingsApiSlice = apiSlice.injectEndpoints({
         }
         return response.status === 200 && !result.isError;
       },
-      transformResponse: (response, meta, arg) => {
-        return response.link;
+      transformResponse: (response) => {
+        return response;
       },
     }),
     getCancellationUrl: builder.query({
