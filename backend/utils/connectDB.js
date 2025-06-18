@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const logger = require("../logs/logger");
-const { sendAdminAlert } = require("./emailTransporter");
 const CircuitBreaker = require("opossum");
+const { sendEmail } = require("./myQueue");
 
 // Connection retry configuration
 const MAX_RETRY_ATTEMPTS = 5;
@@ -29,7 +29,7 @@ const setupMongoEventListeners = () => {
     // If we were previously disconnected, send reconnection alert
     if (global.wasMongoDisconnected) {
       try {
-        await sendAdminAlert("mongoReconnected");
+        await sendEmail("adminAlert", { alertType: "mongoReconnected" });
         global.wasMongoDisconnected = false;
       } catch (error) {
         logger.error(
@@ -48,7 +48,10 @@ const setupMongoEventListeners = () => {
       global.mongoAvailable = false;
 
       try {
-        await sendAdminAlert("mongoDisconnected", { error: err.message });
+        await sendEmail("adminAlert", {
+          alertType: "mongoDisconnected",
+          extraData: { error: err.message },
+        });
       } catch (alertError) {
         logger.error(
           `Failed to send MongoDB disconnection alert: ${alertError.message}`
@@ -116,8 +119,11 @@ const createCircuitBreaker = () => {
     logger.error("MongoDB circuit breaker opened - connection is unavailable");
     global.mongoAvailable = false;
     try {
-      await sendAdminAlert("mongoDisconnected", {
-        error: "Circuit breaker tripped - MongoDB connection unavailable",
+      await sendEmail("adminAlert", {
+        alertType: "mongoDisconnected",
+        extraData: {
+          error: "Circuit breaker tripped - MongoDB connection unavailable",
+        },
       });
     } catch (alertError) {
       logger.error(
@@ -130,7 +136,7 @@ const createCircuitBreaker = () => {
     logger.info("MongoDB circuit breaker closed - connection restored");
     global.mongoAvailable = true;
     try {
-      await sendAdminAlert("mongoReconnected");
+      await sendEmail("adminAlert", { alertType: "mongoReconnected" });
     } catch (alertError) {
       logger.error(
         `Failed to send circuit closed alert: ${alertError.message}`
@@ -200,7 +206,10 @@ const connectDB = async () => {
     if (retryCount === 0 && !error.message.includes("Circuit breaker")) {
       try {
         global.wasMongoDisconnected = true;
-        await sendAdminAlert("mongoDisconnected", { error: error.message });
+        await sendEmail("adminAlert", {
+          alertType: "mongoDisconnected",
+          extraData: { error: error.message },
+        });
       } catch (alertError) {
         logger.error(
           `Failed to send MongoDB disconnection alert: ${alertError.message}`

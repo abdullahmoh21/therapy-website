@@ -57,10 +57,12 @@ const redisClient = new Redis({
           "Redis connection retry threshold reached after 5 attempts"
         );
         // Send alert using dynamic import to avoid circular dependency
-        import("./emailTransporter.js")
-          .then((emailTransporter) => {
-            emailTransporter
-              .sendAdminAlert("redisDisconnectedInitial")
+        import("./myQueue.js")
+          .then((queueModule) => {
+            queueModule
+              .sendEmail("adminAlert", {
+                alertType: "redisDisconnectedInitial",
+              })
               .catch((err) => {
                 logger.error(
                   `Failed to send Redis connection alert: ${err.message}`
@@ -68,7 +70,7 @@ const redisClient = new Redis({
               });
           })
           .catch((err) => {
-            logger.error(`Failed to import emailTransporter: ${err.message}`);
+            logger.error(`Failed to import queue module: ${err.message}`);
           });
       }
       return false; // Stop retrying
@@ -89,16 +91,18 @@ redisClient.on("ready", function () {
     wasDisconnected = false;
 
     // Send reconnection alert using dynamic import
-    import("./emailTransporter.js")
-      .then((emailTransporter) => {
-        emailTransporter.sendAdminAlert("redisReconnected").catch((err) => {
-          logger.error(
-            `Failed to send Redis reconnection alert: ${err.message}`
-          );
-        });
+    import("./myQueue.js")
+      .then((queueModule) => {
+        queueModule
+          .sendEmail("adminAlert", { alertType: "redisReconnected" })
+          .catch((err) => {
+            logger.error(
+              `Failed to send Redis reconnection alert: ${err.message}`
+            );
+          });
       })
       .catch((err) => {
-        logger.error(`Failed to import emailTransporter: ${err.message}`);
+        logger.error(`Failed to import queue module: ${err.message}`);
       });
 
     // Process any pending cache invalidation requests
@@ -114,10 +118,13 @@ redisClient.on("error", function (err) {
 
     if (retryAttempts === 1) {
       // Send disconnection alert only on first error using dynamic import
-      import("./emailTransporter.js")
-        .then((emailTransporter) => {
-          emailTransporter
-            .sendAdminAlert("redisDisconnected", { error: err.message })
+      import("./myQueue.js")
+        .then((queueModule) => {
+          queueModule
+            .sendEmail("adminAlert", {
+              alertType: "redisDisconnected",
+              extraData: { error: err.message },
+            })
             .catch((alertErr) => {
               logger.error(
                 `Failed to send Redis disconnection alert: ${alertErr.message}`
@@ -125,9 +132,7 @@ redisClient.on("error", function (err) {
             });
         })
         .catch((importErr) => {
-          logger.error(
-            `Failed to import emailTransporter: ${importErr.message}`
-          );
+          logger.error(`Failed to import queue module: ${importErr.message}`);
         });
     }
   }

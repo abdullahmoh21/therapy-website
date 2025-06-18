@@ -1,6 +1,6 @@
 const axios = require("axios");
 const logger = require("../logs/logger");
-const { sendAdminAlert } = require("./emailTransporter");
+const { sendEmail } = require("./myQueue");
 
 // Global availability flag
 global.calendlyAvailable = false;
@@ -63,8 +63,9 @@ const connectCalendly = async () => {
     // Send alert on first connection failure
     if (retryCount === 0) {
       try {
-        await sendAdminAlert("calendlyDisconnected", {
-          error: error.message || "Unknown error",
+        await sendEmail("adminAlert", {
+          alertType: "calendlyDisconnected",
+          extraData: { error: error.message || "Unknown error" },
         });
       } catch (alertError) {
         logger.error(`Failed to send Calendly alert: ${alertError.message}`);
