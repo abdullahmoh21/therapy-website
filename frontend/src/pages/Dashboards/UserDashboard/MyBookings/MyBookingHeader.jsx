@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   BiLoaderAlt,
   BiErrorCircle,
@@ -21,6 +21,35 @@ const DashboardHeader = ({
   // Local states
   const [isLoading, setIsLoading] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 768);
+  const modalRef = useRef(null);
+
+  // Check for screen size changes
+  useEffect(() => {
+    const handleResize = () => {
+      setIsDesktop(window.innerWidth >= 768);
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // Handle click outside modal to close on desktop
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        isDesktop &&
+        modalRef.current &&
+        !modalRef.current.contains(event.target) &&
+        showPaymentModal
+      ) {
+        setShowPaymentModal(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showPaymentModal, isDesktop]);
 
   // Fetch the notice period for cancellations
   const { data: noticePeriodData, isSuccess: noticePeriodSuccess } =
@@ -138,10 +167,14 @@ const DashboardHeader = ({
       {/* Payment Instructions Modal */}
       {showPaymentModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-lg max-w-md w-full p-6 relative max-h-[90vh] overflow-y-auto">
+          <div
+            ref={modalRef}
+            className="bg-white rounded-xl shadow-lg max-w-md w-full p-6 relative max-h-[90vh] overflow-y-auto"
+          >
             <button
               onClick={() => setShowPaymentModal(false)}
               className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+              aria-label="Close payment instructions"
             >
               <BiX className="text-2xl" />
             </button>

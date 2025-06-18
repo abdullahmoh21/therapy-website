@@ -716,7 +716,7 @@ const sendEventDeletedEmail = async (job) => {
 
 const sendUnauthorizedBookingEmail = async (job) => {
   try {
-    const { recipient, calendlyEmail } = job.data;
+    const { recipient, calendlyEmail, name } = job.data;
 
     // Determine which email to use - if recipient is provided use that, otherwise use calendlyEmail
     const emailTo = recipient || calendlyEmail;
@@ -731,6 +731,9 @@ const sendUnauthorizedBookingEmail = async (job) => {
     // Get admin email for contact information
     const adminEmail = await Config.getValue("adminEmail");
 
+    // Use the provided name or fallback to "Client"
+    const clientName = name || "Client";
+
     const mailOptions = {
       from: "bookings@fatimanaqvi.com",
       to: emailTo,
@@ -739,13 +742,16 @@ const sendUnauthorizedBookingEmail = async (job) => {
       template: "unauthorizedBooking",
       context: {
         adminEmail,
+        clientName, // Pass the name to the template
         frontend_url: process.env.FRONTEND_URL || "https://fatimatherapy.com",
         currentYear: new Date().getFullYear(),
       },
     };
 
     await transporter.sendMail(mailOptions);
-    logger.info(`Unauthorized booking email sent to ${emailTo}`);
+    logger.info(
+      `Unauthorized booking email sent to ${emailTo} for ${clientName}`
+    );
     return { success: true };
   } catch (error) {
     logger.error(

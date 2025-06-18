@@ -1,21 +1,50 @@
-import React from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { BiInfoCircle } from "react-icons/bi";
 
 const PaymentInfoPopup = ({ show, onClose }) => {
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 768);
+  const modalRef = useRef(null);
+
+  // Check for screen size changes
+  useEffect(() => {
+    const handleResize = () => {
+      setIsDesktop(window.innerWidth >= 768);
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // Handle click outside modal to close on desktop
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        isDesktop &&
+        modalRef.current &&
+        !modalRef.current.contains(event.target) &&
+        show
+      ) {
+        onClose();
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [show, isDesktop, onClose]);
+
   if (!show) return null;
 
   return (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div
+        ref={modalRef}
         className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full relative"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl"
           onClick={onClose}
+          aria-label="Close popup"
         >
           &times;
         </button>
