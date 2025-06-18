@@ -2,10 +2,17 @@ import React from "react";
 import { BiCalendarPlus } from "react-icons/bi";
 import DashboardHeader from "./MyBookingHeader";
 
-const NoBooking = ({ gettingBookingLink, Bookinglink, userData }) => {
+const NoBooking = ({
+  gettingBookingLink,
+  bookingLink,
+  userData,
+  getBookingLink,
+}) => {
   const handleBookSession = () => {
-    if (Bookinglink) {
-      window.location.href = Bookinglink;
+    if (bookingLink) {
+      window.location.href = bookingLink;
+    } else if (getBookingLink && !gettingBookingLink) {
+      getBookingLink();
     }
   };
 

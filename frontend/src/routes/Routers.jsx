@@ -46,6 +46,9 @@ const AdminUsers = lazy(() =>
 const SystemHealth = lazy(() =>
   import("../pages/Dashboards/AdminDashboard/SystemHealth")
 );
+const SystemConfig = lazy(() =>
+  import("../pages/Dashboards/AdminDashboard/SystemConfig")
+);
 const UpcomingBookings = lazy(() =>
   import("../pages/Dashboards/AdminDashboard/UpcomingBookings")
 );
@@ -88,6 +91,7 @@ const Routers = () => {
             <Route path="bookings" element={<AdminBookings />} />
             <Route path="users" element={<AdminUsers />} />
             <Route path="system" element={<SystemHealth />} />
+            <Route path="config" element={<SystemConfig />} />
             <Route path="upcoming" element={<UpcomingBookings />} />
           </Route>
         </Route>
