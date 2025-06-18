@@ -324,13 +324,19 @@ export const adminApiSlice = apiSlice.injectEndpoints({
       providesTags: ["SystemHealth"], // Tag for caching
     }),
 
+    // New endpoint for getting all configurations
+    getAllConfigs: builder.query({
+      query: () => "/config/all",
+      providesTags: ["Configurations"],
+    }),
+
     updateConfig: builder.mutation({
       query: ({ key, value }) => ({
-        url: `/admin/config/${key}`,
+        url: `/config/${key}`,
         method: "PATCH",
         body: { value },
       }),
-      invalidatesTags: ["SystemHealth"], // Invalidate health cache on update
+      invalidatesTags: ["Configurations"], // Invalidate configs cache on update
     }),
 
     // -------------------- INVITATION ENDPOINTS --------------------
@@ -417,6 +423,7 @@ export const {
 
   // System Health & Config endpoints
   useGetSystemHealthQuery,
+  useGetAllConfigsQuery,
   useUpdateConfigMutation,
 
   // Invitation endpoints
