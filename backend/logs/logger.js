@@ -71,7 +71,7 @@ const baseLogger = winston.createLogger({
   ],
 });
 
-// Create a production logger that only processes error logs
+// Create a production logger that only processes error and warn logs
 const createProductionLogger = (logger) => {
   const productionLogger = {};
 
@@ -84,10 +84,10 @@ const createProductionLogger = (logger) => {
     }
   );
 
-  // Override all log level methods except error
+  // Override log level methods except error and warn
   Object.keys(customLevels.levels).forEach((level) => {
-    if (level !== "error") {
-      productionLogger[level] = () => {}; // No-op function for non-error logs
+    if (level !== "error" && level !== "warn") {
+      productionLogger[level] = () => {}; // No-op function for non-error/warn logs
     }
   });
 
