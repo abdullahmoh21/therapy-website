@@ -106,7 +106,6 @@ const getSystemHealth = asyncHandler(async (req, res) => {
         const collections = await mongoose.connection.db
           .listCollections()
           .toArray();
-        j;
         dbStats.collectionList = collections.map((c) => c.name);
       } catch (dbError) {
         logger.error(`Error fetching DB stats: ${dbError.message}`);
