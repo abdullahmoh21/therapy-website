@@ -91,8 +91,6 @@ const Billing = () => {
   useEffect(() => {
     try {
       if (isSuccess && pastBookingsResponseData) {
-        console.log("Response data received:", pastBookingsResponseData);
-
         if (
           pastBookingsResponseData.bookings &&
           pastBookingsResponseData.bookings.entities
