@@ -44,11 +44,6 @@ const getAllPayments = asyncHandler(async (req, res) => {
 
     if (payments.length === 0) return res.status(204).end();
 
-    // Log data for debugging purposes (optional)
-    console.log(
-      `Admin payment data sent: ${JSON.stringify(payments, null, 2)}`
-    );
-
     // Send paginated data along with metadata
     res.json({
       page,
