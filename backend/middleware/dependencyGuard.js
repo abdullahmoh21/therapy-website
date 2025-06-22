@@ -27,7 +27,7 @@ const dependencyGuard = (req, res, next) => {
     });
   }
 
-  if (!isCalendlyAvailable()) {
+  if (!isCalendlyAvailable() && process.env.NODE_ENV == "production") {
     logger.warn(
       `Request to ${req.path} blocked due to Calendly being unavailable`
     );
