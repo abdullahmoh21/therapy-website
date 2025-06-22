@@ -2,7 +2,6 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { Suspense, lazy } from "react";
 import { useSelector } from "react-redux";
 
-import PersistLogin from "../features/auth/PersisitLogin";
 import ProtectedRoute from "./ProtectedRoute";
 import AdminProtectedRoute from "./AdminProtectedRoute";
 import { selectCurrentUserEmail } from "../features/auth/authSlice";
@@ -68,32 +67,31 @@ const Routers = () => {
         <Route path="/consultation" element={<ConsultationLanding />} />
         <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
 
-        <Route element={<PersistLogin />}>
-          <Route
-            path="/dash"
-            element={
-              <ProtectedRoute>
-                <Dashboard email={email} />
-              </ProtectedRoute>
-            }
-          />
+        {/* Protected routes without PersistLogin wrapper */}
+        <Route
+          path="/dash"
+          element={
+            <ProtectedRoute>
+              <Dashboard email={email} />
+            </ProtectedRoute>
+          }
+        />
 
-          <Route
-            path="/admin"
-            element={
-              <AdminProtectedRoute>
-                <AdminDashboard email={email} />
-              </AdminProtectedRoute>
-            }
-          >
-            <Route index element={<Navigate to="/admin/upcoming" replace />} />
-            <Route path="metrics" element={<AdminMetrics />} />
-            <Route path="bookings" element={<AdminBookings />} />
-            <Route path="users" element={<AdminUsers />} />
-            <Route path="system" element={<SystemHealth />} />
-            <Route path="config" element={<SystemConfig />} />
-            <Route path="upcoming" element={<UpcomingBookings />} />
-          </Route>
+        <Route
+          path="/admin"
+          element={
+            <AdminProtectedRoute>
+              <AdminDashboard email={email} />
+            </AdminProtectedRoute>
+          }
+        >
+          <Route index element={<Navigate to="/admin/upcoming" replace />} />
+          <Route path="metrics" element={<AdminMetrics />} />
+          <Route path="bookings" element={<AdminBookings />} />
+          <Route path="users" element={<AdminUsers />} />
+          <Route path="system" element={<SystemHealth />} />
+          <Route path="config" element={<SystemConfig />} />
+          <Route path="upcoming" element={<UpcomingBookings />} />
         </Route>
 
         <Route path="*" element={<NotFound />} />

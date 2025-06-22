@@ -32,14 +32,16 @@ async function bootstrap() {
   }
 
   try {
-    calendlyOk = await connectCalendly();
-    if (!calendlyOk) throw new Error("webhook not live");
+    if (process.env.NODE_ENV == "production") {
+      calendlyOk = await connectCalendly();
+      if (!calendlyOk)
+        throw new Error("A webhook with calendly could not be established");
+    }
   } catch (err) {
     logger.error("Could not connect to Calendly — aborting startup.");
     if (process.env.NODE_ENV === "production") {
       await sendEmail("adminAlert", {
         alertType: "calendlyWebhookDown",
-        extraData: { error: err.message },
       }).catch(() => {});
     }
     process.exit(1);

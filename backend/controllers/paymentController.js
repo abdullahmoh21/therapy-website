@@ -94,14 +94,6 @@ const handleSafepayWebhook = asyncHandler(async (req, res) => {
 
   await invalidateByEvent("payment-updated", payment.userId);
 
-  console.log(
-    `Payment document updated for tracker: ${tracker}/n ${JSON.stringify(
-      payment,
-      null,
-      2
-    )}`
-  );
-
   return res.sendStatus(200);
 });
 
