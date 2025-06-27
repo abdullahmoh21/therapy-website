@@ -90,7 +90,7 @@ async function bootstrap() {
 const app = express();
 app.set("trust proxy", 1);
 
-// Apply other middleware after CORS
+// Apply middleware in the correct order
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -109,15 +109,17 @@ app.use(
   })
 );
 
-app.use(checkBlocked);
-app.use(conditionalRateLimiter);
-app.use(dependencyGuard);
 app.use(compression());
 app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 app.use(cookieParser());
 app.use(credentials); // This MUST come before cors middleware
 app.use(cors(require("./config/corsOptions").corsOptions));
+
+// Rate limiting and dependency guards should come AFTER CORS
+app.use(checkBlocked);
+app.use(conditionalRateLimiter);
+app.use(dependencyGuard);
 
 // Routes
 app.use("/api/auth", require("./endpoints/authEndpoints"));
