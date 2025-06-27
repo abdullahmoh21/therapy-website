@@ -1,7 +1,7 @@
 // frontend/src/features/auth/SignIn.jsx
 import { Link, useNavigate } from "react-router-dom";
 import logo from "../../assets/images/logo.webp";
-import wave from "../../assets/images/wave_1.webp";
+import wave from "../../assets/images/wave.webp";
 import { useRef, useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
