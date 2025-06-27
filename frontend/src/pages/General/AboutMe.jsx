@@ -8,12 +8,12 @@ const About = () => {
       institution: "New York University (NYU)",
     },
     {
-      name: "Certified Psychotherapist",
-      institution: "International Board of Certification",
-    },
-    {
       name: "Specialized Training",
       institution: "Adolescent & Young Adult Therapy",
+    },
+    {
+      name: "Experience in Diverse Settings",
+      institution: "Private Practice, Hospitals, Schools ",
     },
   ];
 

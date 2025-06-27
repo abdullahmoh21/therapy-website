@@ -35,14 +35,21 @@ const Home = () => {
 
               {/* Skeleton Loader */}
               {!imageLoaded && (
-                <div className="animate-pulse w-[300px] h-[450px] lg:h-full lg:w-auto bg-lightPink rounded-lg shadow-inner border-2 border-lightPink" />
+                <div
+                  className="animate-pulse max-h-[450px] lg:max-h-none lg:h-[550px] w-[300px] lg:w-auto 
+                  bg-lightPink rounded-lg shadow-inner border-2 border-lightPink"
+                  style={{
+                    aspectRatio: "2/3",
+                    minWidth: "300px",
+                  }}
+                />
               )}
 
               <img
                 src={fatima_hero}
                 alt="Fatima Mohsin Picture"
                 className={`max-h-[450px] lg:max-h-none lg:h-full w-auto object-contain object-bottom lg:object-cover border-4 border-lightPink shadow-lg rounded-lg relative z-10 transition-opacity duration-300 ${
-                  imageLoaded ? "opacity-100" : "opacity-0"
+                  imageLoaded ? "opacity-100" : "opacity-0 absolute"
                 }`}
                 onLoad={() => setImageLoaded(true)}
                 onError={() => setImageLoaded(true)}
