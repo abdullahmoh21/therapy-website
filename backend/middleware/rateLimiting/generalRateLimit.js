@@ -1,50 +1,189 @@
 const rateLimit = require("express-rate-limit");
 const { RedisStore } = require("rate-limit-redis");
-const redisClient = require("../../utils/redisClient");
+const { redisClient } = require("../../utils/redisClient");
 const logger = require("../../logs/logger");
 
-// In-memory store as a fallback
-const MemoryStore = rateLimit.MemoryStore;
+/* ------------------------------------------------------------------ */
+/*                       factory: redis + memory                      */
+/* ------------------------------------------------------------------ */
+const WINDOW_MS = 60_000; // 1 minute
 
-// Create the rate limiter during application initialization
-const store =
-  redisClient.status === "ready"
+// Store limiters globally so we can rebuild them when Redis connects
+let limiters = {};
+
+const createLimiter = (max, prefix) => {
+  const redisReady = redisClient && redisClient.status === "ready";
+
+  const store = redisReady
     ? new RedisStore({
-        sendCommand: async (...args) => redisClient.call(...args),
-        prefix: "15min-rate-limit",
-        expiry: 60 * 1000, // 60 seconds
+        sendCommand: (...args) => redisClient.call(...args),
+        prefix,
+        expiry: WINDOW_MS / 1000,
       })
-    : new MemoryStore();
+    : new rateLimit.MemoryStore();
 
-const rateLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute window
-  max: 40,
-  message:
-    "Too many requests from this IP, please try again after a 5 minute pause",
-  handler: async (req, res) => {
-    logger.error(
-      `[RATE LIMIT] Too Many Requests: ${req.ip}\t${req.method}\t${req.url}\t${req.headers.origin}`
-    );
-    if (redisClient.status === "ready") {
-      await redisClient.set(`blocked:${req.ip}`, true, "EX", 60 * 5); // Set a separate key to block the IP for 5 minutes
-    }
-    res.status(429).json({
-      message:
-        "Too many requests from this IP, please try again after a 5 minute pause",
-    });
-  },
-  store: store,
-});
+  return rateLimit({
+    windowMs: WINDOW_MS,
+    max,
+    standardHeaders: true,
+    legacyHeaders: false,
 
-// Webhook endpoints that should bypass the rate limit
-const allowedEndpoints = ["/bookings/calendly", "/payments/safepay"];
+    handler: async (req, res) => {
+      logger.warn(`[RATE LIMIT] ${req.ip} hit ${prefix} – blocking 5 min`);
 
-// Middleware to apply rate limiting conditionally
-const conditionalRateLimiter = (req, res, next) => {
-  if (allowedEndpoints.includes(req.path)) {
-    return next(); // Bypass rate limiting for whitelisted endpoints
-  }
-  return rateLimiter(req, res, next); // Apply rate limiting for all other endpoints
+      if (redisReady)
+        await redisClient.set(`blocked:${req.ip}`, "1", "EX", 300);
+
+      res.set("Retry-After", "300");
+      if (req.method === "OPTIONS") return res.status(204).end();
+      return res.status(429).json({
+        message:
+          "Too many requests from this IP, please try again after a 5 minute pause",
+      });
+    },
+
+    // Add debug logging on each request
+    onRequest: (req, res, options) => {
+      store
+        .increment(req)
+        .then((current) => {
+          logger.debug(
+            `[RATE DEBUG] ${req.ip} at ${prefix}: ${
+              current.totalHits
+            }/${max} requests (${Math.round(
+              (WINDOW_MS - (Date.now() - current.resetTime)) / 1000
+            )}s remaining)`
+          );
+        })
+        .catch((err) => {
+          logger.error(
+            `[RATE DEBUG] Error counting requests for ${req.ip}: ${err.message}`
+          );
+        });
+    },
+
+    store,
+  });
 };
 
-module.exports = conditionalRateLimiter;
+/* ------------------------------------------------------------------ */
+/*                    Redis connection handling                       */
+/* ------------------------------------------------------------------ */
+// Function to rebuild all limiters when Redis becomes available
+const rebuildLimitersWithRedis = () => {
+  if (!redisClient || redisClient.status !== "ready") return;
+
+  logger.info("Rate Limiters initiated with redis");
+
+  // Rebuild all limiters with Redis store
+  limiters = {
+    authLogin: createLimiter(10, "rl:auth:login:"),
+    authRefresh: createLimiter(60, "rl:auth:refresh:"),
+    authOther: createLimiter(20, "rl:auth:other:"),
+    user: createLimiter(50, "rl:user:"),
+    bookings: createLimiter(50, "rl:bookings:"),
+    payments: createLimiter(50, "rl:payments:"),
+    contactMe: createLimiter(20, "rl:contactme:"),
+    config: createLimiter(60, "rl:config:"),
+    general: createLimiter(40, "rl:general:"),
+  };
+
+  // Recreate rules with new limiters
+  rules = [
+    { regex: /^\/api\/auth\/refresh$/, limiter: limiters.authRefresh },
+    { regex: /^\/api\/auth\/(logout|register)$/, limiter: limiters.authOther },
+    { regex: /^\/api\/auth$/, limiter: limiters.authLogin },
+
+    { regex: /^\/api\/user/, limiter: limiters.user },
+    { regex: /^\/api\/bookings/, limiter: limiters.bookings },
+    { regex: /^\/api\/payments/, limiter: limiters.payments },
+    { regex: /^\/api\/contactMe/, limiter: limiters.contactMe },
+    { regex: /^\/api\/config/, limiter: limiters.config },
+  ];
+};
+
+// Set up Redis connection listeners (if Redis client exists)
+if (redisClient) {
+  // Listen for connect/ready event to switch to Redis store
+  redisClient.on("ready", () => {
+    rebuildLimitersWithRedis();
+  });
+
+  // Handle potential Redis disconnections
+  redisClient.on("error", (err) => {
+    logger.warn(
+      `[RATE LIMIT] Redis error: ${err.message} - rate limiting will use MemoryStore`
+    );
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/*                         limiter instances                          */
+/* ------------------------------------------------------------------ */
+// Initialize limiters (will use MemoryStore if Redis not ready)
+limiters = {
+  authLogin: createLimiter(10, "rl:auth:login:"),
+  authRefresh: createLimiter(60, "rl:auth:refresh:"),
+  authOther: createLimiter(20, "rl:auth:other:"),
+  user: createLimiter(50, "rl:user:"),
+  bookings: createLimiter(50, "rl:bookings:"),
+  payments: createLimiter(50, "rl:payments:"),
+  contactMe: createLimiter(20, "rl:contactme:"),
+  config: createLimiter(60, "rl:config:"),
+  general: createLimiter(40, "rl:general:"),
+};
+
+/* ------------------------------------------------------------------ */
+/*                          matching rules                            */
+/* ------------------------------------------------------------------ */
+/**
+ * Ordered list: first regex that matches `req.path` wins.
+ * Add new rules here (long-term scalable).
+ */
+let rules = [
+  { regex: /^\/api\/auth\/refresh$/, limiter: limiters.authRefresh },
+  { regex: /^\/api\/auth\/(logout|register)$/, limiter: limiters.authOther },
+  { regex: /^\/api\/auth$/, limiter: limiters.authLogin },
+
+  { regex: /^\/api\/user/, limiter: limiters.user },
+  { regex: /^\/api\/bookings/, limiter: limiters.bookings },
+  { regex: /^\/api\/payments/, limiter: limiters.payments },
+  { regex: /^\/api\/contactMe/, limiter: limiters.contactMe },
+  { regex: /^\/api\/config/, limiter: limiters.config },
+];
+
+/* Webhooks or admin paths that bypass all limits */
+const allowlist = [
+  /^\/api\/bookings\/calendly$/,
+  /^\/api\/payments\/safepay$/,
+  /^\/api\/admin/,
+];
+
+/* ------------------------------------------------------------------ */
+/*                        dispatcher middleware                       */
+/* ------------------------------------------------------------------ */
+module.exports = function conditionalRateLimiter(req, res, next) {
+  const path = req.path;
+  logger.debug(`[RATE MIDDLEWARE] Processing request for path: ${path}`);
+
+  // 1. Allowlisted?
+  if (allowlist.some((re) => re.test(path))) {
+    logger.debug(
+      `[RATE MIDDLEWARE] Path ${path} is allowlisted, skipping rate limiting`
+    );
+    return next();
+  }
+
+  // 2. Find first rule whose regex matches
+  const matched = rules.find((r) => r.regex.test(path));
+  if (matched) {
+    logger.debug(
+      `[RATE MIDDLEWARE] Path ${path} matched rule: ${matched.regex}`
+    );
+    return matched.limiter(req, res, next);
+  }
+
+  // 3. Fallback bucket
+  logger.debug(`[RATE MIDDLEWARE] Path ${path} using general rate limiter`);
+  return limiters.general(req, res, next);
+};

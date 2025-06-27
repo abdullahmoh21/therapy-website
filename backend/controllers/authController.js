@@ -12,10 +12,10 @@ const { invalidateByEvent } = require("../middleware/redisCaching");
 
 const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET;
 const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET;
-const REFRESH_TOKEN_EXPIRY = "4h";
-const ACCESS_TOKEN_EXPIRY = "15m";
 const TOKEN_ENCRYPTION_KEY = process.env.TOKEN_ENCRYPTION_KEY;
 const TOKEN_ENCRYPTION_IV = process.env.TOKEN_ENCRYPTION_IV;
+const REFRESH_TOKEN_EXPIRY = "4h";
+const ACCESS_TOKEN_EXPIRY = "15m";
 
 //Encrypt & decrypt for tokens
 function encrypt(text) {
@@ -166,10 +166,9 @@ const refresh = asyncHandler(async (req, res) => {
       },
     },
     ACCESS_TOKEN_SECRET,
-    { expiresIn: "15m" }
+    { expiresIn: ACCESS_TOKEN_EXPIRY }
   );
 
-  console.log(`AccessToken refreshed!`);
   res.json({ accessToken });
 });
 

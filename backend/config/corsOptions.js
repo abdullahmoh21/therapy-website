@@ -9,9 +9,6 @@ const corsOptions = {
       return callback(null, true);
     }
 
-    // For debugging - log every CORS request
-    logger.info(`CORS request from origin: ${origin}`);
-
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
@@ -20,7 +17,7 @@ const corsOptions = {
     }
   },
   credentials: true,
-  optionsSuccessStatus: 200,
+  optionsSuccessStatus: 204, // HTTP 204 for OPTIONS requests is more standard
   methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: [
     "Origin",
@@ -29,6 +26,7 @@ const corsOptions = {
     "Accept",
     "Authorization",
   ],
+  maxAge: 86400,
 };
 
 module.exports = { corsOptions };

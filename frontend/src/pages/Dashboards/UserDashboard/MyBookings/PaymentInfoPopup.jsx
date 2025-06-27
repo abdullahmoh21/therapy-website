@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from "react";
-import { BiInfoCircle } from "react-icons/bi";
+import { MdConstruction } from "react-icons/md";
 
 const PaymentInfoPopup = ({ show, onClose }) => {
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 768);
@@ -49,7 +49,7 @@ const PaymentInfoPopup = ({ show, onClose }) => {
           &times;
         </button>
         <div className="mb-4 text-blue-500 flex justify-center">
-          <BiInfoCircle className="text-5xl" />
+          <MdConstruction className="text-5xl" />
         </div>
         <h2 className="text-2xl font-semibold mb-4 text-gray-800 text-center">
           Payment Information

@@ -44,7 +44,7 @@ export const data = {
     /* ────────────────────────────────────────────────────────────────── */
     {
       title: "How long does a therapy session last?",
-      content: `Standard sessions run 45–60 minutes. Assessment or specialized sessions may be longer; any variance will be shown in the calendar slot before you confirm.`,
+      content: `Appointment durations may vary depending on the type of therapy session and individual needs. Generally, sessions will be 50 minutes long. I offer longer sessions if needed. Assessments or specialized sessions may be longer.`,
     },
     /* ────────────────────────────────────────────────────────────────── */
     {
