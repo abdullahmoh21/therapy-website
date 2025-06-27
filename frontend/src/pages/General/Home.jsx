@@ -58,7 +58,7 @@ const Home = () => {
             className="lg:w-1/2 w-full flex items-center text-textOnOrange  h-full"
           >
             <div
-              className="text-base md:text-lg text-justify
+              className="text-base text-justify
                 bg-whiteBg backdrop
                 border-4 border-lightPink
                 p-6 lg:p-10 rounded-lg shadow-md
@@ -68,12 +68,15 @@ const Home = () => {
                 <p className="mb-4">
                   Fatima Mohsin Naqvi is an internationally qualified
                   psychotherapist who has a Master's degree in Counseling for
-                  Mental Health and Wellness from NYU. Fatima has experience in
-                  substance abuse, crisis counseling, anxiety, depression, and
-                  adolescent care. After her Masters she has worked in various
-                  different settings such as private practice, hospitals,
-                  schools, and mental health organizations. Fatima's sub
-                  specialty is adolescents and young adults.
+                  Mental Health and Wellness from NYU. After her master’s Fatima
+                  worked in New York and California in various different
+                  settings such as private practice, hospitals, schools, and
+                  mental health organizations. Fatima's sub specialty is
+                  adolescents and young adults. In California Fatima was trained
+                  in suicide and crisis assessments coordinating care with
+                  police, mental health professionals to provide for emergency
+                  mental health care. She is trained in operating the 988
+                  suicide hotline.
                 </p>
                 <p className="mb-4">
                   She is passionate about relational work and uses a person
@@ -83,6 +86,13 @@ const Home = () => {
                   Over the past years, she has practiced with the belief that
                   therapy facilitates the growth of clients when it is
                   collaborative rather than instructive.
+                </p>
+                <p>
+                  Fatima provides therapy for both domestic and international
+                  clients. If scheduling for an international time zone is
+                  proving to be difficult on the website, please drop us a
+                  message and our team will coordinate a time that works for
+                  you.
                 </p>
               </div>
               <div className="flex justify-center pt-4">
