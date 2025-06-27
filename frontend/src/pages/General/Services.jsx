@@ -16,17 +16,17 @@ const Services = () => {
     if (isLoading) {
       return (
         <p className="text-textColor blur-sm animate-pulse">
-          Per Session Rate: Loading... pkr, 60 Minutes
+          Per Session Rate: Loading... pkr, 50 Minutes
         </p>
       );
     } else if (isSuccess && sessionPrice) {
       return (
         <p className="text-textColor">
-          Per Session Rate: {sessionPrice} pkr, 60 Minutes
+          Per Session Rate: {sessionPrice} pkr, 50 Minutes
         </p>
       );
     } else if (isError) {
-      return <p className="text-textColor">60 MINUTES</p>;
+      return <p className="text-textColor">50 Minutes</p>;
     }
   };
 

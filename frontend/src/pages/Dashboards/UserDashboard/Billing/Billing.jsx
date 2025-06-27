@@ -20,11 +20,13 @@ import {
 import { Badge } from "primereact/badge";
 import { toast } from "react-toastify";
 import "./calendar-custom.css"; // We'll create this file for custom calendar styling
+import PaymentInfoPopup from "../MyBookings/PaymentInfoPopup"; // Import the payment info popup
 
 const Billing = () => {
   const [bookingsData, setBookingsData] = useState([]);
   const [expandedRows, setExpandedRows] = useState({});
   const [payingBookingId, setPayingBookingId] = useState(null);
+  const [showPaymentInfoPopup, setShowPaymentInfoPopup] = useState(false); // New state for popup
 
   // Filters state
   const [bookingIdInput, setBookingIdInput] = useState(""); // Temporary input for debouncing
@@ -282,21 +284,23 @@ const Billing = () => {
       console.error("redirectToPayment: bookingId is undefined");
       return;
     }
-    setPayingBookingId(bookingId);
-    try {
-      const response = await triggerGetPaymentLink({ bookingId }).unwrap();
-      if (response.url) {
-        window.location.href = response.url;
-      } else {
-        // Show error to user
-        console.error("Failed to fetch payment link: No URL found");
-      }
-    } catch (error) {
-      // Show error to user
-      console.error("Failed to fetch payment link:", error);
-    } finally {
-      setPayingBookingId(null);
-    }
+    // Show the payment info popup instead of redirecting
+    setShowPaymentInfoPopup(true);
+    // setPayingBookingId(bookingId);
+    // try {
+    //   const response = await triggerGetPaymentLink({ bookingId }).unwrap();
+    //   if (response.url) {
+    //     window.location.href = response.url;
+    //   } else {
+    //     // Show error to user
+    //     console.error("Failed to fetch payment link: No URL found");
+    //   }
+    // } catch (error) {
+    //   // Show error to user
+    //   console.error("Failed to fetch payment link:", error);
+    // } finally {
+    //   setPayingBookingId(null);
+    // }
   };
 
   if (isLoading || isFetching) {
@@ -391,6 +395,15 @@ const Billing = () => {
 
   return (
     <div className="max-w-7xl mx-auto">
+      {/* Payment Info Popup */}
+      <PaymentInfoPopup
+        show={showPaymentInfoPopup}
+        onClose={() => {
+          setShowPaymentInfoPopup(false);
+          setPayingBookingId(null);
+        }}
+      />
+
       <header className="mb-6">
         <h1 className="text-2xl font-bold text-textColor">Past Bookings</h1>
         <p className="mt-1 text-textColor">
