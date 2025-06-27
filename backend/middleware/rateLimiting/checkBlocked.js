@@ -1,24 +1,39 @@
-const redisClient = require('../../utils/redisClient');
+const { redisClient } = require("../../utils/redisClient");
+const logger = require("../../logs/logger");
 
-// Custom middleware to check if an IP is blocked
+// Allowed webhooks / admin paths skip the block check
+const allowedEndpoints = ["/bookings/calendly", "/payments/safepay"];
+
 const checkBlocked = async (req, res, next) => {
-    
-    // the following webhook endpoints are allowed to bypass the block check
-    const allowedEndpoints = [
-        '/bookings/calendly',
-        '/payments/safepay'
-    ];
+  const isRedisReady = redisClient && redisClient.status === "ready";
+  logger.debug(`checking if ip is blocked: ${req.ip}`);
 
-    // Check if the request path is one of the allowed endpoints
-    if (allowedEndpoints.includes(req.path) || redisClient.status !== 'ready') {
-        return next(); // Skip the block check and continue to the next middleware
-    }
+  if (
+    !isRedisReady ||
+    req.path.startsWith("/admin") ||
+    allowedEndpoints.includes(req.path)
+  ) {
+    return next();
+  }
 
-    const isBlocked = await redisClient.get(`blocked:${req.ip}`);
+  try {
+    const key = `blocked:${req.ip}`;
+    const isBlocked = await redisClient.get(key);
+
     if (isBlocked) {
-        return res.status(429).json({ 'message': 'You are currently blocked. Please try again later.3' });
+      const ttl = await redisClient.ttl(key); // seconds remaining
+      logger.debug(`The IP: ${req.ip} is blocked for ${ttl}s`);
+
+      return res.status(429).json({
+        message: "You are currently blocked. Please try again later.",
+        timeLeft: ttl,
+      });
     }
-    next();
+  } catch (error) {
+    logger.error(`[CHECK BLOCKED] Error accessing Redis: ${error.message}`);
+  }
+
+  next();
 };
 
 module.exports = checkBlocked;
