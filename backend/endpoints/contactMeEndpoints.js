@@ -47,7 +47,6 @@ router.route("/").post(expressJoiValidation.body(ContactMeSchema), saveInquiry);
 // formats any joi error into JSON for the client
 router.use((err, req, res, next) => {
   if (err?.error?.isJoi) {
-    console.log(`In Joi middleware: ${err.error}`);
     return res.status(400).json({
       type: err.type,
       message: err.error.details[0].message,

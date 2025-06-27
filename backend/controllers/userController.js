@@ -214,8 +214,6 @@ const resetPassword = async (req, res) => {
   const { token } = req.query;
   const { password } = req.body;
 
-  console.log(`in resetpassword. token: ${token}`); //debugging
-
   //find user with reset token
   let user;
   const encryptedToken = encrypt(token);

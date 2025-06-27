@@ -1,6 +1,13 @@
 import React, { useState } from "react";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 
+// Move PageCounter outside the main component
+const PageCounter = ({ currentPage, totalPages }) => (
+  <span className="text-sm font-medium text-secondary-600 dark:text-secondary-400">
+    Page {currentPage} of {totalPages}
+  </span>
+);
+
 const pagination = ({ currentPage, totalPages, onPageChange }) => {
   const [goToPage, setGoToPage] = useState("");
 
@@ -67,13 +74,6 @@ const pagination = ({ currentPage, totalPages, onPageChange }) => {
 
   const pageNumbers = getPageNumbers();
 
-  // Page counter display component
-  const PageCounter = () => (
-    <span className="text-sm font-medium text-secondary-600 dark:text-secondary-400">
-      Page {currentPage} of {totalPages}
-    </span>
-  );
-
   return (
     <div className="w-full flex items-center justify-center border-secondary-200 dark:border-secondary-700 px-4 py-4 sm:px-6">
       <div className="flex flex-1 justify-between sm:hidden">
@@ -91,7 +91,7 @@ const pagination = ({ currentPage, totalPages, onPageChange }) => {
 
         {/* Page counter for mobile view */}
         <div className="flex items-center">
-          <PageCounter />
+          <PageCounter currentPage={currentPage} totalPages={totalPages} />
         </div>
 
         <button
@@ -110,7 +110,7 @@ const pagination = ({ currentPage, totalPages, onPageChange }) => {
       <div className="hidden sm:flex sm:flex-wrap sm:justify-center sm:items-center gap-3">
         {/* Page counter for desktop view */}
         <div className="mr-3">
-          <PageCounter />
+          <PageCounter currentPage={currentPage} totalPages={totalPages} />
         </div>
 
         <nav className="isolate inline-flex space-x-1.5 rounded-md shadow-sm">
