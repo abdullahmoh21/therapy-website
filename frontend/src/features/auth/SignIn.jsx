@@ -15,14 +15,6 @@ import { ROLES } from "../../config/roles";
 
 import VerificationPrompt from "./VerificationPrompt";
 
-/**
- * NOTE ON WAVE IMAGE SIZE
- * The supplied asset is 500 × 237 px.
- * We always render it at 100 % width × 240 px height.
- * If the viewport cannot fit that height after compressing content,
- * we remove the wave rather than stretching/squishing it.
- */
-
 // ---------- validation schema ----------
 const schema = Joi.object({
   email: Joi.string()
@@ -41,7 +33,7 @@ const schema = Joi.object({
 const CONTENT_DEFAULT = 580; // logo + header + form with normal gaps
 const CONTENT_COMPRESSED = 500; // same but tighter gaps
 const WAVE_HEIGHT = 240; // fixed — never scaled
-const WAVE_MIN_VIEW = CONTENT_COMPRESSED + WAVE_HEIGHT; // cutoff
+const WAVE_MIN_VIEW = CONTENT_COMPRESSED + WAVE_HEIGHT; //
 
 const SignIn = () => {
   const role = useSelector(selectCurrentUserRole);
