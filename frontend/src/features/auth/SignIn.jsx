@@ -15,7 +15,7 @@ import { ROLES } from "../../config/roles";
 
 import VerificationPrompt from "./VerificationPrompt";
 
-// ---------- validation schema ----------
+/* ---------- validation schema ---------- */
 const schema = Joi.object({
   email: Joi.string()
     .email({ tlds: { allow: false } })
@@ -29,16 +29,49 @@ const schema = Joi.object({
   }),
 });
 
-// layout constants (empirically measured)
+/* ---------- layout constants ---------- */
 const CONTENT_DEFAULT = 580;
 const CONTENT_COMPRESSED = 500;
 const WAVE_HEIGHT = 240;
 const WAVE_MIN_VIEW = CONTENT_COMPRESSED + WAVE_HEIGHT;
 
+/* ---------- extracted header (stable reference) ---------- */
+function SignInHeader({ compressed, hideWave, superShort }) {
+  return (
+    <div className="flex flex-col items-center text-center">
+      <Link to="/" className={compressed ? "mb-1" : "mb-2"}>
+        <img
+          src={logo}
+          alt="logo"
+          className={`${
+            superShort
+              ? "w-[90px] sm:w-[110px] md:w-[120px]"
+              : hideWave || compressed
+              ? "w-[110px] sm:w-[130px] md:w-[150px]"
+              : "w-[150px] sm:w-[160px] md:w-[180px]"
+          } h-auto`}
+        />
+      </Link>
+      <h1
+        className={`${
+          superShort
+            ? "text-[20px] leading-[28px]"
+            : hideWave || compressed
+            ? "text-[22px] leading-[30px]"
+            : "text-[26px] leading-[36px]"
+        } sm:leading-[46px] font-bold text-[#c45e3e] pb-3`}
+      >
+        Welcome to Fatima's Clinic
+      </h1>
+    </div>
+  );
+}
+
+/* ---------- main component ---------- */
 const SignIn = () => {
   const role = useSelector(selectCurrentUserRole);
 
-  // --- responsive viewport tracking ---
+  /* --- responsive viewport tracking --- */
   const [viewport, setViewport] = useState({
     width: window.innerWidth,
     height: window.innerHeight,
@@ -51,16 +84,9 @@ const SignIn = () => {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  /**
-   * Decide layout mode:
-   *   • hideWave — even compressed layout doesn’t leave 240 px free.
-   *   • compressed — fits wave only after shrinking paddings/margins.
-   */
   const hideWave = viewport.height < WAVE_MIN_VIEW;
   const compressed =
     !hideWave && viewport.height < CONTENT_DEFAULT + WAVE_HEIGHT;
-
-  // extra shrink step for *very* short windows (for logo/text sizing)
   const superShort = viewport.height < 525;
 
   const [email, setEmail] = useState("");
@@ -72,27 +98,25 @@ const SignIn = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  // RTK Query hooks
+  /* --- RTK Query hooks --- */
   const [login, { isLoading: loginLoading }] = useLoginMutation();
   const [resendEmailVerification, { isLoading: sendingEV }] =
     useResendEmailVerificationMutation();
 
-  // focus email field on mount
+  /* --- side-effects --- */
   useEffect(() => {
     userRef.current?.focus();
   }, []);
 
-  // redirect once role is set
   useEffect(() => {
     if (role === ROLES.Admin) navigate("/admin");
     else if (role) navigate("/dash");
   }, [role, navigate]);
 
-  // ---------- handlers ----------
+  /* ---------- handlers ---------- */
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Joi validation
     const { error } = schema.validate({ email, password });
     if (error) {
       toast.error(error.details[0].message);
@@ -123,8 +147,8 @@ const SignIn = () => {
         Msg = "Invalid Email or Password";
       else if (err.status === 429) {
         const timeLeft = err?.data?.timeLeft;
-
         let time = "a few moments";
+
         if (typeof timeLeft === "number") {
           if (timeLeft <= 60) {
             time = `${timeLeft} seconds`;
@@ -154,37 +178,7 @@ const SignIn = () => {
     }
   };
 
-  // ---------- shared header ----------
-  const Header = () => (
-    <div className="flex flex-col items-center text-center">
-      <Link to="/" className={compressed ? "mb-1" : "mb-2"}>
-        <img
-          src={logo}
-          alt="logo"
-          className={`${
-            superShort
-              ? "w-[90px] sm:w-[110px] md:w-[120px]"
-              : hideWave || compressed
-              ? "w-[110px] sm:w-[130px] md:w-[150px]"
-              : "w-[150px] sm:w-[160px] md:w-[180px]"
-          } h-auto`}
-        />
-      </Link>
-      <h1
-        className={`${
-          superShort
-            ? "text-[20px] leading-[28px]"
-            : hideWave || compressed
-            ? "text-[22px] leading-[30px]"
-            : "text-[26px] leading-[36px]"
-        } sm:leading-[46px] font-bold text-[#c45e3e] pb-3`}
-      >
-        Welcome to Fatima's Clinic
-      </h1>
-    </div>
-  );
-
-  // ---------- sign-in markup ----------
+  /* ---------- sign-in markup ---------- */
   const signInMarkup = (
     <section
       className="main-bg min-h-screen flex flex-col items-center overflow-hidden relative"
@@ -199,7 +193,11 @@ const SignIn = () => {
             : "pt-24 sm:pt-12 md:pt-16 lg:pt-20"
         }
       >
-        <Header />
+        <SignInHeader
+          compressed={compressed}
+          hideWave={hideWave}
+          superShort={superShort}
+        />
       </div>
 
       <div
@@ -279,7 +277,7 @@ const SignIn = () => {
     </section>
   );
 
-  // ---------- render ----------
+  /* ---------- render ---------- */
   return showResendVerification ? (
     <VerificationPrompt
       sendingEV={sendingEV}
