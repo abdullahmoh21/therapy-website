@@ -70,6 +70,22 @@ const MyBookings = () => {
 
       setIsGettingBookingLink(false);
 
+      // Check if there's an error in the result
+      if (result.error) {
+        // Check specifically for the 403 booking limit error
+        if (result.error.status === 403 && result.error.data?.maxAllowedBookings) {
+          setMaxBookingsReached(true);
+          setMaxAllowedBookings(result.error.data.maxAllowedBookings);
+          toast.error(
+            `Booking limit reached. You can only have ${result.error.data.maxAllowedBookings} active bookings at a time.`
+          );
+        } else {
+          // Handle other errors
+          toast.error(result.error.data?.message || "Could not get booking link. Please try again.");
+        }
+        return null;
+      }
+
       if (result.data?.link) {
         window.location.href = result.data.link;
         return result.data.link;
@@ -259,7 +275,7 @@ const MyBookings = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 pt-0 pb-8">
       <DashboardHeader
         userData={userData}
         showBookButton={true}
