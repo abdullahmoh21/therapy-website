@@ -114,7 +114,7 @@ const deleteUser = asyncHandler(async (req, res) => {
 //@access Private
 const updateUser = asyncHandler(async (req, res) => {
   const userId = req.params.userId;
-  const { name, email, role } = req.body;
+  const { name, email, role, accountType } = req.body;
 
   if (!userId) {
     return res.status(400).json({ message: "User ID is required" });
@@ -152,7 +152,6 @@ const updateUser = asyncHandler(async (req, res) => {
 
       updateData.email = email;
 
-      // If email is being changed, set emailVerified.state to false
       if (currentUser.email !== email) {
         updateData["emailVerified.state"] = false;
         updateData["emailVerified.encryptedToken"] = undefined;
@@ -170,12 +169,22 @@ const updateUser = asyncHandler(async (req, res) => {
       updateData.role = role;
     }
 
+    // Validate accountType if provided
+    if (accountType !== undefined) {
+      if (!["domestic", "international"].includes(accountType)) {
+        return res.status(400).json({
+          message: "Account type must be either 'domestic' or 'international'",
+        });
+      }
+      updateData.accountType = accountType;
+    }
+
     // Perform the update
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       { $set: updateData },
       { new: true, runValidators: true }
-    ).select("name email role emailVerified");
+    ).select("name email role accountType emailVerified");
 
     if (!updatedUser) {
       return res.status(404).json({ message: "User not found" });
@@ -208,7 +217,7 @@ const getUserDetails = asyncHandler(async (req, res) => {
   try {
     const user = await User.findById(userId)
       .select(
-        "email emailVerified.state role phone name DOB createdAt updatedAt lastLoginAt"
+        "email emailVerified.state role phone name DOB accountType createdAt updatedAt lastLoginAt"
       )
       .lean();
 
