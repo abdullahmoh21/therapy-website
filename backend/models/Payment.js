@@ -28,7 +28,6 @@ const paymentSchema = new Schema(
     currency: {
       type: String,
       required: true,
-      default: "PKR",
     },
     paymentMethod: {
       type: String,
