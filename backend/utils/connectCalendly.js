@@ -20,7 +20,6 @@ const manageWebhookSubscription = async () => {
     if (webhookSubscriptions.length === 1) {
       const webhook = await getWebhook(webhookSubscriptions[0].uri);
       if (webhook && isWebhookConfigCorrect(webhook)) {
-        logger.info(`Webhook subscription is active. No changes made.`);
         global.calendlyAvailable = true;
         return true;
       }
@@ -51,7 +50,7 @@ const connectCalendly = async () => {
     // Directly call the webhook management function
     const result = await manageWebhookSubscription();
     if (result) {
-      logger.info("Successfully connected to Calendly webhook");
+      logger.info("Calendly webhook connected");
     }
     return result;
   } catch (error) {
