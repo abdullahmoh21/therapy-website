@@ -8,10 +8,11 @@ import {
   BiCalendar,
   BiHistory,
   BiLogOut,
-  BiX,
   BiLoaderAlt,
 } from "react-icons/bi";
+import { IoMdClose } from "react-icons/io";
 import logo from "../../../assets/images/logo.webp";
+import { motion, AnimatePresence } from "framer-motion";
 
 import EditProfile from "./EditProfile";
 import MyBookings from "./MyBookings/MyBookings";
@@ -29,7 +30,7 @@ const Dashboard = () => {
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
-  const editProfileRef = useRef(null); // Add ref for EditProfile component
+  const editProfileRef = useRef(null);
   const navigate = useNavigate();
 
   const fetchedUser = useMemo(() => {
@@ -53,7 +54,9 @@ const Dashboard = () => {
   const handleLogout = async () => {
     try {
       await logout().unwrap();
-      navigate("/");
+      setTimeout(() => {
+        navigate("/");
+      }, 100);
     } catch (error) {
       console.error("Failed to log out: ", error);
     }
@@ -94,9 +97,7 @@ const Dashboard = () => {
     setShowEditProfileModal(!showEditProfileModal);
   };
 
-  // Add a new function to specifically handle closing the modal
   const closeEditProfileModal = () => {
-    // Reset form fields to original values
     if (editProfileRef.current) {
       editProfileRef.current.resetForm();
     }
@@ -137,7 +138,7 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen flex flex-col bg-gray-100">
       <header className="sticky top-0 z-40 bg-white shadow-md flex items-center justify-between p-3">
-        <img src={logo} alt="logo" className="h-20 w-auto" />
+        <img src={logo} alt="logo" className="h-16 md:h-20 w-auto" />
 
         <nav className="hidden lg:flex items-center space-x-3">
           {navItems.map((item) => (
@@ -180,73 +181,123 @@ const Dashboard = () => {
         </button>
       </header>
 
-      <div
-        ref={menuRef}
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-xl transform ${
-          isMenuOpen ? "translate-x-0" : "-translate-x-full"
-        } transition-transform duration-300 ease-in-out lg:hidden`}
-      >
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <img src={logo} alt="logo" className="h-16 w-auto" />
-          <button onClick={toggleMenu} className="text-textColor">
-            <BiX className="w-6 h-6" />
-          </button>
-        </div>
-        <nav className="flex-grow p-4 space-y-2">
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              className={`w-full flex items-center px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150 ${
-                activeTab === item.id
-                  ? "bg-[#FDF0E9] text-[#c45e3e]"
-                  : "text-textColor hover:bg-gray-100"
-              }`}
-              onClick={() => {
-                setActiveTab(item.id);
-                toggleMenu();
-              }}
-            >
-              {item.icon}
-              {item.label}
-            </button>
-          ))}
-          <button
-            className="w-full flex items-center px-4 py-2 rounded-md text-sm font-medium text-textColor hover:bg-gray-100 transition-colors duration-150"
-            onClick={() => {
-              toggleEditProfileModal();
-              toggleMenu();
-            }}
+      {/* Mobile Menu Overlay */}
+      <AnimatePresence>
+        {isMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 bg-black bg-opacity-50 z-[500] lg:hidden"
+            onClick={toggleMenu}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Mobile Menu - Now appears from right side with animation */}
+      <AnimatePresence>
+        {isMenuOpen && (
+          <motion.div
+            ref={menuRef}
+            initial={{ x: "100%", opacity: 0.5 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: "100%", opacity: 0 }}
+            transition={{ type: "tween", duration: 0.3 }}
+            className="fixed top-0 right-0 w-[80%] h-full bg-white shadow-lg lg:hidden z-[600]"
           >
-            <BiUser className="mr-2" />
-            Edit Profile
-          </button>
-        </nav>
-        <div className="p-4 border-t border-gray-200">
-          <button
-            className="w-full flex items-center justify-center px-4 py-2 bg-red-500 text-white rounded-md text-sm font-medium hover:bg-red-600 transition-colors duration-150 disabled:opacity-50"
-            onClick={handleLogout}
-            disabled={isLoggingOut}
-          >
-            {isLoggingOut ? (
-              <BiLoaderAlt className="animate-spin mr-2" />
-            ) : (
-              <BiLogOut className="mr-2" />
-            )}
-            Logout
-          </button>
-        </div>
-      </div>
-      {isMenuOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-          onClick={toggleMenu}
-        ></div>
-      )}
+            <div className="flex flex-col h-full overflow-y-auto">
+              {/* Close button and logo */}
+              <div className="flex justify-between items-center p-4">
+                <img
+                  src={logo}
+                  alt="logo"
+                  className="h-16 w-auto object-contain"
+                />
+                <button
+                  onClick={toggleMenu}
+                  className="p-2 rounded-full transition-colors duration-300"
+                >
+                  <IoMdClose className="w-6 h-6" />
+                </button>
+              </div>
+
+              {/* Menu items */}
+              <div className="flex-grow p-6">
+                <nav className="space-y-4">
+                  {navItems.map((item, index) => (
+                    <motion.div
+                      key={index}
+                      initial={{ x: 20, opacity: 0 }}
+                      animate={{ x: 0, opacity: 1 }}
+                      transition={{ delay: index * 0.1 }}
+                    >
+                      <button
+                        className={`block w-full py-3 px-4 text-textColor font-medium rounded-lg ${
+                          activeTab === item.id
+                            ? "bg-[#FDF0E9] text-[#c45e3e]"
+                            : "text-textColor hover:bg-gray-100"
+                        } text-center transition-all flex items-center justify-center`}
+                        onClick={() => {
+                          setActiveTab(item.id);
+                          toggleMenu();
+                        }}
+                      >
+                        {item.icon}
+                        {item.label}
+                      </button>
+                    </motion.div>
+                  ))}
+                  <motion.div
+                    initial={{ x: 20, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    transition={{ delay: 0.3 }}
+                  >
+                    <button
+                      onClick={() => {
+                        toggleEditProfileModal();
+                        toggleMenu();
+                      }}
+                      className="block w-full py-3 px-4 text-textColor font-medium rounded-lg bg-white bg-opacity-50 hover:bg-opacity-80 text-center transition-all flex items-center justify-center"
+                    >
+                      <BiUser className="mr-2" />
+                      Edit Profile
+                    </button>
+                  </motion.div>
+                </nav>
+              </div>
+
+              {/* Logout button at bottom */}
+              <div className="p-6">
+                <motion.div
+                  initial={{ x: 20, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: 0.4 }}
+                >
+                  <button
+                    className="block w-full h-12 text-white font-medium rounded-lg bg-red-500 hover:bg-red-600 text-center transition-colors duration-300 shadow-sm flex items-center justify-center disabled:opacity-50"
+                    onClick={handleLogout}
+                    disabled={isLoggingOut}
+                  >
+                    {isLoggingOut ? (
+                      <BiLoaderAlt className="animate-spin mr-2" />
+                    ) : (
+                      <BiLogOut className="mr-2" />
+                    )}
+                    Logout
+                  </button>
+                </motion.div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <main className="flex-grow p-4 lg:p-8 overflow-y-auto">
         {renderTab()}
       </main>
 
+      {/* Edit Profile Modal */}
       {showEditProfileModal && (
         <div
           id="edit-profile-modal-overlay"
