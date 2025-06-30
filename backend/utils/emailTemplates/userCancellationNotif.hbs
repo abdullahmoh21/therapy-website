@@ -1,0 +1,167 @@
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Booking Cancellation Confirmation</title>
+    <style>
+      body { font-family: Arial, sans-serif; background-color: #f9f9f9; margin:
+      0; padding: 0; color: #333; } .email-container { max-width: 600px; margin:
+      40px auto; background-color: #ffffff; border: 1px solid #eee; border-left:
+      4px solid #e27a82; border-radius: 8px; padding: 24px; } .header {
+      text-align: center; margin-bottom: 20px; background-color: #ffffff
+      !important; } .header img { max-height: 110px; display: block; margin: 0
+      auto 10px; } .fallback-logo { color: #e27a82; font-weight: bold;
+      font-size: 18px; } .title { font-size: 20px; font-weight: bold; color:
+      #e27a82; margin-bottom: 20px; text-align: center; background-color:
+      #ffffff !important; } .email-body { font-size: 16px; line-height: 1.5; }
+      .button-link { display: block; width: fit-content; margin: 20px auto;
+      background-color: #e27a82 !important; color: #ffffff !important; padding:
+      12px 24px; border-radius: 6px; text-decoration: none !important;
+      text-align: center; font-size: 16px; font-weight: bold; }
+      .button-link:hover { background-color: #c86a67 !important; color: #ffffff
+      !important; } a:not(.button-link) { color: #0066cc; text-decoration:
+      underline; word-break: break-word; } .footer { font-size: 13px; color:
+      #777; text-align: center; margin-top: 40px; border-top: 1px solid #eee;
+      padding-top: 16px; } .info-box { background-color: #e8f4fd; border-left:
+      4px solid #4a90e2; padding: 15px; margin-bottom: 20px; } .details-table {
+      width: 100%; border-collapse: collapse; margin: 20px 0; } .details-table
+      td { padding: 8px; border-bottom: 1px solid #eee; } .details-table
+      td:first-child { font-weight: bold; width: 40%; }
+    </style>
+  </head>
+  <body style="background-color: #ffffff !important; color: #333;">
+    <div class="email-container" style="background-color: #ffffff !important;">
+      <!-- Clickable Logo with Fallback -->
+      <div class="header" style="background-color: #ffffff !important;">
+        <div
+          style="
+            height: 120px;
+            margin-bottom: 20px;
+            text-align: center;
+            background-color: #ffffff !important;
+          "
+        >
+          <a
+            href="{{frontend_url}}"
+            target="_blank"
+            style="display: inline-block; background-color: #ffffff !important;"
+          >
+            <img
+              src="{{frontend_url}}/logo.png"
+              alt="Fatima's Therapy Services"
+              width="110"
+              height="110"
+              style="
+                max-height: 110px;
+                max-width: 110px;
+                display: block;
+                margin: 0 auto;
+                background-color: #ffffff !important;
+              "
+              onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\'color:#E27A82;font-size:18px;font-weight:bold;background-color:#ffffff !important;\'>Fatima's Therapy Services</div>';"
+            />
+          </a>
+        </div>
+      </div>
+
+      <!-- Title -->
+      <div class="title" style="background-color: #ffffff !important;">
+        Booking Cancellation Confirmation
+      </div>
+
+      <!-- Message Body -->
+      <div class="email-body">
+        <p>Dear {{#if name}}{{name}}{{else}}Client{{/if}},</p>
+        <p>We're confirming that the following session has been cancelled:</p>
+
+        <table class="details-table">
+          <tr>
+            <td>Booking ID:</td>
+            <td>{{bookingId}}</td>
+          </tr>
+          <tr>
+            <td>Session Date:</td>
+            <td>{{eventDate}}</td>
+          </tr>
+          <tr>
+            <td>Session Time:</td>
+            <td>{{eventTime}}</td>
+          </tr>
+          <tr>
+            <td>Cancelled By:</td>
+            <td>{{cancelledByDisplay}}</td>
+          </tr>
+          <tr>
+            <td>Cancellation Date:</td>
+            <td>{{cancellationDate}}</td>
+          </tr>
+          {{#if reason}}
+            <tr>
+              <td>Reason:</td>
+              <td>{{reason}}</td>
+            </tr>
+          {{/if}}
+        </table>
+
+        {{#if isAdminCancelled}}
+          <div
+            class="info-box"
+            style="background-color: #fff3cd; border-left-color: #ffc107"
+          >
+            <p>
+              <strong>Note:</strong>
+              This booking was cancelled by our administrative team. This could
+              be due to therapist unavailability, scheduling conflicts, or other
+              operational reasons. If you have any questions, please contact us
+              directly.
+            </p>
+          </div>
+        {{/if}}
+        {{#if isUnpaid}}
+          <p>
+            Since your payment for this booking was not yet processed, no refund
+            is necessary. Please note that cash payments are manually marked as
+            paid, and in some cases, this step may be delayed or inadvertently
+            missed. If you have paid for this booking in cash, feel free to
+            reach out directly for a refund.
+          </p>
+        {{else}}
+          {{#if isRefundEligible}}
+            <p>
+              Based on our cancellation policy, your booking is eligible for a
+              refund. We'll process this refund shortly and you should receive
+              it within 7-10 business days, depending on your payment method.
+            </p>
+          {{else if isRefundIneligible}}
+            <p>
+              According to our cancellation policy, cancellations made less than
+              {{cancelCutoffDays}}
+              days before the appointment are not eligible for automatic
+              refunds.
+            </p>
+          {{/if}}
+        {{/if}}
+
+        <p>
+          If you have any questions or would like to book another session,
+          please feel free to visit our website or contact us directly.
+        </p>
+
+        <a
+          href="{{frontend_url}}/signin"
+          target="_blank"
+          class="button-link"
+        >Book Another Session</a>
+      </div>
+
+      <!-- Footer -->
+      <div class="footer">
+        Regards,<br />
+        Fatima's Therapy Services<br />
+        &copy;
+        {{currentYear}}
+        All rights reserved.
+      </div>
+    </div>
+  </body>
+</html>
