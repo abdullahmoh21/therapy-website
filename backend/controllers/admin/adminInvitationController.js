@@ -1,4 +1,5 @@
 const Invitee = require("../../models/Invitee");
+const User = require("../../models/User");
 const asyncHandler = require("express-async-handler");
 const { invalidateByEvent } = require("../../middleware/redisCaching");
 const logger = require("../../logs/logger");
@@ -114,14 +115,19 @@ const deleteInvitation = asyncHandler(async (req, res) => {
 //@access Private(admin)
 const inviteUser = asyncHandler(async (req, res) => {
   try {
-    const { email, name } = req.body;
+    const { email, name, accountType } = req.body;
     const adminId = req.user.id;
 
     if (!email) {
       return res.status(400).json({ message: "Email is required" });
     }
+    if (accountType !== "domestic" && accountType !== "international") {
+      return res.status(400).json({
+        message:
+          "The field 'accountType' must be: 'domestic' or 'international'",
+      });
+    }
 
-    // Run duplicate checks in parallel
     const [existingUser, activeInvitation] = await Promise.all([
       User.findOne({ email }).lean().exec(),
       Invitee.findOne({
@@ -155,7 +161,8 @@ const inviteUser = asyncHandler(async (req, res) => {
     // Create new invitation record
     const invitation = await Invitee.create({
       email,
-      name: name || "",
+      name: name,
+      accountType,
       token,
       invitedBy: adminId,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
@@ -257,9 +264,6 @@ const resendInvitation = asyncHandler(async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 });
-
-// Need to import User model for invite functionality
-const User = require("../../models/User");
 
 module.exports = {
   inviteUser,

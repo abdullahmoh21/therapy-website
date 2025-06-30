@@ -220,6 +220,11 @@ const InvitedUsers = ({ onSwitchToUsers, onInviteUser }) => {
     }
   };
 
+  // Handle invite user click - use the provided prop function
+  const handleInviteUser = () => {
+    onInviteUser();
+  };
+
   return (
     <div className="max-w-7xl mx-auto">
       {/* Error handling */}
@@ -313,9 +318,9 @@ const InvitedUsers = ({ onSwitchToUsers, onInviteUser }) => {
               )}
             </div>
 
-            {/* Invite User Button - moved to same line */}
+            {/* Invite User Button */}
             <button
-              onClick={onInviteUser}
+              onClick={handleInviteUser}
               className="flex items-center px-4 py-2 bg-[#DF9E7A] text-white rounded-lg hover:bg-[#c45e3e] transition-colors"
             >
               <BiPlus className="mr-2" /> Invite User

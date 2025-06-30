@@ -72,7 +72,12 @@ const ExpandedUserDetails = ({ data, onEditClick }) => {
     <div className="p-4 bg-gray-50">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-medium text-gray-900">User Details</h3>
-        {/* Edit button removed as requested */}
+        <button
+          onClick={() => onEditClick(user)}
+          className="px-3 py-1 bg-[#DF9E7A] text-white text-sm rounded hover:bg-[#c45e3e] transition-colors"
+        >
+          Edit User
+        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -152,6 +157,26 @@ const ExpandedUserDetails = ({ data, onEditClick }) => {
                   </span>
                 </dd>
               </div>
+              {user.role === "user" && (
+                <div className="py-2 grid grid-cols-3">
+                  <dt className="text-sm font-medium text-gray-500">
+                    Billing Type
+                  </dt>
+                  <dd className="text-sm text-gray-900 col-span-2">
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-xs ${
+                        user.accountType === "international"
+                          ? "bg-blue-100 text-blue-800"
+                          : "bg-yellow-100 text-yellow-800"
+                      }`}
+                    >
+                      {user.accountType === "international"
+                        ? "International Rate"
+                        : "Domestic Rate"}
+                    </span>
+                  </dd>
+                </div>
+              )}
               <div className="py-2 grid grid-cols-3">
                 <dt className="text-sm font-medium text-gray-500">
                   Email Verified
