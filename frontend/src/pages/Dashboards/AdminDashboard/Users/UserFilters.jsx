@@ -95,7 +95,7 @@ const UserFilters = ({
             )}
           </div>
 
-          {/* Invite User Button */}
+          {/* Invite User Button - ensure this calls onInviteUser */}
           <button
             onClick={onInviteUser}
             className="flex items-center px-4 py-2 bg-[#DF9E7A] text-white rounded-lg hover:bg-[#c45e3e] transition-colors"

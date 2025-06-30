@@ -166,11 +166,6 @@ const createPayment = asyncHandler(async (req, res) => {
   }
 });
 
-const refundSchema = Joi.object({
-  paymentId: Joi.string().required(),
-  bookingId: Joi.string().required(),
-});
-
 const getPayment = asyncHandler(async (req, res) => {
   const { paymentId } = req.params;
 

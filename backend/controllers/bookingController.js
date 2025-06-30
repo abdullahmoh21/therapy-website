@@ -22,8 +22,8 @@ const handleCalendlyWebhook = asyncHandler(async (req, res) => {
   const {
     uri: inviteeUri,
     created_at: inviteeCreatedAt,
-    email, // Email from the payload
-    name, // Extract name from payload
+    email,
+    name,
     questions_and_answers = [],
     cancel_url,
     reschedule_url,
@@ -75,7 +75,7 @@ const handleCalendlyWebhook = asyncHandler(async (req, res) => {
           email,
           null,
           start_time,
-          name // Pass the name to deleteEvent
+          name
         );
       } catch (err) {}
       return res.status(200).send();
@@ -90,8 +90,9 @@ const handleCalendlyWebhook = asyncHandler(async (req, res) => {
         email,
         null,
         start_time,
-        name // Pass the name to deleteEvent
+        name
       );
+      return res.status(200).send();
     }
     if (user.bookingTokenJTI !== decoded.jti) {
       try {
@@ -101,7 +102,7 @@ const handleCalendlyWebhook = asyncHandler(async (req, res) => {
           email,
           user,
           start_time,
-          name // Pass the name to deleteEvent
+          name
         );
       } catch (err) {}
       return res.status(200).send();
@@ -124,6 +125,7 @@ const handleCalendlyWebhook = asyncHandler(async (req, res) => {
       additional_info,
       join_url,
       zoomData,
+      email,
     });
     return res.status(200).end();
   }
@@ -145,14 +147,8 @@ async function createBooking({
   additional_info,
   join_url,
   zoomData,
+  calendlyEmail,
 }) {
-  const sessionPrice = await Config.getValue("sessionPrice");
-  if (sessionPrice === undefined) {
-    try {
-      await deleteEvent(eventURI, "Session price not set");
-    } catch (err) {}
-    return;
-  }
   const [existingBooking, user] = await Promise.all([
     Booking.findOne({ scheduledEventURI: eventURI }).lean(),
     User.findById(userId).lean(),
@@ -163,10 +159,27 @@ async function createBooking({
   }
   if (!user) {
     try {
-      await deleteEvent(eventURI, "User not found");
+      await deleteEvent(eventURI, null, calendlyEmail, null, start_time);
     } catch (err) {
       logger.error(`Could not delete booking. request failed with err: ${err}`);
     }
+    return;
+  }
+
+  let sessionPrice;
+  let currency;
+  if (user?.accountType == "international") {
+    sessionPrice = await Config.getValue("intlSessionPrice");
+    currency = "USD";
+  } else {
+    sessionPrice = await Config.getValue("sessionPrice");
+    currency = "PKR";
+  }
+
+  if (sessionPrice === undefined) {
+    try {
+      await deleteEvent(eventURI, null, null, user, start_time);
+    } catch (err) {}
     return;
   }
 
@@ -201,9 +214,8 @@ async function createBooking({
   const paymentData = {
     userId: user._id,
     amount: sessionPrice,
+    currency: currency,
     transactionReferenceNumber,
-    paymentCurrency: "PKR",
-    status: "Pending",
   };
 
   const [booking, payment] = await Promise.all([
@@ -235,23 +247,196 @@ async function cancelBooking({
   booking.status = "Cancelled";
   booking.cancellation.reason = cancelReason;
   booking.cancellation.cancelledBy =
-    canceler_type === "user" ? "User" : "Admin";
+    canceler_type === "invitee" ? "User" : "Admin";
   booking.cancellation.date = new Date(cancellationDate);
 
   await booking.save();
   await invalidateByEvent("booking-updated", {
     userId: booking.userId,
   });
-  await processRefundRequest(booking);
+
+  // Always send user notification
+  await sendUserCancellationNotification(booking, cancelReason, canceler_type);
+
+  // Always send admin notification
+  await sendAdminCancellationNotification(booking);
+}
+
+async function sendAdminCancellationNotification(booking) {
+  try {
+    const adminEmail = await Config.getValue("adminEmail");
+    if (!adminEmail) {
+      logger.error(
+        "Admin email not found in config. Cannot send admin cancellation notification."
+      );
+      return;
+    }
+
+    const [user, payment] = await Promise.all([
+      User.findById(booking.userId).lean().exec(),
+      Payment.findById(booking.paymentId).lean().exec(),
+    ]);
+
+    if (!user) {
+      logger.error(
+        `User not found for booking ${booking._id}. Could not send admin cancellation email.`
+      );
+      return;
+    }
+
+    // Check if cancellation is within policy for refund eligibility
+    const currentTime = new Date();
+    const noticePeriod = await Config.getValue("noticePeriod");
+    const cutoffDays = parseInt(noticePeriod, 10) || 3;
+    const cutoffMillis = cutoffDays * 24 * 60 * 60 * 1000;
+    const cutoffDeadline = new Date(
+      booking.eventStartTime.getTime() - cutoffMillis
+    );
+    const isLateCancellation = currentTime >= cutoffDeadline;
+
+    // Determine if payment exists and is completed
+    const hasCompletedPayment =
+      payment && payment.transactionStatus === "Completed";
+
+    // Prepare email data
+    const emailJobData = {
+      booking: booking,
+      payment: payment || null,
+      recipient: adminEmail,
+      updatePaymentStatus: hasCompletedPayment && !isLateCancellation, // Only update status for eligible refunds
+      isLateCancellation: isLateCancellation,
+    };
+
+    await sendEmail("adminCancellationNotif", emailJobData);
+
+    // Update payment status if eligible for refund
+    if (hasCompletedPayment && !isLateCancellation) {
+      await Payment.updateOne(
+        { _id: payment._id },
+        {
+          transactionStatus: "Refund Requested",
+          refundRequestedDate: new Date(),
+        }
+      );
+      logger.info(
+        `Payment status updated to 'Refund Requested' for paymentId: ${payment._id}`
+      );
+    }
+
+    logger.info(
+      `Admin cancellation notification sent for booking ${booking._id} (${
+        isLateCancellation ? "late" : "normal"
+      } cancellation, ${hasCompletedPayment ? "paid" : "unpaid"})`
+    );
+  } catch (error) {
+    logger.error(
+      `Error sending admin cancellation notification for booking ${booking._id}: ${error.message}`
+    );
+  }
+}
+
+async function sendUserCancellationNotification(
+  booking,
+  reason,
+  canceler_type
+) {
+  try {
+    const [user, payment] = await Promise.all([
+      User.findById(booking.userId).lean().exec(),
+      Payment.findById(booking.paymentId).lean().exec(),
+    ]);
+
+    if (!user) {
+      logger.error(
+        `User not found for booking ${booking._id}. Could not send user cancellation email.`
+      );
+      return;
+    }
+
+    const noticePeriod = await Config.getValue("noticePeriod");
+    const cutoffDays = parseInt(noticePeriod, 10) || 3;
+
+    const currentTime = new Date();
+    const cutoffMillis = cutoffDays * 24 * 60 * 60 * 1000;
+    const cutoffDeadline = new Date(
+      booking.eventStartTime.getTime() - cutoffMillis
+    );
+
+    // Format dates and times
+    const eventDate = new Date(booking.eventStartTime).toLocaleDateString(
+      "en-US",
+      {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      }
+    );
+
+    const eventTime = new Date(booking.eventStartTime).toLocaleTimeString(
+      "en-US",
+      {
+        hour: "2-digit",
+        minute: "2-digit",
+      }
+    );
+
+    const formattedCancellationDate = new Date(
+      booking.cancellation.date
+    ).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    const isUnpaid = !payment || payment.transactionStatus !== "Completed";
+    const isRefundEligible = !isUnpaid && currentTime < cutoffDeadline;
+    const isRefundIneligible = !isUnpaid && !isRefundEligible;
+
+    const isAdminCancelled = booking.cancellation.cancelledBy === "Admin";
+    const cancelledByDisplay =
+      booking.cancellation.cancelledBy === "User"
+        ? "You"
+        : booking.cancellation.cancelledBy;
+
+    // Prepare email data and delegate to the queue
+    const emailData = {
+      recipient: user.email,
+      name: user.firstName ? `${user.firstName} ${user.lastName}` : user.name,
+      bookingId: booking.bookingId.toString(),
+      eventDate,
+      eventTime,
+      cancelledBy: booking.cancellation.cancelledBy,
+      cancelledByDisplay,
+      reason,
+      cancellationDate: formattedCancellationDate,
+      isUnpaid,
+      isRefundEligible,
+      isRefundIneligible,
+      isAdminCancelled,
+      cancelCutoffDays: cutoffDays,
+    };
+
+    // Send the email
+    await sendEmail("userCancellation", emailData);
+    logger.info(
+      `User cancellation notification queued for ${user.email} for booking ${booking._id}`
+    );
+  } catch (error) {
+    logger.error(
+      `Error queueing user cancellation notification: ${error.message}`
+    );
+  }
 }
 
 async function deleteEvent(
   eventURI,
   reasonText = "No user found",
-  calendlyEmail = null, // email from Calendly payload
-  user = null, // user doc from our DB (pass it if you have it)
-  eventStartTime = null, // start_time from the webhook payload
-  inviteeName = null // name from the Calendly payload
+  calendlyEmail = null,
+  user = null,
+  eventStartTime = null,
+  inviteeName = null
 ) {
   const isRegisteredUser = !!user;
   const userEmail = isRegisteredUser ? user.email : null;
@@ -311,122 +496,6 @@ async function deleteEvent(
   }
 }
 
-async function processRefundRequest(booking) {
-  // Only proceed if booking has a payment ID
-  if (!booking.paymentId) {
-    logger.debug(
-      `No payment ID found for booking ${booking._id}. Skipping refund processing.`
-    );
-    return;
-  }
-
-  // Fetch admin email from config
-  const adminEmail = await Config.getValue("adminEmail");
-  if (!adminEmail) {
-    logger.error(
-      "Admin email not found in config. Cannot process refund processing."
-    );
-    return;
-  }
-
-  // Find the corresponding Payment document
-  const payment = await Payment.findOne({ _id: booking.paymentId }).exec();
-
-  // Check if payment exists and is completed
-  if (!payment) {
-    logger.debug(
-      `No payment found for booking ${booking._id}. Skipping refund processing.`
-    );
-    return;
-  }
-
-  if (payment.transactionStatus !== "Completed") {
-    logger.debug(
-      `Payment for booking ${booking._id} is not completed. Status: ${payment.transactionStatus}. Skipping refund.`
-    );
-    return;
-  }
-
-  // Check if the cancellation is within the allowed time period
-  const currentTime = new Date();
-  const noticePeriod = await Config.getValue("noticePeriod");
-  const cutoffDays = parseInt(noticePeriod, 10);
-
-  if (isNaN(cutoffDays)) {
-    logger.error(`Invalid noticePeriod config: ${noticePeriod}`);
-    return;
-  }
-
-  const cutoffMillis = cutoffDays * 24 * 60 * 60 * 1000;
-  const cutoffDeadline = new Date(
-    booking.eventStartTime.getTime() - cutoffMillis
-  );
-
-  // Fetch user data for the email
-  const user = await User.findById(booking.userId).lean().exec();
-  if (!user) {
-    logger.error(`User not found for booking ${booking._id}.`);
-    return;
-  }
-
-  // Prepare common email data
-  const emailJobData = {
-    payment: payment,
-    booking: booking,
-    recipient: adminEmail,
-    updatePaymentStatus: true,
-    name: `${user.firstName} ${user.lastName}`,
-    userEmail: user.email,
-    bookingId: booking._id.toString(),
-    eventDate: new Date(booking.eventStartTime).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    }),
-    eventTime: new Date(booking.eventStartTime).toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-    }),
-    cancelledBy: booking.cancellation.cancelledBy,
-    paymentAmount: payment.amount,
-    paymentStatus: payment.transactionStatus,
-    paymentCompleted: payment.paymentCompletedDate
-      ? new Date(payment.paymentCompletedDate).toLocaleDateString()
-      : "N/A",
-    transactionReferenceNumber: payment.transactionReferenceNumber,
-    cancelCutoffDays: cutoffDays,
-    refundLink: `${process.env.SAFEPAY_DASHBOARD_URL}`,
-    isAdmin: booking.cancellation.cancelledBy === "Admin",
-    frontend_url: process.env.FRONTEND_URL || "https://fatimatherapy.com",
-  };
-
-  try {
-    // Determine if it's a late cancellation or not
-    if (currentTime >= cutoffDeadline) {
-      // Late cancellation - send late cancellation notification
-      logger.debug(
-        `Cancellation for booking ${booking._id} is past the ${cutoffDays}-day cutoff. Sending late cancellation email.`
-      );
-
-      await sendEmail("lateCancellation", emailJobData);
-      logger.info(
-        `Late cancellation notification email sent for booking ${booking._id}, payment ${payment._id}`
-      );
-    } else {
-      // Regular cancellation within policy - send cancellation notification with refund info
-      await sendEmail("cancellationNotification", emailJobData);
-      payment.refundRequestedDate = new Date();
-      await payment.save();
-      logger.info(
-        `Cancellation notification email sent for booking ${booking._id}, payment ${payment._id}`
-      );
-    }
-  } catch (error) {
-    logger.error(
-      `Error sending cancellation email for booking ${booking._id}: ${error}`
-    );
-  }
-}
 // ----------------------------- End Webhook Helper Functions ----------------------------- //
 
 //@desc creates a unique one-time booking link

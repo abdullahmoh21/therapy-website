@@ -1,10 +1,13 @@
 import { useState, useEffect } from "react";
 import logo from "../../assets/images/logo.webp";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { BiMenu } from "react-icons/bi";
 import { IoMdClose } from "react-icons/io";
-import { useSelector } from "react-redux";
-import { selectCurrentToken } from "../../features/auth/authSlice";
+import { useSelector, useDispatch } from "react-redux";
+import {
+  selectCurrentToken,
+  selectCurrentUserRole,
+} from "../../features/auth/authSlice";
 import ContactMe from "../../pages/General/ContactMe/ContactMe.jsx";
 import Sticky from "react-stickynode";
 import { motion, AnimatePresence } from "framer-motion";
@@ -20,6 +23,18 @@ const Header = () => {
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const token = useSelector(selectCurrentToken);
+  const userRole = useSelector(selectCurrentUserRole);
+  const navigate = useNavigate();
+
+  // Handle navigation to the correct dashboard based on role
+  const handleDashboardClick = (e) => {
+    e.preventDefault();
+    if (userRole === "admin") {
+      navigate("/admin");
+    } else {
+      navigate("/dash");
+    }
+  };
 
   // Effect to manage body scroll behavior when popup or mobile menu is open
   useEffect(() => {
@@ -126,12 +141,13 @@ const Header = () => {
                   transition={{ duration: 0.3, delay: 0.4 }}
                 >
                   {token ? (
-                    <Link
-                      to="/dash"
+                    <a
+                      href="#"
+                      onClick={handleDashboardClick}
                       className="h-10 text-buttonTextBlack text-[16px] font-medium py-0 px-6 bg-orangeButton rounded-full shadow-sm hover:bg-lightPink hover:shadow-md transition-colors duration-300 flex items-center justify-center"
                     >
                       Dashboard
-                    </Link>
+                    </a>
                   ) : (
                     <Link
                       to="/signin"
@@ -242,13 +258,16 @@ const Header = () => {
                   </button>
                 </motion.div>
                 {token ? (
-                  <Link
-                    to="/dash"
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      handleDashboardClick(e);
+                      toggleMenu();
+                    }}
                     className="block w-full h-12 text-white font-medium rounded-lg bg-orangeHeader text-center transition-colors duration-300 shadow-sm flex items-center justify-center"
-                    onClick={toggleMenu}
                   >
                     Dashboard
-                  </Link>
+                  </a>
                 ) : (
                   <Link
                     to="/signin"
