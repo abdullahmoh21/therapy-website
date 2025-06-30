@@ -4,6 +4,66 @@ const fs = require("fs");
 const path = require("path");
 const LOCAL_CONFIG_FILE = path.join(__dirname, "../configLocalCache.bin");
 
+const REQUIRED_CONFIG_KEYS = [
+  {
+    key: "sessionPrice",
+    value: 8000,
+    displayName: "Domestic Session Price",
+    description:
+      "Price per session in PKR. This rate will be applied to domestic clients.",
+  },
+  {
+    key: "intlSessionPrice",
+    value: 100,
+    displayName: "International Session Price",
+    description:
+      "Price per session in USD. This rate will be applied to international clients.",
+  },
+  {
+    key: "maxBookings",
+    value: "3",
+    displayName: "Maximum Bookings",
+    description: "Maximum number of active booking allowed at a time.",
+  },
+  {
+    key: "noticePeriod",
+    value: 2,
+    displayName: "Cancellation Notice Period",
+    description:
+      "The notice period for cancellations in days. If set to '2', users will only be able to cancel up to 2 days before a booking.",
+  },
+  {
+    key: "adminEmail",
+    value: "abdullahmohsin21007@gmail.com",
+    displayName: "Admin Email",
+    description: "Admin email for system notifications",
+  },
+  {
+    key: "devEmail",
+    value: "abdullahmohsin21007@gmail.com",
+    displayName: "Developer Email",
+    description: "Developer email for technical alerts",
+  },
+  {
+    key: "bankAccounts",
+    value: [
+      {
+        bankAccount: "Meezan Bank",
+        accountNo: "12345678901234",
+        accountTitle: "Fatima Mohsin Naqvi",
+      },
+      {
+        bankAccount: "Jazz Cash",
+        accountNo: "03001234567",
+        accountTitle: "Fatima Mohsin Naqvi",
+      },
+    ],
+    displayName: "Payment Accounts",
+    description:
+      "Bank account details for payments. Please ensure they are correct since all clients will see on their dashboard.",
+  },
+];
+
 // Load local cache from binary file
 function loadLocalCache() {
   try {
@@ -294,57 +354,7 @@ configSchema.statics.initializeConfig = async function () {
     }
 
     const Config = this;
-    const requiredKeys = [
-      {
-        key: "sessionPrice",
-        value: 8000,
-        displayName: "Session Price",
-        description: "Price per 1-hour session in PKR",
-      },
-      {
-        key: "adminEmail",
-        value: "abdullahmohsin21007@gmail.com",
-        displayName: "Admin Email",
-        description: "Admin email for system notifications",
-      },
-      {
-        key: "devEmail",
-        value: "abdullahmohsin21007@gmail.com",
-        displayName: "Developer Email",
-        description: "Developer email for technical alerts",
-      },
-      {
-        key: "maxBookings",
-        value: "3",
-        displayName: "Maximum Bookings",
-        description: "Maximum number of active booking allowed at a time.",
-      },
-      {
-        key: "noticePeriod",
-        value: 2,
-        displayName: "Cancellation Notice Period",
-        description:
-          "The notice period for cancellations in days. If set to '2', users will only be able to cancel up to 2 days before a booking.",
-      },
-      {
-        key: "bankAccounts",
-        value: [
-          {
-            bankAccount: "Meezan Bank",
-            accountNo: "12345678901234",
-            accountTitle: "Fatima Mohsin Naqvi",
-          },
-          {
-            bankAccount: "Jazz Cash",
-            accountNo: "03001234567",
-            accountTitle: "Fatima Mohsin Naqvi",
-          },
-        ],
-        displayName: "Payment Accounts",
-        description:
-          "Bank account details for payments. Please ensure they are correct since all clients will see on their dashboard.",
-      },
-    ];
+    const requiredKeys = REQUIRED_CONFIG_KEYS; // Use the constant defined at the top
 
     // Get all required key names for comparison
     const requiredKeyNames = requiredKeys.map((item) => item.key);
