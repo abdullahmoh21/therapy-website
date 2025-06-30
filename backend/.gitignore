@@ -9,3 +9,4 @@ dump/
 node_modules/
 .history/
 *.log
+build/

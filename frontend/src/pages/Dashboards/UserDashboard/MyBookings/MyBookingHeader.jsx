@@ -52,8 +52,12 @@ const DashboardHeader = ({
   }, [showPaymentModal, isDesktop]);
 
   // Fetch the notice period for cancellations
-  const { data: noticePeriodData, isSuccess: noticePeriodSuccess } =
-    useGetNoticePeriodQuery();
+  const {
+    data: noticePeriodData,
+    isSuccess: noticePeriodSuccess,
+    isLoading: noticePeriodLoading,
+    isError: noticePeriodError,
+  } = useGetNoticePeriodQuery();
 
   // Fetch bank account details
   const { data: bankDetails, isSuccess: bankDetailsSuccess } =
@@ -77,11 +81,17 @@ const DashboardHeader = ({
     setIsLoading(true);
     try {
       await getBookingLink();
-      // Note: We don't need to handle redirection here as it's done in the parent component
     } catch (error) {
-      toast.error(
-        error?.data?.message || "Failed to get booking link. Please try again."
-      );
+      // Check if it's a 403 error with maxAllowedBookings in the response
+      if (error?.status === 403 && error?.data?.maxAllowedBookings) {
+        toast.error(
+          `Booking limit reached. You can only have ${error.data.maxAllowedBookings} active bookings at a time.`
+        );
+      } else {
+        toast.error(
+          error?.data?.message || "Failed to get booking link. Please try again."
+        );
+      }
     } finally {
       setIsLoading(false);
     }
@@ -100,9 +110,21 @@ const DashboardHeader = ({
       });
   };
 
-  // Only show the notice period if the query was successful and returned data
-  const showNoticePeriod =
-    noticePeriodSuccess && noticePeriodData?.noticePeriod;
+  // Only show notice period if loading or successful, hide if error
+  const showNoticePeriod = noticePeriodSuccess || noticePeriodLoading;
+
+  const NoticePeriodText = () => {
+    if (noticePeriodLoading) {
+      return (
+        <span className="inline-block min-w-[30px] bg-gray-300 animate-pulse rounded mx-1">
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        </span>
+      );
+    } else if (noticePeriodSuccess) {
+      return <span>{noticePeriodData.noticePeriod}</span>;
+    }
+    return null;
+  };
 
   return (
     <div className="bg-white border-l-4 border-lightPink rounded-xl shadow-md mb-8 overflow-hidden">
@@ -122,9 +144,8 @@ const DashboardHeader = ({
           </p>
           {showNoticePeriod && (
             <p className="text-textColor">
-              Note: Cancellations must be made at least{" "}
-              {noticePeriodData.noticePeriod} days before your appointment for a
-              full refund.
+              Note: Cancellations must be made at least <NoticePeriodText />{" "}
+              days before your appointment for a full refund.
             </p>
           )}
           <button

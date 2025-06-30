@@ -17,8 +17,12 @@ const NoBooking = ({
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <DashboardHeader showBookButton={false} userData={userData} />
+    <div className="container mx-auto px-4 pt-0 pb-8">
+      <DashboardHeader
+        userData={userData}
+        showBookButton={false}
+        getBookingLink={getBookingLink}
+      />
 
       <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
         <div className="flex flex-col items-center justify-center text-center p-8 min-h-[300px]">

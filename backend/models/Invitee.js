@@ -10,7 +10,12 @@ const inviteeSchema = new Schema({
   },
   name: {
     type: String,
-    required: false,
+    required: true,
+  },
+  accountType: {
+    type: String,
+    enum: ["domestic", "international"],
+    required: true,
   },
   token: {
     type: String,
