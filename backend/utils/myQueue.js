@@ -24,8 +24,7 @@ function getJobUniqueId(jobName, jobData) {
     case "resetPassword":
       stableKey = jobData.recipient; // collapse spam-clicks
       break;
-    case "cancellationNotification":
-    case "lateCancellation":
+    case "adminCancellationNotif":
     case "refundConfirmation":
       stableKey = jobData.payment?._id || jobData.payment?.id;
       break;
@@ -42,7 +41,7 @@ function getJobUniqueId(jobName, jobData) {
       stableKey = jobData.recipient;
       break;
     case "adminAlert":
-      stableKey = `${jobData.alertType}:${Date.now()}`; // Include timestamp to allow multiple alerts of same type
+      stableKey = `${jobData.alertType}:${Date.now()}`;
       break;
     default:
       // Always-unique fallback
@@ -84,10 +83,8 @@ const initializeQueue = async () => {
             return sendVerificationEmail(job);
           case "resetPassword":
             return sendResetPasswordEmail(job);
-          case "cancellationNotification":
-            return sendCancellationNotification(job);
-          case "lateCancellation":
-            return sendLateCancellation(job);
+          case "adminCancellationNotif":
+            return sendAdminCancellationNotification(job);
           case "refundConfirmation":
             return sendRefundConfirmation(job);
           case "ContactMe":
@@ -102,6 +99,8 @@ const initializeQueue = async () => {
             return sendUnauthorizedBookingEmail(job);
           case "adminAlert":
             return sendAdminAlertEmail(job);
+          case "userCancellation":
+            return sendUserCancellationEmail(job);
           default:
             logger.error(`[QUEUE SWITCH] Unknown job name: ${job.name}`);
             return { success: false, error: "Unknown job type" };
@@ -119,15 +118,15 @@ const initializeQueue = async () => {
     // Failed-job handler
     queueWorker.on("failed", async (job, err) => {
       if (job.attemptsMade === job.opts.attempts) {
-        const adminEmail = await Config.getValue("adminEmail");
-        if (!adminEmail) {
+        const devEmail = await Config.getValue("devEmail");
+        if (!devEmail) {
           logger.error("Admin email not found in config");
           return;
         }
 
         const mailOptions = {
           from: "server@fatimanaqvi.com",
-          to: adminEmail,
+          to: devEmail,
           subject: "Job Failure Notification",
           html: `
             <h1>Job Failure Alert</h1>
@@ -189,10 +188,8 @@ const fallbackExecute = function (jobName, jobData) {
       return sendVerificationEmail({ data: jobData });
     case "resetPassword":
       return sendResetPasswordEmail({ data: jobData });
-    case "cancellationNotification":
-      return sendCancellationNotification({ data: jobData });
-    case "lateCancellation":
-      return sendLateCancellation({ data: jobData });
+    case "adminCancellationNotif":
+      return sendAdminCancellationNotification({ data: jobData });
     case "refundConfirmation":
       return sendRefundConfirmation({ data: jobData });
     case "ContactMe":
@@ -207,6 +204,8 @@ const fallbackExecute = function (jobName, jobData) {
       return sendUnauthorizedBookingEmail({ data: jobData });
     case "adminAlert":
       return sendAdminAlertEmail({ data: jobData });
+    case "userCancellation":
+      return sendUserCancellationEmail({ data: jobData });
     default:
       throw new Error(`Unknown job type: ${jobName}`);
   }
@@ -317,13 +316,19 @@ const sendRefundRequest = async (job) => {
   return sendCancellationNotification(job);
 };
 
-const sendCancellationNotification = async (job) => {
+const sendAdminCancellationNotification = async (job) => {
   try {
-    const { booking, payment, updatePaymentStatus, recipient } = job.data;
+    const {
+      booking,
+      payment,
+      updatePaymentStatus,
+      recipient,
+      isLateCancellation,
+    } = job.data;
 
-    if (!booking || !payment) {
+    if (!booking) {
       throw new Error(
-        "Missing required data for cancellation notification email"
+        "Missing required booking data for admin cancellation notification email"
       );
     }
 
@@ -335,15 +340,12 @@ const sendCancellationNotification = async (job) => {
       .exec();
     if (!user) {
       logger.info(
-        `User not found for booking ${booking._id}. Could not send cancellation email.`
+        `User not found for booking ${booking._id}. Could not send admin cancellation email.`
       );
       throw new Error(`User not found for booking ${booking._id}`);
     }
 
     // Prepare data for email
-    const eventStartTime = new Date(booking.eventStartTime);
-    const currentTime = new Date();
-
     const eventDate = new Date(booking.eventStartTime).toLocaleDateString(
       "en-US",
       { day: "numeric", month: "long", year: "numeric" }
@@ -352,7 +354,7 @@ const sendCancellationNotification = async (job) => {
       "en-US",
       { hour: "2-digit", minute: "2-digit", hour12: true }
     );
-    const paymentCompletedDate = payment.paymentCompletedDate
+    const paymentCompletedDate = payment?.paymentCompletedDate
       ? new Date(payment.paymentCompletedDate).toLocaleDateString("en-GB", {
           day: "2-digit",
           month: "long",
@@ -369,46 +371,74 @@ const sendCancellationNotification = async (job) => {
       adminEmail = await Config.getValue("adminEmail");
       if (!adminEmail) {
         logger.error(
-          "Admin email not found in config, cannot send cancellation notification"
+          "Admin email not found in config, cannot send admin cancellation notification"
         );
         throw new Error("Admin email configuration not found");
       }
     }
 
+    const isPaid = payment && payment.transactionStatus === "Completed";
+    const subjectPrefix = isLateCancellation
+      ? "Late Cancellation Notice"
+      : "Cancellation Notification";
+    const subjectSuffix = isLateCancellation
+      ? "No Automatic Refund"
+      : isPaid
+      ? "Eligible for Refund"
+      : "No Payment Required";
+
     const mailOptions = {
       from: "admin@fatimanaqvi.com",
       to: adminEmail,
-      subject:
-        "[ACTION REQUIRED] Cancellation Notification - Eligible for Refund",
-      template: "cancellationNotification",
+      subject: `${subjectPrefix} - ${subjectSuffix}`,
+      template: "adminCancellationNotif",
       context: {
         name:
           user.firstName && user.lastName
             ? `${user.firstName} ${user.lastName}`
             : user.name || "Client",
         userEmail: user.email,
-        bookingId: booking._id.toString(),
+        bookingId: booking.bookingId.toString(),
         eventDate,
         eventTime,
+        cancellationDate: booking.cancellation?.date
+          ? new Date(booking.cancellation.date).toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : null,
         cancelledBy: booking.cancellation.cancelledBy || "User",
-        paymentAmount: payment.amount,
-        paymentStatus: payment.transactionStatus,
+        reason: booking.cancellation.reason || "No reason provided",
+        paymentAmount: payment?.amount || 0,
+        paymentCurrency: payment?.currency || "N/A",
+        paymentStatus: payment?.transactionStatus || "No Payment",
         paymentCompleted: paymentCompletedDate,
-        transactionReferenceNumber: payment.transactionReferenceNumber,
+        transactionReferenceNumber:
+          payment?.transactionReferenceNumber || "N/A",
         cancelCutoffDays:
           (await Config.getValue("noticePeriod")) || "Unavailable",
         refundLink,
         isAdmin: booking.cancellation.cancelledBy === "Admin",
-        frontend_url: process.env.FRONTEND_URL || "https://fatimatherapy.com",
+        isAdminCancelled: booking.cancellation.cancelledBy === "Admin",
+        isLateCancellation: isLateCancellation || false,
+        isPaid: isPaid,
+        frontend_url: process.env.FRONTEND_URL,
         currentYear: new Date().getFullYear(),
       },
     };
 
     await transporter.sendMail(mailOptions);
-    logger.info(`Cancellation notification email sent to ${adminEmail}`);
+    logger.info(
+      `Admin cancellation notification email sent to ${adminEmail} (${
+        isLateCancellation ? "late" : "normal"
+      } cancellation, ${isPaid ? "paid" : "unpaid"})`
+    );
 
-    //only update payment status if updatePaymentStatus is true and email is sent successfully
-    if (updatePaymentStatus) {
+    //only update payment status if updatePaymentStatus is true and email is sent successfully (for normal cancellations)
+    if (updatePaymentStatus && !isLateCancellation && payment) {
       await Payment.updateOne(
         { _id: payment._id },
         {
@@ -422,101 +452,7 @@ const sendCancellationNotification = async (job) => {
     }
   } catch (error) {
     logger.error(
-      `[EMAIL] Error processing cancellation notification: ${error}`
-    );
-    throw error; // Propagate error so that the job is retried
-  }
-};
-
-const sendLateCancellation = async (job) => {
-  try {
-    const { booking, payment, recipient } = job.data;
-
-    if (!booking || !payment) {
-      throw new Error("Missing required data for late cancellation email");
-    }
-
-    const user = await User.findOne(
-      { _id: booking.userId },
-      "name email firstName lastName"
-    )
-      .lean()
-      .exec();
-    if (!user) {
-      logger.info(
-        `User not found for booking ${booking._id}. Could not send late cancellation email.`
-      );
-      throw new Error(`User not found for booking ${booking._id}`);
-    }
-
-    // Prepare data for email
-    const eventStartTime = new Date(booking.eventStartTime);
-    const currentTime = new Date();
-
-    const eventDate = new Date(booking.eventStartTime).toLocaleDateString(
-      "en-US",
-      { day: "numeric", month: "long", year: "numeric" }
-    );
-    const eventTime = new Date(booking.eventStartTime).toLocaleTimeString(
-      "en-US",
-      { hour: "2-digit", minute: "2-digit", hour12: true }
-    );
-    const paymentCompletedDate = payment.paymentCompletedDate
-      ? new Date(payment.paymentCompletedDate).toLocaleDateString("en-GB", {
-          day: "2-digit",
-          month: "long",
-          year: "numeric",
-        })
-      : null;
-    const refundLink = `${
-      process.env.SAFEPAY_DASHBOARD_URL ||
-      "https://sandbox.api.getsafepay.com/dashboard/payments"
-    }`;
-
-    let adminEmail = recipient;
-    if (!adminEmail) {
-      adminEmail = await Config.getValue("adminEmail");
-      if (!adminEmail) {
-        logger.error(
-          "Admin email not found in config, cannot send late cancellation notification"
-        );
-        throw new Error("Admin email configuration not found");
-      }
-    }
-
-    const mailOptions = {
-      from: "admin@fatimanaqvi.com",
-      to: adminEmail,
-      subject: "Late Cancellation Notice - No Automatic Refund",
-      template: "lateCancellation",
-      context: {
-        name:
-          user.firstName && user.lastName
-            ? `${user.firstName} ${user.lastName}`
-            : user.name || "Client",
-        userEmail: user.email,
-        bookingId: booking._id.toString(),
-        eventDate,
-        eventTime,
-        cancelledBy: booking.cancellation.cancelledBy || "User",
-        paymentAmount: payment.amount,
-        paymentStatus: payment.transactionStatus,
-        paymentCompleted: paymentCompletedDate,
-        transactionReferenceNumber: payment.transactionReferenceNumber,
-        cancelCutoffDays:
-          (await Config.getValue("noticePeriod")) || "Unavailable",
-        refundLink,
-        isAdmin: booking.cancellation.cancelledBy === "Admin",
-        frontend_url: process.env.FRONTEND_URL || "https://fatimatherapy.com",
-        currentYear: new Date().getFullYear(),
-      },
-    };
-
-    await transporter.sendMail(mailOptions);
-    logger.info(`Late cancellation notification email sent to ${adminEmail}`);
-  } catch (error) {
-    logger.error(
-      `[EMAIL] Error processing late cancellation notification: ${error}`
+      `[EMAIL] Error processing admin cancellation notification: ${error}`
     );
     throw error; // Propagate error so that the job is retried
   }
@@ -698,7 +634,7 @@ const sendEventDeletedEmail = async (job) => {
         eventDate,
         eventTime,
         reason,
-        frontend_url: process.env.FRONTEND_URL || "https://fatimatherapy.com",
+        frontend_url: process.env.FRONTEND_URL,
         currentYear: new Date().getFullYear(),
       },
     };
@@ -743,7 +679,7 @@ const sendUnauthorizedBookingEmail = async (job) => {
       context: {
         adminEmail,
         clientName, // Pass the name to the template
-        frontend_url: process.env.FRONTEND_URL || "https://fatimatherapy.com",
+        frontend_url: process.env.FRONTEND_URL,
         currentYear: new Date().getFullYear(),
       },
     };
@@ -760,6 +696,68 @@ const sendUnauthorizedBookingEmail = async (job) => {
       }: ${error}`
     );
     throw error; // Propagate error for external handling
+  }
+};
+
+const sendUserCancellationEmail = async (job) => {
+  try {
+    const {
+      recipient,
+      name,
+      bookingId,
+      eventDate,
+      eventTime,
+      cancelledBy,
+      cancelledByDisplay,
+      reason,
+      cancellationDate,
+      isUnpaid,
+      isRefundEligible,
+      isRefundIneligible,
+      isAdminCancelled,
+      cancelCutoffDays,
+    } = job.data;
+
+    if (!recipient) {
+      logger.error(
+        "Cannot send user cancellation email: no recipient provided"
+      );
+      return;
+    }
+
+    const mailOptions = {
+      from: "bookings@fatimanaqvi.com",
+      to: recipient,
+      subject: "Booking Cancellation Confirmation",
+      replyTo: "no-reply@fatimanaqvi.com",
+      template: "userCancellationNotif",
+      context: {
+        name,
+        bookingId,
+        eventDate,
+        eventTime,
+        cancelledBy,
+        cancelledByDisplay,
+        reason,
+        cancellationDate,
+        isUnpaid,
+        isRefundEligible,
+        isRefundIneligible,
+        isAdminCancelled,
+        cancelCutoffDays,
+        frontend_url: process.env.FRONTEND_URL,
+        currentYear: new Date().getFullYear(),
+      },
+    };
+
+    await transporter.sendMail(mailOptions);
+    logger.info(`User cancellation email sent to ${recipient}`);
+    return { success: true };
+  } catch (error) {
+    logger.error(
+      `[EMAIL] Error sending user cancellation email to ${job.data.recipient}: ${error}`
+    );
+    throw error;
   }
 };
 
