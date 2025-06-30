@@ -40,6 +40,11 @@ const userSchema = new Schema(
     DOB: {
       type: Date,
     },
+    accountType: {
+      type: String,
+      enum: ["domestic", "international"],
+      required: true,
+    },
     lastLoginAt: {
       type: Date,
       default: null,

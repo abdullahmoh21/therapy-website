@@ -29,9 +29,9 @@ function encrypt(text) {
   return encrypted.toString("hex");
 }
 
-//@desc Create a new user
+//@desc Creates a new session and returns jwt and refresh cookie
 //@param {Object} req with valid email, password
-//@route GET /auth
+//@route POST /auth
 //@access Public
 const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
@@ -41,87 +41,98 @@ const login = asyncHandler(async (req, res) => {
     "email role password emailVerified"
   ).exec();
   if (!foundUser) {
-    return res.status(401).json({ message: "Invalid login credentials" }); // Avoid user enumeration
+    return res.status(401).json({ message: "Invalid login credentials" });
   }
 
   const match = await bcrypt.compare(password, foundUser.password);
   if (!match) {
-    return res.status(401).json({ message: "Invalid login credentials" }); // Consistent error message
+    return res.status(401).json({ message: "Invalid login credentials" });
   }
 
-  if (foundUser.emailVerified.state === false) {
+  if (!foundUser.emailVerified.state) {
     return res.status(401).json({
       message: "Email not verified. Check your email for verification link",
     });
   }
 
-  const accessToken = jwt.sign(
-    {
-      user: {
-        email: foundUser.email,
-        role: foundUser.role,
-        id: foundUser._id,
-      },
+  const payload = {
+    user: {
+      email: foundUser.email,
+      role: foundUser.role,
+      id: foundUser._id,
     },
-    ACCESS_TOKEN_SECRET,
-    { expiresIn: ACCESS_TOKEN_EXPIRY }
-  );
+  };
 
-  const refreshToken = jwt.sign(
-    {
-      user: {
-        email: foundUser.email,
-        role: foundUser.role,
-        id: foundUser._id,
-      },
-    },
-    REFRESH_TOKEN_SECRET,
-    { expiresIn: REFRESH_TOKEN_EXPIRY }
-  );
+  const accessToken = jwt.sign(payload, ACCESS_TOKEN_SECRET, {
+    expiresIn: ACCESS_TOKEN_EXPIRY,
+  });
+
+  const refreshToken = jwt.sign(payload, REFRESH_TOKEN_SECRET, {
+    expiresIn: REFRESH_TOKEN_EXPIRY,
+  });
+
+  const REFRESH_TOKEN_TTL_MS = 8 * 60 * 60 * 1000; // 8 hours in ms
 
   foundUser.refreshTokenHash = await bcrypt.hash(refreshToken, 10);
-  foundUser.refreshTokenExp = Date.now() + 8 * 60 * 60 * 1000; // Consider moving magic numbers to constants or env variables
+  foundUser.refreshTokenExp = Date.now() + REFRESH_TOKEN_TTL_MS;
   foundUser.lastLoginAt = new Date();
   await foundUser.save();
 
   invalidateByEvent("user-login", { userId: foundUser._id });
 
+  const ONE_DAY_MS = 24 * 60 * 60 * 1000; // 24 hours in ms
+  const isProd = process.env.NODE_ENV === "production";
+
   res.cookie("jwt", refreshToken, {
     httpOnly: true,
-    sameSite: "None",
-    secure: true,
-    maxAge: 24 * 60 * 60 * 1000,
+    sameSite: isProd ? "None" : "Lax",
+    secure: isProd,
+    maxAge: ONE_DAY_MS,
   });
+
   res.json({ accessToken });
 });
 
-// @desc Logout
-// @route POST /auth/logout
-// @access Public - clear cookie if exists
+// @desc    Logout (invalidate refresh token & clear cookie)
+// @route   POST /auth/logout
+// @access  Public
 const logout = asyncHandler(async (req, res) => {
-  //delete Access Token on client side
-  const cookies = req.cookies;
-  if (!cookies?.jwt) return res.sendStatus(204); //no content
+  const { jwt: refreshToken } = req.cookies ?? {};
 
-  const refreshToken = cookies.jwt;
+  const isProd = process.env.NODE_ENV === "production";
+  res.clearCookie("jwt", {
+    httpOnly: true,
+    sameSite: isProd ? "None" : "Lax",
+    secure: isProd,
+  });
 
-  // Decode the refresh token
-  const decodedRefreshToken = jwt.verify(refreshToken, REFRESH_TOKEN_SECRET);
+  if (!refreshToken) return res.sendStatus(204);
 
-  const { email } = decodedRefreshToken;
-  if (!email) return res.sendStatus(204); // no content
+  let decoded;
+  try {
+    decoded = jwt.verify(refreshToken, REFRESH_TOKEN_SECRET);
+  } catch (err) {
+    return res.sendStatus(204);
+  }
 
-  // is user in db?
-  const foundUser = await User.findOne({ email }).exec();
-  if (!foundUser) return res.sendStatus(204); // no content
+  const { email } = decoded;
+  if (!email) return res.sendStatus(204);
 
-  //delete refresh token in db
-  foundUser.refreshTokenHash = "";
-  foundUser.refreshTokenExp = 0;
-  await foundUser.save();
+  const user = await User.findOne({ email }).exec();
+  if (!user || !user.refreshTokenHash) return res.sendStatus(204);
 
-  res.clearCookie("jwt", { httpOnly: true, sameSite: "None", secure: true });
-  res.sendStatus(204); //no content
+  const cookieHash = crypto
+    .createHash("sha256")
+    .update(refreshToken)
+    .digest("hex");
+
+  if (cookieHash === user.refreshTokenHash) {
+    user.refreshTokenHash = "";
+    user.refreshTokenExp = 0;
+    await user.save();
+  }
+
+  return res.sendStatus(204);
 });
 
 // @desc Refresh
@@ -182,14 +193,12 @@ const register = async (req, res) => {
   try {
     const { email, password, name, DOB, phone, token } = req.body;
 
-    // Validate that all required fields are present
     if (!email || !password || !name || !DOB || !phone || !token) {
       return res.status(400).json({
         message: "All fields are required",
       });
     }
 
-    // Check for duplicate email or phone
     const duplicate = await checkForDuplicates(email, phone);
     if (duplicate) {
       logger.debug("Account registration cancelled. This user already exists");
@@ -200,7 +209,6 @@ const register = async (req, res) => {
       });
     }
 
-    // Verify the invitation token
     const invitation = await checkInvitation(email, token);
     if (!invitation) {
       return res.status(400).json({
@@ -209,7 +217,7 @@ const register = async (req, res) => {
       });
     }
 
-    // Create the user
+    const accountType = invitation.accountType;
     const verificationToken = crypto.randomBytes(20).toString("hex");
     userResult = await createUser({
       email,
@@ -218,12 +226,11 @@ const register = async (req, res) => {
       DOB,
       phone,
       verificationToken,
+      accountType,
     });
 
-    // Fix: Use verificationToken instead of token for the verification link
     const link = `${process.env.FRONTEND_URL}/verifyEmail?token=${verificationToken}`;
 
-    // Send verification email
     try {
       await sendEmail("verifyEmail", {
         recipient: email,
@@ -235,12 +242,9 @@ const register = async (req, res) => {
       logger.error(
         `Error sending verification email during registration: ${err.message}`
       );
-      // Continue with registration even if email fails - user can request resend
     }
 
-    // Mark invitation as used
     await markInvitationAsUsed(email);
-
     return res.status(201).json({
       message:
         "User created successfully. Check your email for verification link",
@@ -277,6 +281,7 @@ const createUser = async ({
   DOB,
   phone,
   verificationToken,
+  accountType,
 }) => {
   const hashedPassword = await bcrypt.hash(password, 10);
   const encryptedToken = encrypt(verificationToken);
@@ -286,6 +291,7 @@ const createUser = async ({
     password: hashedPassword,
     DOB,
     phone,
+    accountType,
     "emailVerified.state": false,
     "emailVerified.encryptedToken": encryptedToken,
     "emailVerified.expiresIn": Date.now() + 3600000, // 1 hour
