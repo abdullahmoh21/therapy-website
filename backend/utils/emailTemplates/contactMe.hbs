@@ -2,58 +2,64 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>New Client Inquiry</title>
+    <!-- Preheader text for inbox preview -->
     <style>
-      body { font-family: Arial, sans-serif; color: #333; background-color:
-      #f9f9f9; margin: 0; padding: 0; } .container { background-color: #ffffff;
-      border: 1px solid #eee; border-left: 4px solid #e27a82; padding: 24px;
-      max-width: 600px; margin: 40px auto; border-radius: 8px; } .header {
-      text-align: center; margin-bottom: 20px; } .header h1 { font-size: 20px;
-      font-weight: bold; color: #e27a82; margin-top: 10px; margin-bottom: 20px;
-      text-align: center; } .details { margin-bottom: 20px; } .details p {
-      margin: 10px 0; } .details a { color: #0066cc; text-decoration: underline;
-      word-break: break-word; } .footer { font-size: 13px; color: #777;
-      text-align: center; margin-top: 40px; border-top: 1px solid #eee;
-      padding-top: 16px; }
+      .preheader { display: none !important; visibility: hidden; opacity: 0;
+      color: transparent; height: 0; width: 0; overflow: hidden; mso-hide: all;
+      } body { font-family: Arial, sans-serif; color: #333; background-color:
+      #f9f9f9; margin: 0; padding: 0; } .container { max-width: 600px; margin:
+      40px auto; background-color: #ffffff; border: 1px solid #eee; border-left:
+      4px solid #e27a82; border-radius: 8px; padding: 24px; box-shadow: 0 2px
+      4px rgba(0, 0, 0, 0.05); } .header { text-align: center; margin-bottom:
+      30px; } .header img, .header .fallback-logo { display: block; margin: 0
+      auto 10px; max-width: 110px; max-height: 110px; } .fallback-logo { color:
+      #e27a82; font-size: 18px; font-weight: bold; } .title { font-size: 22px;
+      font-weight: bold; color: #e27a82; margin: 0; } .details { margin-top:
+      20px; line-height: 1.6; } .details p { margin: 12px 0; } .details a {
+      color: #0066cc; text-decoration: underline; word-break: break-word; }
+      .note { background-color: #f4f4f4; padding: 12px; border-left: 4px solid
+      #e27a82; margin: 20px 0; border-radius: 4px; font-style: italic; } .footer
+      { font-size: 13px; color: #777; text-align: center; margin-top: 40px;
+      border-top: 1px solid #eee; padding-top: 16px; }
     </style>
+    <title>New Client Inquiry</title>
   </head>
   <body>
+    <!-- Preheader for email previews -->
+    <div class="preheader">
+      You have a new inquiry from
+      {{name}}—see details inside.
+    </div>
+
     <div class="container">
       <!-- Header with Logo + Fallback -->
       <div class="header">
-        <div style="height: 100px; margin-bottom: 20px; text-align: center">
-          <a
-            href="{{frontend_url}}"
-            target="_blank"
-            style="display: inline-block"
-          >
-            <img
-              src="{{frontend_url}}/logo.png"
-              alt="Fatima's Therapy Services"
-              width="100"
-              height="100"
-              style="max-height: 100%; display: block; margin: 0 auto"
-              onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\'color:#E27A82;font-size:18px;font-weight:bold;\'>Fatima's Therapy Services</div>';"
-            />
-          </a>
-        </div>
-        <h1>New Client Inquiry</h1>
+        <a href="{{frontend_url}}" target="_blank">
+          <img
+            src="{{frontend_url}}/logo.png"
+            alt="Fatima's Therapy Services"
+            onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'fallback-logo\'>Fatima&#39;s Therapy Services</div>';"
+          />
+        </a>
+        <h1 class="title">New Client Inquiry</h1>
       </div>
 
       <!-- Inquiry Details -->
       <div class="details">
         <p><strong>Name:</strong> {{name}}</p>
-        <p><strong>Inquiry Type:</strong> {{type}}</p>
-        <p><strong>Email:</strong> <a href="mailto:{{email}}">{{email}}</a></p>
+        <p><strong>Type:</strong> {{type}}</p>
+        <p><strong>Email:</strong>
+          <a href="mailto:{{email}}">{{email}}</a>
+        </p>
         <p><strong>Phone:</strong> {{phone}}</p>
-        <p><strong>Message:</strong><br />{{message}}</p>
-        <p><em>To respond, just hit "Reply" on this email.</em></p>
+        <p><strong>Message:</strong></p>
+        <p>{{message}}</p>
       </div>
 
       <!-- Footer -->
       <div class="footer">
         Regards,<br />
-        Fatima's Therapy Services<br />
+        Fatima’s Therapy Services<br />
         &copy;
         {{currentYear}}
         All rights reserved.
