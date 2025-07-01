@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { format } from "date-fns";
 import Joi from "joi";
-import { toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 import { useRegisterMutation } from "./authApiSlice";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 import { useLocation, useNavigate, Link } from "react-router-dom";
@@ -12,14 +10,15 @@ import wave from "../../assets/images/wave.webp";
 
 /* ------------------------- validation helpers ------------------------- */
 const validPhone = Joi.string().custom((value, helpers) => {
-  // Remove any spaces or non-digit characters except +
   const cleanedValue = value.replace(/[^\d+]/g, "");
-  
+
   // Ensure it starts with +
   if (!cleanedValue.startsWith("+")) {
-    return helpers.message("Phone number must start with + followed by country code");
+    return helpers.message(
+      "Phone number must start with + followed by country code"
+    );
   }
-  
+
   // Simple check for reasonable length (international numbers are typically 7-15 digits plus country code)
   if (cleanedValue.length < 8) {
     return helpers.message("Phone number is too short");
@@ -27,17 +26,19 @@ const validPhone = Joi.string().custom((value, helpers) => {
   if (cleanedValue.length > 16) {
     return helpers.message("Phone number is too long");
   }
-  
+
   // Use the library for additional validation if available
   try {
     const phoneNumber = parsePhoneNumberFromString(cleanedValue);
     if (phoneNumber && !phoneNumber.isValid()) {
-      return helpers.message("Invalid phone number format. Please check country code and number");
+      return helpers.message(
+        "Invalid phone number format. Please check country code and number"
+      );
     }
   } catch (error) {
     // If parsing fails, we'll rely on our basic validation
   }
-  
+
   return cleanedValue;
 }, "Phone number validation");
 
@@ -112,6 +113,10 @@ const SignUp = () => {
     token: "",
   });
 
+  const [errors, setErrors] = useState({});
+  const [serverError, setServerError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+
   const [signUp, { isLoading: signUpIsLoading }] = useRegisterMutation();
 
   const urlParams = new URLSearchParams(location.search);
@@ -140,8 +145,15 @@ const SignUp = () => {
     }
   }, [form.phone, phoneHasPrefix]);
 
+  const validateField = (name, value) => {
+    const fieldSchema = schema.extract(name);
+    const { error } = fieldSchema.validate(value);
+    return error ? error.details[0].message : null;
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
+    let processedValue = value;
 
     if (name === "phone") {
       // Special handling for phone input
@@ -151,46 +163,91 @@ const SignUp = () => {
       if (!phoneValue.startsWith("+")) {
         phoneValue = "+" + phoneValue.replace(/^\+/, "");
       }
-      
-      // Update state
-      setForm((prev) => ({ ...prev, [name]: phoneValue }));
-    } else {
-      // Default handling for other fields
-      setForm((prev) => ({ ...prev, [name]: value }));
+
+      processedValue = phoneValue;
     }
+
+    // Update form state
+    setForm((prev) => ({ ...prev, [name]: processedValue }));
+
+    // Clear errors for this field and validate in real-time
+    setErrors((prev) => ({ ...prev, [name]: null }));
+    setServerError("");
+
+    // Real-time validation for certain fields
+    if (name === "confirmPassword" && form.password) {
+      if (processedValue !== form.password) {
+        setErrors((prev) => ({
+          ...prev,
+          confirmPassword: "Passwords do not match",
+        }));
+      }
+    } else if (name === "password" && form.confirmPassword) {
+      if (form.confirmPassword !== processedValue) {
+        setErrors((prev) => ({
+          ...prev,
+          confirmPassword: "Passwords do not match",
+        }));
+      } else {
+        setErrors((prev) => ({ ...prev, confirmPassword: null }));
+      }
+    }
+  };
+
+  const handleBlur = (e) => {
+    const { name, value } = e.target;
+    let validationValue = value;
+
+    if (name === "phone") {
+      validationValue = value.replace(/\s/g, "");
+    }
+
+    const error = validateField(name, validationValue);
+    setErrors((prev) => ({ ...prev, [name]: error }));
   };
 
   // Special handling for phone input keydown - only protect the + sign
   const handlePhoneKeyDown = (e) => {
     // Prevent deleting the "+" prefix only
-    if (e.key === "Backspace" && (
-        e.target.selectionStart <= 1 || 
-        (e.target.selectionStart === e.target.selectionEnd && e.target.selectionStart <= 1)
-      )) {
+    if (
+      e.key === "Backspace" &&
+      (e.target.selectionStart <= 1 ||
+        (e.target.selectionStart === e.target.selectionEnd &&
+          e.target.selectionStart <= 1))
+    ) {
       e.preventDefault();
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setServerError("");
+    setSuccessMessage("");
 
     // Clean up phone format before validation
     const submissionForm = {
       ...form,
-      phone: form.phone.replace(/\s/g, "")
+      phone: form.phone.replace(/\s/g, ""),
     };
 
-    const { error, value } = schema.validate(submissionForm);
-    if (error?.details[0]?.message) {
-      toast.error(error.details[0].message);
+    const { error, value } = schema.validate(submissionForm, {
+      abortEarly: false,
+    });
+
+    if (error) {
+      const newErrors = {};
+      error.details.forEach((detail) => {
+        newErrors[detail.path[0]] = detail.message;
+      });
+      setErrors(newErrors);
       return;
     }
 
     const { phone: phoneString } = value;
     try {
       await signUp({ ...submissionForm, phone: phoneString }).unwrap();
-      toast.success(
-        "Registration successful. Please check your email to verify your account."
+      setSuccessMessage(
+        "Registration successful! Please check your email to verify your account."
       );
       setTimeout(() => navigate("/signin"), 3000);
     } catch (err) {
@@ -198,12 +255,12 @@ const SignUp = () => {
       const msg =
         err?.data?.message ||
         {
-          400: "Bad request",
-          409: "Conflict",
+          400: "Bad request. Please check your information and try again.",
+          409: "An account with this email already exists.",
           500: "Server error. Please try again later.",
         }[err?.status] ||
         "Could not connect. Please check your internet connection.";
-      toast.error(msg);
+      setServerError(msg);
     }
   };
 
@@ -224,9 +281,7 @@ const SignUp = () => {
           transition={{ duration: 0.6 }}
           className="w-full max-w-[420px] bg-white p-10 rounded-3xl shadow-xl text-center"
         >
-          <Link to="/" className="mb-6 inline-block">
-            <img src={logo} alt="logo" height={60} width={135} />
-          </Link>
+          <img src={logo} alt="logo" height={60} width={135} />
           <h1 className="mb-4 text-2xl font-bold text-orangeText">
             Invitation Required
           </h1>
@@ -247,144 +302,215 @@ const SignUp = () => {
 
   /* ----------------------------- main form ----------------------------- */
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-gradient-to-b from-[#fff7f4] to-[#ffe5d5] flex items-center justify-center">
+    <div className="relative min-h-screen w-full overflow-y-auto bg-gradient-to-b from-[#fff7f4] to-[#ffe5d5] py-8">
       {/* background wave, sent behind content */}
       <img
         src={wave}
         alt="decorative wave"
-        className="pointer-events-none absolute bottom-0 left-0 -z-10 h-[260px] w-full object-cover"
+        className="pointer-events-none fixed bottom-0 left-0 -z-10 h-[260px] w-full object-cover"
       />
 
-      <motion.div
-        initial={{ opacity: 0, y: 25 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.7 }}
-        className="w-[92%] max-w-[500px] rounded-3xl bg-white/90 backdrop-blur-sm p-8 shadow-2xl"
-      >
-        <div className="mb-8 flex flex-col items-center">
-          <Link to="/" className="mb-4 inline-block">
-            <img src={logo} alt="logo" height={60} width={135} />
-          </Link>
-          <h1 className="text-center text-2xl font-bold leading-tight text-orangeText">
-            Create Your Account
-          </h1>
-        </div>
-
-        {/* make the form scroll if screen is tiny */}
-        <form
-          onSubmit={handleSubmit}
-          className="flex max-h-[65vh] flex-col gap-4 overflow-y-auto px-1"
+      <div className="flex items-center justify-center min-h-full px-4">
+        <motion.div
+          initial={{ opacity: 0, y: 25 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7 }}
+          className="w-full max-w-[500px] rounded-3xl bg-white/90 backdrop-blur-sm p-8 shadow-2xl"
         >
-          {/* --- Full Name --- */}
-          <label className="flex flex-col text-sm font-medium text-textColor">
-            Full Name
-            <input
-              className="mt-1 w-full border-b-2 border-textColor bg-transparent py-2 outline-none transition-colors focus:border-orangeText"
-              type="text"
-              name="name"
-              value={form.name}
-              onChange={handleChange}
-              required
-            />
-          </label>
+          <div className="mb-8 flex flex-col items-center">
+            <img src={logo} alt="logo" height={60} width={135} />
+            <h1 className="text-center text-2xl pt-2 font-bold leading-tight text-orangeText">
+              Create Your Account
+            </h1>
+          </div>
 
-          {/* --- Email --- */}
-          <label className="flex flex-col text-sm font-medium text-textColor" htmlFor="email-field">
-            Email
-            <input
-              id="email-field"
-              className="mt-1 w-full cursor-not-allowed border-b-2 border-textColor bg-transparent py-2 outline-none"
-              type="email"
-              name="email"
-              value={form.email}
-              readOnly
-              autoComplete="username email"
-            />
-          </label>
+          {/* Server Error Message */}
+          {serverError && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-600">{serverError}</p>
+            </div>
+          )}
 
-          {/* --- Phone --- */}
-          <label className="flex flex-col text-sm font-medium text-textColor">
-            Phone
-            <input
-              className="mt-1 w-full border-b-2 border-textColor bg-transparent py-2 outline-none transition-colors focus:border-orangeText"
-              type="tel"
-              name="phone"
-              value={form.phone}
-              autoComplete="tel"
-              onChange={handleChange}
-              onKeyDown={handlePhoneKeyDown}
-              ref={phoneInputRef}
-              placeholder="+[country code] phone number"
-              required
-            />
-            <span className="mt-1 text-xs text-gray-500">Example: +92 for Pakistan, +1 for USA, +44 for UK, etc.</span>
-          </label>
+          {/* Success Message */}
+          {successMessage && (
+            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <p className="text-sm text-green-600">{successMessage}</p>
+            </div>
+          )}
 
-          {/* --- Password --- */}
-          <label className="flex flex-col text-sm font-medium text-textColor" htmlFor="password-field">
-            Password
-            <input
-              id="password-field"
-              className="mt-1 w-full border-b-2 border-textColor bg-transparent py-2 outline-none transition-colors focus:border-orangeText"
-              type="password"
-              name="password"
-              autoComplete="new-password"
-              value={form.password}
-              onChange={handleChange}
-              onPaste={(e) => e.preventDefault()}
-              required
-            />
-          </label>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            {/* --- Full Name --- */}
+            <label className="flex flex-col text-sm font-medium text-textColor">
+              Full Name
+              <input
+                className={`mt-1 w-full border-b-2 bg-transparent py-2 outline-none transition-colors ${
+                  errors.name
+                    ? "border-red-500 focus:border-red-500"
+                    : "border-textColor focus:border-orangeText"
+                }`}
+                type="text"
+                name="name"
+                value={form.name}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                required
+              />
+              {errors.name && (
+                <span className="mt-1 text-xs text-red-500">{errors.name}</span>
+              )}
+            </label>
 
-          {/* --- Confirm Password --- */}
-          <label className="flex flex-col text-sm font-medium text-textColor" htmlFor="confirm-password-field">
-            Confirm Password
-            <input
-              id="confirm-password-field"
-              className="mt-1 w-full border-b-2 border-textColor bg-transparent py-2 outline-none transition-colors focus:border-orangeText"
-              type="password"
-              name="confirmPassword"
-              value={form.confirmPassword}
-              autoComplete="new-password"
-              onChange={handleChange}
-              onPaste={(e) => e.preventDefault()}
-              required
-            />
-          </label>
+            {/* --- Email --- */}
+            <label
+              className="flex flex-col text-sm font-medium text-textColor"
+              htmlFor="email-field"
+            >
+              Email
+              <input
+                id="email-field"
+                className="mt-1 w-full cursor-not-allowed border-b-2 border-textColor bg-transparent py-2 outline-none"
+                type="email"
+                name="email"
+                value={form.email}
+                readOnly
+                autoComplete="username email"
+              />
+            </label>
 
-          {/* --- Date of Birth --- */}
-          <label className="flex flex-col text-sm font-medium text-textColor">
-            Date of Birth
-            <input
-              className="mt-1 w-full border-b-2 border-textColor bg-transparent py-2 outline-none transition-colors focus:border-orangeText"
-              type="date"
-              name="DOB"
-              value={form.DOB}
-              data-lpignore="true"
-              onChange={handleChange}
-              max={
-                new Date(new Date().setFullYear(new Date().getFullYear() - 11))
-                  .toISOString()
-                  .split("T")[0]
-              }
-              required
-            />
-          </label>
+            {/* --- Phone --- */}
+            <label className="flex flex-col text-sm font-medium text-textColor">
+              Phone
+              <input
+                className={`mt-1 w-full border-b-2 bg-transparent py-2 outline-none transition-colors ${
+                  errors.phone
+                    ? "border-red-500 focus:border-red-500"
+                    : "border-textColor focus:border-orangeText"
+                }`}
+                type="tel"
+                name="phone"
+                value={form.phone}
+                autoComplete="tel"
+                onChange={handleChange}
+                onBlur={handleBlur}
+                onKeyDown={handlePhoneKeyDown}
+                ref={phoneInputRef}
+                placeholder="+[country code] phone number"
+                required
+              />
+              {errors.phone ? (
+                <span className="mt-1 text-xs text-red-500">
+                  {errors.phone}
+                </span>
+              ) : (
+                <span className="mt-1 text-xs text-gray-500">
+                  Example: +92 for Pakistan, +1 for USA, +44 for UK, etc.
+                </span>
+              )}
+            </label>
 
-          <input type="hidden" name="token" value={form.token} />
+            {/* --- Password --- */}
+            <label
+              className="flex flex-col text-sm font-medium text-textColor"
+              htmlFor="password-field"
+            >
+              Password
+              <input
+                id="password-field"
+                className={`mt-1 w-full border-b-2 bg-transparent py-2 outline-none transition-colors ${
+                  errors.password
+                    ? "border-red-500 focus:border-red-500"
+                    : "border-textColor focus:border-orangeText"
+                }`}
+                type="password"
+                name="password"
+                autoComplete="new-password"
+                value={form.password}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                onPaste={(e) => e.preventDefault()}
+                required
+              />
+              {errors.password && (
+                <span className="mt-1 text-xs text-red-500">
+                  {errors.password}
+                </span>
+              )}
+            </label>
 
-          <button
-            type="submit"
-            className="mt-6 flex w-full items-center justify-center rounded-full border-2 border-buttonTextBlack bg-orangeButton py-3 font-semibold text-buttonTextBlack shadow-md transition-transform duration-300 hover:bg-lightPink"
-          >
-            {signUpIsLoading ? (
-              <div className="spinner h-5 w-5 animate-spin rounded-full border-4 border-t-transparent" />
-            ) : (
-              "SignUp"
-            )}
-          </button>
-        </form>
-      </motion.div>
+            {/* --- Confirm Password --- */}
+            <label
+              className="flex flex-col text-sm font-medium text-textColor"
+              htmlFor="confirm-password-field"
+            >
+              Confirm Password
+              <input
+                id="confirm-password-field"
+                className={`mt-1 w-full border-b-2 bg-transparent py-2 outline-none transition-colors ${
+                  errors.confirmPassword
+                    ? "border-red-500 focus:border-red-500"
+                    : "border-textColor focus:border-orangeText"
+                }`}
+                type="password"
+                name="confirmPassword"
+                value={form.confirmPassword}
+                autoComplete="new-password"
+                onChange={handleChange}
+                onBlur={handleBlur}
+                onPaste={(e) => e.preventDefault()}
+                required
+              />
+              {errors.confirmPassword && (
+                <span className="mt-1 text-xs text-red-500">
+                  {errors.confirmPassword}
+                </span>
+              )}
+            </label>
+
+            {/* --- Date of Birth --- */}
+            <label className="flex flex-col text-sm font-medium text-textColor">
+              Date of Birth
+              <input
+                className={`mt-1 w-full border-b-2 bg-transparent py-2 outline-none transition-colors ${
+                  errors.DOB
+                    ? "border-red-500 focus:border-red-500"
+                    : "border-textColor focus:border-orangeText"
+                }`}
+                type="date"
+                name="DOB"
+                value={form.DOB}
+                data-lpignore="true"
+                onChange={handleChange}
+                onBlur={handleBlur}
+                max={
+                  new Date(
+                    new Date().setFullYear(new Date().getFullYear() - 11)
+                  )
+                    .toISOString()
+                    .split("T")[0]
+                }
+                required
+              />
+              {errors.DOB && (
+                <span className="mt-1 text-xs text-red-500">{errors.DOB}</span>
+              )}
+            </label>
+
+            <input type="hidden" name="token" value={form.token} />
+
+            <button
+              type="submit"
+              className="mt-6 flex w-full items-center justify-center rounded-full border-2 border-buttonTextBlack bg-orangeButton py-3 font-semibold text-buttonTextBlack shadow-md transition-transform duration-300 hover:bg-lightPink disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={signUpIsLoading}
+            >
+              {signUpIsLoading ? (
+                <div className="spinner h-5 w-5 animate-spin rounded-full border-4 border-t-transparent" />
+              ) : (
+                "SignUp"
+              )}
+            </button>
+          </form>
+        </motion.div>
+      </div>
     </div>
   );
 };
