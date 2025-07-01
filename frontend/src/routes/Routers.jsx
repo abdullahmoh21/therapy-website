@@ -66,8 +66,6 @@ const Routers = () => {
         <Route path="/resetPassword" element={<ResetPassword />} />
         <Route path="/consultation" element={<ConsultationLanding />} />
         <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
-
-        {/* Protected routes without PersistLogin wrapper */}
         <Route
           path="/dash"
           element={

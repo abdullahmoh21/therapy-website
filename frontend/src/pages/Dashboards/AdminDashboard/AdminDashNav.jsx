@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate, NavLink, Outlet } from "react-router-dom";
+import { useNavigate, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useLogoutMutation } from "../../../features/auth/authApiSlice";
 import { BiMenu, BiX, BiLoaderAlt } from "react-icons/bi";
 import { motion, AnimatePresence } from "framer-motion";
@@ -10,6 +10,9 @@ const AdminDashboard = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  /* ------------------------- helpers ------------------------- */
 
   const handleLogout = async () => {
     try {
@@ -21,34 +24,36 @@ const AdminDashboard = () => {
     }
   };
 
-  const toggleMenu = () => {
-    setIsMenuOpen(!isMenuOpen);
-  };
+  const toggleMenu = () => setIsMenuOpen((prev) => !prev);
+  const closeMenu = () => setIsMenuOpen(false);
+
+  /* ------------------- side-effects & listeners ------------------- */
 
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setIsMenuOpen(false);
+        closeMenu();
       }
     };
+
     if (isMenuOpen) {
       document.addEventListener("mousedown", handleClickOutside);
-    } else {
-      document.removeEventListener("mousedown", handleClickOutside);
     }
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isMenuOpen]);
+
+  // Prevent body scroll when mobile menu is open
+  useEffect(() => {
+    if (isMenuOpen) document.body.classList.add("overflow-hidden");
+    return () => document.body.classList.remove("overflow-hidden");
   }, [isMenuOpen]);
 
   useEffect(() => {
-    if (isMenuOpen) {
-      document.body.classList.add("overflow-hidden");
-    } else {
-      document.body.classList.remove("overflow-hidden");
-    }
-    return () => document.body.classList.remove("overflow-hidden");
-  }, [isMenuOpen]);
+    closeMenu();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
+
+  /* ------------------------ navigation ------------------------ */
 
   const navItems = [
     { path: "/admin/upcoming", label: "Upcoming Bookings" },
@@ -59,20 +64,22 @@ const AdminDashboard = () => {
     { path: "/admin/system", label: "System Health" },
   ];
 
+  /* --------------------------- ui --------------------------- */
+
   return (
     <div className="min-h-screen flex flex-col bg-white">
+      {/* ---------- top bar ---------- */}
       <header className="sticky top-0 z-40 bg-white shadow-md flex items-center justify-between p-4">
-        <div className="flex items-center">
-          <motion.img
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.3 }}
-            src={logo}
-            alt="logo"
-            className="h-16 w-auto"
-          />
-        </div>
+        <motion.img
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3 }}
+          src={logo}
+          alt="logo"
+          className="h-16 w-auto"
+        />
 
+        {/* desktop nav */}
         <nav className="hidden lg:flex items-center space-x-4">
           {navItems.map((item) => (
             <NavLink
@@ -89,6 +96,7 @@ const AdminDashboard = () => {
               {item.label}
             </NavLink>
           ))}
+
           <button
             className="flex items-center justify-center h-10 px-6 bg-red-500 text-white rounded-full text-[16px] font-medium hover:bg-red-600 transition-colors duration-300 disabled:opacity-50 shadow-sm"
             onClick={handleLogout}
@@ -102,6 +110,7 @@ const AdminDashboard = () => {
           </button>
         </nav>
 
+        {/* hamburger */}
         <button
           onClick={toggleMenu}
           className="text-textColor hover:text-gray-900 lg:hidden p-2"
@@ -110,66 +119,70 @@ const AdminDashboard = () => {
         </button>
       </header>
 
-      {/* Mobile menu overlay */}
+      {/* ---------- mobile overlay ---------- */}
       <AnimatePresence>
         {isMenuOpen && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            exit={{
+              opacity: 0,
+              transition: { duration: 0.2, delay: 0.1 }, // ⬅ exit delay
+            }}
             transition={{ duration: 0.2 }}
             className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-            onClick={toggleMenu}
+            onClick={closeMenu}
           />
         )}
       </AnimatePresence>
 
-      {/* Mobile menu sidebar - changed to appear from right side */}
+      {/* ---------- mobile sidebar ---------- */}
       <AnimatePresence>
         {isMenuOpen && (
           <motion.div
             ref={menuRef}
             initial={{ x: "100%", opacity: 0.5 }}
             animate={{ x: 0, opacity: 1 }}
-            exit={{ x: "100%", opacity: 0 }}
+            exit={{
+              x: "100%",
+              opacity: 0,
+              transition: { type: "tween", duration: 0.3, delay: 0.1 }, // ⬅ exit delay
+            }}
             transition={{ type: "tween", duration: 0.3 }}
             className="fixed inset-y-0 right-0 z-50 w-[80%] bg-white shadow-xl lg:hidden"
           >
             <div className="flex flex-col h-full overflow-y-auto">
-              {/* Header with logo and close button */}
+              {/* sidebar header */}
               <div className="flex justify-between items-center p-4 border-b border-gray-200">
-                <img
-                  src={logo}
-                  alt="logo"
-                  className="h-16 w-auto object-contain"
-                />
-                <button
-                  onClick={toggleMenu}
-                  className="p-2 rounded-full transition-colors duration-300"
+                <img src={logo} alt="logo" className="h-16 w-auto" />
+                <motion.button
+                  whileTap={{ rotate: 90, scale: 0.85 }} // ⬅ tap animation
+                  transition={{ type: "spring", stiffness: 300 }}
+                  onClick={closeMenu}
+                  className="p-2 rounded-full hover:bg-gray-100 transition-colors"
                 >
                   <BiX className="w-6 h-6" />
-                </button>
+                </motion.button>
               </div>
 
-              {/* Navigation items */}
+              {/* links */}
               <nav className="flex-grow p-6 space-y-4">
                 {navItems.map((item, index) => (
                   <motion.div
-                    key={index}
+                    key={item.path}
                     initial={{ x: 20, opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
-                    transition={{ delay: index * 0.1 }}
+                    transition={{ delay: index * 0.05 }}
                   >
                     <NavLink
                       to={item.path}
                       className={({ isActive }) =>
-                        `block w-full py-3 px-4 text-[16px] font-medium rounded-lg ${
+                        `block w-full py-3 px-4 text-[16px] font-medium rounded-lg transition-all text-center ${
                           isActive
                             ? "bg-[#FDF0E9] text-[#c45e3e]"
                             : "bg-white bg-opacity-50 text-textColor hover:bg-opacity-80"
-                        } text-center transition-all`
+                        }`
                       }
-                      onClick={toggleMenu}
                     >
                       {item.label}
                     </NavLink>
@@ -177,31 +190,29 @@ const AdminDashboard = () => {
                 ))}
               </nav>
 
-              {/* Logout button at bottom */}
+              {/* logout */}
               <div className="p-6 border-t border-gray-200">
-                <motion.div
+                <motion.button
                   initial={{ x: 20, opacity: 0 }}
                   animate={{ x: 0, opacity: 1 }}
                   transition={{ delay: 0.3 }}
+                  className="w-full h-12 flex items-center justify-center rounded-lg bg-red-500 text-white font-medium hover:bg-red-600 transition-colors disabled:opacity-50 shadow-sm"
+                  onClick={handleLogout}
+                  disabled={isLoggingOut}
                 >
-                  <button
-                    className="block w-full h-12 text-white font-medium rounded-lg bg-red-500 hover:bg-red-600 text-center transition-colors duration-300 shadow-sm flex items-center justify-center disabled:opacity-50"
-                    onClick={handleLogout}
-                    disabled={isLoggingOut}
-                  >
-                    {isLoggingOut ? (
-                      <BiLoaderAlt className="animate-spin mr-2" />
-                    ) : (
-                      "Logout"
-                    )}
-                  </button>
-                </motion.div>
+                  {isLoggingOut ? (
+                    <BiLoaderAlt className="animate-spin mr-2" />
+                  ) : (
+                    "Logout"
+                  )}
+                </motion.button>
               </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
+      {/* ---------- page outlet ---------- */}
       <main className="flex-grow p-4 lg:p-8 overflow-y-auto bg-white">
         <Outlet />
       </main>
