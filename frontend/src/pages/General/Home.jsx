@@ -14,8 +14,9 @@ const Home = () => {
           transition={{ duration: 0.8 }}
           className="container mx-auto text-center"
         >
-          <h1 className="orelega-one text-4xl md:text-5xl text-lightPink leading-tight">
-            Empowering Your Journey to <br className="hidden md:block" />
+          <h1 className="orelega-one text-3xl md:text-5xl text-lightPink leading-tight">
+            Empowering Your Journey to
+            <br />
             <span className="text-orangeHeader">Wellness and Healing</span>
           </h1>
         </motion.div>
@@ -74,32 +75,30 @@ const Home = () => {
               <div>
                 <p className="mb-4">
                   Fatima Mohsin Naqvi is an internationally qualified
-                  psychotherapist who has a Master's degree in Counseling for
-                  Mental Health and Wellness from NYU. After her master’s Fatima
-                  worked in New York and California in various different
-                  settings such as private practice, hospitals, schools, and
-                  mental health organizations. Fatima's sub specialty is
-                  adolescents and young adults. In California Fatima was trained
-                  in suicide and crisis assessments coordinating care with
-                  police, mental health professionals to provide for emergency
-                  mental health care. She is trained in operating the 988
+                  psychotherapist with a Master's degree in Counseling for
+                  Mental Health and Wellness from NYU. After graduating, she
+                  worked in New York and California across various settings,
+                  including private practices, hospitals, schools, and mental
+                  health organizations. Her sub-specialty is working with
+                  adolescents and young adults. In California, Fatima received
+                  training in suicide and crisis assessments, coordinating care
+                  with police and mental health professionals to provide
+                  emergency support. She is also trained in operating the 988
                   suicide hotline.
                 </p>
                 <p className="mb-4">
-                  She is passionate about relational work and uses a person
-                  centered approach to working with her clients. Fatima has
-                  experience in CBT, Psycho-dynamic modalities but prefers to
-                  work with the client to assess which works better for them.
-                  Over the past years, she has practiced with the belief that
-                  therapy facilitates the growth of clients when it is
-                  collaborative rather than instructive.
+                  Fatima is passionate about relational work and takes a
+                  person-centered approach in therapy. While she has experience
+                  in CBT and psychodynamic modalities, she collaborates with
+                  each client to find the approach that works best for them.
+                  Over the years, she has developed a practice rooted in the
+                  belief that therapy is most effective when it is collaborative
+                  rather than instructive.
                 </p>
-                <p>
-                  Fatima provides therapy for both domestic and international
-                  clients. If scheduling for an international time zone is
-                  proving to be difficult on the website, please drop us a
-                  message and our team will coordinate a time that works for
-                  you.
+                <p className="mb-4">
+                  Fatima offers therapy to both domestic and international
+                  clients. If you’re interested in working with her, please
+                  schedule a consultation using the button below.
                 </p>
               </div>
               <div className="flex justify-center pt-4">

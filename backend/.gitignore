@@ -8,5 +8,7 @@ coverage/
 dump/
 node_modules/
 .history/
+coverage/
+/utils/emailTemplates/build/
 *.log
 build/
