@@ -50,7 +50,7 @@ const Services = () => {
     } else if (isIntlSuccess && intlSessionPrice) {
       return (
         <p className="text-textColor">
-          International Rate: ${intlSessionPrice} USD
+          International Rate: {intlSessionPrice} USD
         </p>
       );
     } else if (isIntlError) {
