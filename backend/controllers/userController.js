@@ -2,7 +2,7 @@ const User = require("../models/User");
 const Booking = require("../models/Booking");
 const Payment = require("../models/Payment");
 const mongoose = require("mongoose");
-const asyncHandler = require("express-async-handler"); //middleware to handle exceptions
+const asyncHandler = require("express-async-handler");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const logger = require("../logs/logger");
@@ -10,12 +10,7 @@ const {
   invalidateResourceCache,
   invalidateByEvent,
 } = require("../middleware/redisCaching");
-const {
-  myQueue,
-  sendEmail,
-  sendVerificationEmail,
-  sendResetPasswordEmail,
-} = require("../utils/myQueue");
+const { sendEmail } = require("../utils/queue/index");
 const TOKEN_ENCRYPTION_KEY = process.env.TOKEN_ENCRYPTION_KEY;
 const TOKEN_ENCRYPTION_IV = process.env.TOKEN_ENCRYPTION_IV;
 
@@ -159,8 +154,6 @@ const verifyEmail = asyncHandler(async (req, res) => {
 //@access Public
 const forgotPassword = asyncHandler(async (req, res) => {
   const { email } = req.body;
-  logger.info(`In forgotPassword API. Email: ${email}`);
-  logger.debug(sendResetPasswordEmail);
   let user;
   user = await User.findOne({ email });
   logger.info(`result: ${JSON.stringify(user, null, 2)}`);
