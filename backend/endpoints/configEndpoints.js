@@ -8,12 +8,24 @@ const asyncHandler = require("express-async-handler");
 const logger = require("../logs/logger");
 const { redisCaching } = require("../middleware/redisCaching");
 
-//@desc returns the current session price for display in frontend
-//@param {Object} req with valid JWT
+//@desc returns the current domestics ession price for display in frontend
+//@param null
 //@route GET /config/getSessionPrice
 //@access Private
 const getSessionPrice = asyncHandler(async (req, res) => {
   const sessionPrice = await Config.getValue("sessionPrice");
+  if (!sessionPrice) {
+    return res.sendStatus(503);
+  }
+  return res.status(200).json({ sessionPrice });
+});
+
+//@desc returns the current international session price for display in frontend
+//@param null
+//@route GET /config/getSessionPrice
+//@access Private
+const getIntlSessionPrice = asyncHandler(async (req, res) => {
+  const sessionPrice = await Config.getValue("intlSessionPrice");
   if (!sessionPrice) {
     return res.sendStatus(503);
   }
@@ -50,7 +62,7 @@ const getBankAccountDetails = asyncHandler(async (req, res) => {
 //@access Private(admin)
 const getAllConfigs = asyncHandler(async (req, res) => {
   try {
-    const configurations = await Config.find({}).lean();
+    const configurations = await Config.findAllOrdered();
 
     res.status(200).json({
       configurations: configurations.reduce((acc, config) => {
@@ -121,8 +133,8 @@ const updateConfig = asyncHandler(async (req, res) => {
   }
 });
 
-// Define routes after defining handler functions
 router.get("/sessionPrice", getSessionPrice);
+router.get("/intlSessionPrice", getIntlSessionPrice);
 
 router.use(verifyJWT);
 

@@ -158,6 +158,16 @@ export const bookingsApiSlice = apiSlice.injectEndpoints({
       },
       transformResponse: (response) => response.sessionPrice,
     }),
+    getIntlSessionPrice: builder.query({
+      query: () => "/config/intlSessionPrice",
+      validateStatus: (response, result) => {
+        if (response.status === undefined) {
+          return false;
+        }
+        return response.status === 200 && !result.isError;
+      },
+      transformResponse: (response) => response.sessionPrice,
+    }),
   }),
 });
 
@@ -169,4 +179,5 @@ export const {
   useGetNewBookingLinkQuery,
   useGetCancellationUrlQuery,
   useGetSessionPriceQuery,
+  useGetIntlSessionPriceQuery,
 } = bookingsApiSlice;
