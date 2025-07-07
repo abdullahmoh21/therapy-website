@@ -1,45 +1,10 @@
 const Redis = require("ioredis");
 const logger = require("../logs/logger");
-const fs = require("fs");
-const path = require("path");
-const net = require("net"); // Add this for Redis connection
+const net = require("net");
 
 let wasDisconnected = false;
 let retryAttempts = 0;
 let thresholdReached = false;
-
-const syncPendingInvalidations = () => {
-  const invalidationFilePath = path.join(
-    __dirname,
-    "../utils/invalidationRequests.bin"
-  );
-
-  if (fs.existsSync(invalidationFilePath)) {
-    try {
-      const data = fs.readFileSync(invalidationFilePath);
-      const keys = data
-        .toString("utf8")
-        .split("\0")
-        .filter((key) => key); // Split by null character and extract keys to remove
-      if (keys.length > 0) {
-        logger.info(
-          `Processing ${keys.length} invalidation requests from invalidationRequests.bin`
-        );
-        Promise.all(keys.map((key) => redisClient.del(key)))
-          .then(() => {
-            fs.unlinkSync(invalidationFilePath); // Delete the file after processing
-          })
-          .catch((error) => {
-            logger.error(
-              `Error processing invalidation requests: ${error.message}`
-            );
-          });
-      }
-    } catch (error) {
-      logger.error(`Error reading invalidation file: ${error.message}`);
-    }
-  }
-};
 
 // Create a Redis client with connection and error handling
 const redisClient = new Redis({
@@ -57,7 +22,7 @@ const redisClient = new Redis({
           "Redis connection retry threshold reached after 5 attempts"
         );
         // Send alert using dynamic import to avoid circular dependency
-        import("./myQueue.js")
+        import("./queue/myQueue.js")
           .then((queueModule) => {
             queueModule
               .sendEmail("adminAlert", {
@@ -89,24 +54,21 @@ redisClient.on("ready", function () {
   if (wasDisconnected) {
     logger.info("Redis reconnected after disconnection");
     wasDisconnected = false;
-
-    // Send reconnection alert using dynamic import
-    import("./myQueue.js")
-      .then((queueModule) => {
-        queueModule
-          .sendEmail("adminAlert", { alertType: "redisReconnected" })
-          .catch((err) => {
-            logger.error(
-              `Failed to send Redis reconnection alert: ${err.message}`
-            );
-          });
-      })
-      .catch((err) => {
-        logger.error(`Failed to import queue module: ${err.message}`);
-      });
-
-    // Process any pending cache invalidation requests
-    syncPendingInvalidations();
+    if (process.env.NODE_ENV == "production") {
+      import("./queue/myQueue.js")
+        .then((queueModule) => {
+          queueModule
+            .sendEmail("adminAlert", { alertType: "redisReconnected" })
+            .catch((err) => {
+              logger.error(
+                `Failed to send Redis reconnection alert: ${err.message}`
+              );
+            });
+        })
+        .catch((err) => {
+          logger.error(`Failed to import queue module: ${err.message}`);
+        });
+    }
   }
 });
 
@@ -118,7 +80,7 @@ redisClient.on("error", function (err) {
 
     if (retryAttempts === 1) {
       // Send disconnection alert only on first error using dynamic import
-      import("./myQueue.js")
+      import("./queue/index.js")
         .then((queueModule) => {
           queueModule
             .sendEmail("adminAlert", {
@@ -149,7 +111,7 @@ const checkRedisAvailability = () => {
       port: process.env.REDIS_PORT || 6379,
     });
 
-    client.setTimeout(1000); // Increase timeout for containerized environment
+    client.setTimeout(1000);
 
     client.on("connect", () => {
       client.end();
