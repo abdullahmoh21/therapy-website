@@ -4,20 +4,17 @@ const asyncHandler = require("express-async-handler");
 const { invalidateByEvent } = require("../../middleware/redisCaching");
 const logger = require("../../logs/logger");
 const crypto = require("crypto");
-const { sendEmail } = require("../../utils/myQueue");
-
+const { sendEmail } = require("../../utils/queue/index");
 //@desc Get all invitations with filters
 //@param {Object} req with valid role, optional search, role filter
 //@route GET /admin/invitations
 //@access Private (admin)
 const getAllInvitations = asyncHandler(async (req, res) => {
-  // Retrieve pagination parameters and filters from the query string
-  const page = parseInt(req.query.page, 10) || 1; // Default to page 1
-  const limit = parseInt(req.query.limit, 10) || 10; // Default to 10 items per page
-  const search = req.query.search || ""; // Get search term
-  const role = req.query.role || ""; // Get role filter
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 10;
+  const search = req.query.search || "";
+  const role = req.query.role || "";
 
-  // Validate pagination parameters
   if (page < 1 || limit < 1 || limit > 40) {
     return res.status(400).json({
       message:
@@ -53,7 +50,7 @@ const getAllInvitations = asyncHandler(async (req, res) => {
     const invitations = await Invitee.find(searchQuery)
       .skip(skip)
       .limit(limit)
-      .select("name email token role createdAt expiresAt")
+      .select("name email token role accountType createdAt expiresAt")
       .sort({ createdAt: -1 })
       .lean()
       .exec();
@@ -121,6 +118,7 @@ const inviteUser = asyncHandler(async (req, res) => {
     if (!email) {
       return res.status(400).json({ message: "Email is required" });
     }
+
     if (accountType !== "domestic" && accountType !== "international") {
       return res.status(400).json({
         message:
@@ -141,9 +139,11 @@ const inviteUser = asyncHandler(async (req, res) => {
 
     // Handle duplicates
     if (existingUser) {
-      return res
-        .status(409)
-        .json({ message: "User with this email already exists" });
+      logger.warn(`Invitation attempt for existing user: ${email}`);
+      return res.status(409).json({
+        message: "User with this email already exists",
+        code: "USER_EXISTS",
+      });
     }
 
     // If there's already an active invitation, return its details
@@ -160,8 +160,8 @@ const inviteUser = asyncHandler(async (req, res) => {
 
     // Create new invitation record
     const invitation = await Invitee.create({
-      email,
-      name: name,
+      email: email.toLowerCase(), // Ensure email is stored in lowercase
+      name,
       accountType,
       token,
       invitedBy: adminId,
@@ -173,7 +173,8 @@ const inviteUser = asyncHandler(async (req, res) => {
       process.env.FRONTEND_URL
     }/signup?invitation=${token}&email=${encodeURIComponent(email)}`;
 
-    logger.debug(`Created the following invitation link: ${invitationUrl}`);
+    logger.info(`Created invitation for: ${email}, URL: ${invitationUrl}`);
+
     // Send invitation email
     try {
       await sendEmail("sendInvitation", {
@@ -181,9 +182,21 @@ const inviteUser = asyncHandler(async (req, res) => {
         name: name,
         link: invitationUrl,
       });
+      logger.info(`Invitation email sent successfully to: ${email}`);
       await invalidateByEvent("invitation-created");
-    } catch (err) {
-      return res.sendStatus(500);
+    } catch (emailError) {
+      logger.error(
+        `Failed to send invitation email to ${email}: ${emailError.message}`
+      );
+      // Don't fail the invitation creation, just log the error
+      return res.status(201).json({
+        message:
+          "Invitation created but email sending failed. Please contact the user directly.",
+        invitationId: invitation._id,
+        expiresAt: invitation.expiresAt,
+        invitationUrl: invitationUrl,
+        code: "INVITATION_CREATED_EMAIL_FAILED",
+      });
     }
 
     // Success response
@@ -191,18 +204,40 @@ const inviteUser = asyncHandler(async (req, res) => {
       message: "Invitation sent successfully",
       invitationId: invitation._id,
       expiresAt: invitation.expiresAt,
-      invitationUrl: invitationUrl, // For development/testing
+      invitationUrl: invitationUrl,
+      code: "INVITATION_SENT",
     });
   } catch (error) {
+    logger.error(
+      `Error in inviteUser for email ${req.body?.email || "unknown"}: ${
+        error.message
+      }`,
+      {
+        stack: error.stack,
+        adminId: req.user?.id,
+      }
+    );
+
     if (error.code === 11000) {
       logger.error(`Duplicate key error: ${error.message}`);
-      return res
-        .status(409)
-        .json({ message: "An invitation for this email already exists." });
+      return res.status(409).json({
+        message: "An invitation for this email already exists.",
+        code: "DUPLICATE_INVITATION",
+      });
     }
 
-    logger.error(`Error in inviteUser: ${error.message}`);
-    res.status(500).json({ message: "Error creating invitation" });
+    if (error.name === "ValidationError") {
+      return res.status(400).json({
+        message: "Invalid invitation data",
+        code: "VALIDATION_ERROR",
+        details: error.message,
+      });
+    }
+
+    res.status(500).json({
+      message: "Error creating invitation",
+      code: "INTERNAL_ERROR",
+    });
   }
 });
 

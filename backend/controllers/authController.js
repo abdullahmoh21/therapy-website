@@ -5,7 +5,7 @@ const Booking = require("../models/Booking");
 const asyncHandler = require("express-async-handler");
 const crypto = require("crypto");
 const logger = require("../logs/logger");
-const { sendEmail } = require("../utils/myQueue");
+const { sendEmail } = require("../utils/queue/index");
 const { response } = require("express");
 const Invitee = require("../models/Invitee");
 const { invalidateByEvent } = require("../middleware/redisCaching");
@@ -189,36 +189,58 @@ const refresh = asyncHandler(async (req, res) => {
 //@access Public
 const register = async (req, res) => {
   let userResult;
+  let invitationMarked = false;
 
   try {
     const { email, password, name, DOB, phone, token } = req.body;
 
+    // Enhanced validation with better error messages
     if (!email || !password || !name || !DOB || !phone || !token) {
+      const missing = [];
+      if (!email) missing.push("email");
+      if (!password) missing.push("password");
+      if (!name) missing.push("name");
+      if (!DOB) missing.push("DOB");
+      if (!phone) missing.push("phone");
+      if (!token) missing.push("invitation token");
+
+      logger.warn(
+        `Registration attempt with missing fields: ${missing.join(
+          ", "
+        )} for email: ${email || "unknown"}`
+      );
       return res.status(400).json({
-        message: "All fields are required",
+        message: `Missing required fields: ${missing.join(", ")}`,
+        code: "MISSING_FIELDS",
       });
     }
 
+    // Check for duplicates first
     const duplicate = await checkForDuplicates(email, phone);
     if (duplicate) {
-      logger.debug("Account registration cancelled. This user already exists");
+      logger.warn(
+        `Registration attempt for existing user - email: ${email}, phone: ${phone}`
+      );
       return res.status(409).json({
         message: `An account with this ${
           duplicate.email === email ? "email" : "phone number"
         } already exists.`,
+        code: "DUPLICATE_USER",
       });
     }
-
     const invitation = await checkInvitation(email, token);
     if (!invitation) {
+      logger.warn(`Registration failed: Invalid invitation for ${email}`);
       return res.status(400).json({
         message:
           "Invalid or expired invitation. Please contact an administrator.",
+        code: "INVALID_INVITATION",
       });
     }
 
     const accountType = invitation.accountType;
     const verificationToken = crypto.randomBytes(20).toString("hex");
+
     userResult = await createUser({
       email,
       password,
@@ -238,25 +260,71 @@ const register = async (req, res) => {
         link,
       });
       logger.info(`Verification email sent to ${email} during registration`);
-    } catch (err) {
+    } catch (emailError) {
       logger.error(
-        `Error sending verification email during registration: ${err.message}`
+        `Error sending verification email during registration: ${emailError.message}`
       );
     }
 
-    await markInvitationAsUsed(email);
+    const markedInvitation = await markInvitationAsUsed(email, token);
+    invitationMarked = !!markedInvitation;
+
+    await invalidateByEvent("user-registered", { email });
+
     return res.status(201).json({
       message:
         "User created successfully. Check your email for verification link",
+      code: "REGISTRATION_SUCCESS",
     });
   } catch (error) {
-    logger.error(`Registration error: ${error.message}`);
+    logger.error(
+      `Registration error for email ${req.body?.email || "unknown"}: ${
+        error.message
+      }`,
+      {
+        stack: error.stack,
+        email: req.body?.email,
+        name: req.body?.name,
+      }
+    );
 
+    // Rollback user creation if it was successful
     if (userResult) {
       await rollbackUserCreation(userResult.email);
     }
 
-    return res.status(500).json({ message: "Error during registration" });
+    // Handle specific error types
+    if (error.code === 11000) {
+      logger.error(`Duplicate key error during registration: ${error.message}`);
+      return res.status(409).json({
+        message: "An invitation for this email already exists.",
+        code: "DUPLICATE_INVITATION",
+      });
+    }
+
+    if (error.name === "ValidationError") {
+      return res.status(400).json({
+        message: "Invalid data provided",
+        code: "VALIDATION_ERROR",
+        details: error.message,
+      });
+    }
+
+    if (
+      error.name === "MongoNetworkError" ||
+      error.name === "MongoTimeoutError"
+    ) {
+      return res.status(503).json({
+        message: "Database connection issue. Please try again.",
+        code: "DATABASE_ERROR",
+      });
+    }
+
+    // Generic server error
+    return res.status(500).json({
+      message: "Error during registration. Please try again.",
+      code: "INTERNAL_ERROR",
+    });
   }
 };
 
@@ -308,24 +376,100 @@ const rollbackUserCreation = async (email) => {
 };
 
 const checkInvitation = async (email, token) => {
-  const invitation = await Invitee.findOne({
-    email,
-    token,
-    isUsed: false,
-    expiresAt: { $gt: Date.now() },
-  });
+  try {
+    // Normalize email to lowercase to ensure consistent comparison
+    const normalizedEmail = email.toLowerCase().trim();
 
-  return invitation;
+    const invitation = await Invitee.findOne({
+      email: normalizedEmail,
+      token: token.trim(),
+      isUsed: false,
+      expiresAt: { $gt: Date.now() },
+    });
+
+    if (!invitation) {
+      const existingInvitation = await Invitee.findOne({
+        email: normalizedEmail,
+        token: token.trim(),
+      });
+
+      if (existingInvitation) {
+        if (existingInvitation.isUsed) {
+          logger.warn(
+            `Invitation for ${normalizedEmail} has already been used at ${existingInvitation.usedAt}`
+          );
+        } else if (existingInvitation.expiresAt <= Date.now()) {
+          logger.warn(
+            `Invitation for ${normalizedEmail} has expired at ${existingInvitation.expiresAt}`
+          );
+        }
+      } else {
+        logger.warn(
+          `No matching invitation found for ${normalizedEmail} with provided token`
+        );
+      }
+    }
+
+    return invitation;
+  } catch (error) {
+    logger.error(`Error checking invitation: ${error.message}`);
+    throw error;
+  }
 };
 
-const markInvitationAsUsed = async (email) => {
-  await Invitee.findOneAndUpdate(
-    { email },
-    {
-      isUsed: true,
-      usedAt: Date.now(),
+const markInvitationAsUsed = async (email, token) => {
+  try {
+    // Normalize email and token consistently
+    const normalizedEmail = email.toLowerCase().trim();
+    const normalizedToken = token.trim();
+
+    // Store the expiration check time to ensure consistency
+    const now = new Date();
+
+    const result = await Invitee.findOneAndUpdate(
+      {
+        email: normalizedEmail,
+        token: normalizedToken,
+        isUsed: false,
+        expiresAt: { $gt: now }, // Add expiration check here to be consistent
+      },
+      {
+        isUsed: true,
+        usedAt: now,
+      },
+      { new: true } // Return the updated document
+    );
+
+    if (!result) {
+      logger.warn(
+        `Failed to mark invitation as used for ${normalizedEmail} - invitation may have expired or been used`
+      );
+
+      // Additional diagnostic query
+      const existingInvite = await Invitee.findOne({
+        email: normalizedEmail,
+        token: normalizedToken,
+      });
+
+      if (existingInvite) {
+        logger.warn(
+          `Diagnostic: Found invitation but couldn't mark as used. ` +
+            `isUsed: ${existingInvite.isUsed}, ` +
+            `expired: ${existingInvite.expiresAt <= now}, ` +
+            `expiresAt: ${existingInvite.expiresAt}`
+        );
+      }
+    } else {
+      logger.info(
+        `Successfully marked invitation as used for ${normalizedEmail}`
+      );
     }
-  );
+
+    return result;
+  } catch (error) {
+    logger.error(`Error marking invitation as used: ${error.message}`);
+    throw error;
+  }
 };
 
 // ---------------- END OF REGISTER HELPER FUNCTIONS ----------------- //

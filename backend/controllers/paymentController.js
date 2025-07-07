@@ -5,7 +5,7 @@ const Payment = require("../models/Payment");
 const Booking = require("../models/Booking");
 const logger = require("../logs/logger");
 const Config = require("../models/Config"); // Import Config model
-const { sendEmail } = require("../utils/myQueue");
+const { sendEmail } = require("../utils/queue/index");
 const { invalidateByEvent } = require("../middleware/redisCaching");
 
 //production: change to main api
