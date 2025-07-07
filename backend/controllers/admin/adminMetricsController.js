@@ -301,7 +301,7 @@ const getYearlyMetrics = asyncHandler(async (req, res) => {
     // Completed bookings
     Booking.countDocuments({
       status: "Completed",
-      eventStartTime: { $lte: currentTimestamp }, // Completed = past events
+      eventStartTime: { $lte: currentTimestamp, $gte: lastYear.getTime() }, // Filter for last year
     }),
     // Canceled bookings in last year
     Booking.countDocuments({
@@ -313,13 +313,13 @@ const getYearlyMetrics = asyncHandler(async (req, res) => {
     Booking.countDocuments({
       "location.type": "online",
       status: "Completed",
-      eventStartTime: { $lte: currentTimestamp },
+      eventStartTime: { $lte: currentTimestamp, $gte: lastYear.getTime() }, // Filter for last year
     }),
     // In-person meetings - completed
     Booking.countDocuments({
       "location.type": "in-person",
       status: "Completed",
-      eventStartTime: { $lte: currentTimestamp },
+      eventStartTime: { $lte: currentTimestamp, $gte: lastYear.getTime() }, // Filter for last year
     }),
 
     // Inquiries in last year
