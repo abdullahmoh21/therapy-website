@@ -4,6 +4,7 @@ cert.pem
 key.pem
 roles_list.js
 configLocalCache.bin
+coverage/
 dump/
 node_modules/
 .history/
