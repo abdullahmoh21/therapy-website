@@ -1,32 +1,64 @@
 import React from "react";
 import service_hero from "../../assets/images/servicesImage.webp";
 import { motion } from "framer-motion";
-import { useGetSessionPriceQuery } from "../../features/bookings/bookingApiSlice";
+import {
+  useGetSessionPriceQuery,
+  useGetIntlSessionPriceQuery,
+} from "../../features/bookings/bookingApiSlice";
 
 const Services = () => {
   const {
     data: sessionPrice,
-    isLoading,
-    isSuccess,
-    isError,
+    isLoading: isDomesticLoading,
+    isSuccess: isDomesticSuccess,
+    isError: isDomesticError,
   } = useGetSessionPriceQuery();
+  const {
+    data: intlSessionPrice,
+    isLoading: isIntlLoading,
+    isSuccess: isIntlSuccess,
+    isError: isIntlError,
+  } = useGetIntlSessionPriceQuery();
 
-  // Function to render price based on API state
-  const renderPrice = () => {
-    if (isLoading) {
+  // Function to render domestic price based on API state
+  const renderDomesticPrice = () => {
+    if (isDomesticLoading) {
       return (
         <p className="text-textColor blur-sm animate-pulse">
-          Per Session Rate: Loading... pkr, 50 Minutes
+          Domestic Rate: Loading... PKR
         </p>
       );
-    } else if (isSuccess && sessionPrice) {
+    } else if (isDomesticSuccess && sessionPrice) {
+      return (
+        <p className="text-textColor">Domestic Rate: {sessionPrice} PKR</p>
+      );
+    } else if (isDomesticError) {
+      return (
+        <p className="text-textColor">Domestic Rate: Contact for pricing</p>
+      );
+    }
+  };
+
+  // Function to render international price based on API state
+  const renderIntlPrice = () => {
+    if (isIntlLoading) {
+      return (
+        <p className="text-textColor blur-sm animate-pulse">
+          International Rate: Loading... USD
+        </p>
+      );
+    } else if (isIntlSuccess && intlSessionPrice) {
       return (
         <p className="text-textColor">
-          Per Session Rate: {sessionPrice} pkr, 50 Minutes
+          International Rate: ${intlSessionPrice} USD
         </p>
       );
-    } else if (isError) {
-      return <p className="text-textColor">50 Minutes</p>;
+    } else if (isIntlError) {
+      return (
+        <p className="text-textColor">
+          International Rate: Contact for pricing
+        </p>
+      );
     }
   };
 
@@ -65,8 +97,11 @@ const Services = () => {
               Individual <br className="hidden md:block" />
               Psychotherapy
             </h1>
-            <p className="hidden md:block text-textColor">Online & In Person</p>
-            {renderPrice()}
+            <p className="hidden md:block text-textColor">
+              Online & In Person (50 Minutes)
+            </p>
+            {renderDomesticPrice()}
+            {renderIntlPrice()}
             <div className="w-16 h-1 bg-lightPink mx-auto md:mx-0 my-3 hidden md:block"></div>
           </div>
 
@@ -94,8 +129,11 @@ const Services = () => {
               Adolescent <br className="hidden md:block" />
               Psychotherapy
             </h1>
-            <p className="hidden md:block text-textColor">Online & In Person</p>
-            {renderPrice()}
+            <p className="hidden md:block text-textColor">
+              Online & In Person (50 Minutes)
+            </p>
+            {renderDomesticPrice()}
+            {renderIntlPrice()}
             <div className="w-16 h-1 bg-lightPink mx-auto md:mx-0 my-3 hidden md:block"></div>
           </div>
 
@@ -124,8 +162,11 @@ const Services = () => {
               Couples <br className="hidden md:block" />
               Psychotherapy
             </h1>
-            <p className="hidden md:block text-textColor">Online & In Person</p>
-            {renderPrice()}
+            <p className="hidden md:block text-textColor">
+              Online & In Person (50 Minutes)
+            </p>
+            {renderDomesticPrice()}
+            {renderIntlPrice()}
             <div className="w-16 h-1 bg-lightPink mx-auto md:mx-0 my-3 hidden md:block"></div>
           </div>
 
