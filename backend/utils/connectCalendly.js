@@ -41,9 +41,12 @@ const manageWebhookSubscription = async () => {
 
 // Main connection function with retries
 const connectCalendly = async () => {
-  // Initialize global availability flag if not defined
   if (global.calendlyAvailable === undefined) {
     global.calendlyAvailable = false;
+  }
+  if (process.env.NODE_ENV != "production") {
+    logger.info(`Not in production, skipping webhook creation`);
+    return true;
   }
 
   try {

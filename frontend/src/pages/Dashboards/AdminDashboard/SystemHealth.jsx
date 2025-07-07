@@ -9,6 +9,7 @@ import {
   FaTimesCircle,
   FaInfoCircle,
   FaMicrochip,
+  FaTable,
 } from "react-icons/fa";
 import { SiRedis } from "react-icons/si";
 import LoadingPage from "../../../pages/LoadingPage";
@@ -97,11 +98,21 @@ const SystemHealth = () => {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">System Health</h1>
-        <p className="mt-2 text-gray-600">
-          Monitor server performance and system status
-        </p>
+      <header className="mb-8 flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800">System Health</h1>
+          <p className="mt-2 text-gray-600">
+            Monitor server performance and system status
+          </p>
+        </div>
+        <a
+          href="/database-dash"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center px-4 py-2 bg-[#DF9E7A] hover:bg-[#d08d65] text-white font-medium rounded-md transition-colors"
+        >
+          <FaTable className="mr-2" /> View Database Collections
+        </a>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
