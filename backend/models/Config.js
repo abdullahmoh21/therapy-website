@@ -343,6 +343,42 @@ configSchema.statics.invalidateCache = async function (key) {
   }
 };
 
+// Method to get all configs in the order of REQUIRED_CONFIG_KEYS
+configSchema.statics.findAllOrdered = async function () {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      logger.warn("Cannot get configs: MongoDB not connected");
+      return [];
+    }
+
+    // Get all configs from database
+    const allConfigs = await this.find({}).lean();
+
+    // Create a map for quick lookup
+    const configMap = new Map();
+    allConfigs.forEach((config) => {
+      configMap.set(config.key, config);
+    });
+
+    const orderedConfigs = [];
+    REQUIRED_CONFIG_KEYS.forEach((requiredConfig) => {
+      const config = configMap.get(requiredConfig.key);
+      if (config) {
+        orderedConfigs.push(config);
+        configMap.delete(requiredConfig.key);
+      }
+    });
+    configMap.forEach((config) => {
+      orderedConfigs.push(config);
+    });
+
+    return orderedConfigs;
+  } catch (err) {
+    logger.error(`Error getting ordered configs: ${err.message}`);
+    return [];
+  }
+};
+
 // Ensure config values exist on startup
 configSchema.statics.initializeConfig = async function () {
   try {
@@ -359,8 +395,8 @@ configSchema.statics.initializeConfig = async function () {
     // Get all required key names for comparison
     const requiredKeyNames = requiredKeys.map((item) => item.key);
 
-    // Get all existing config keys from database
-    const existingConfigs = await Config.find({}).lean();
+    // Get all existing config keys from database using the ordered method
+    const existingConfigs = await Config.findAllOrdered();
 
     // Find keys to delete (keys in DB but not in requiredKeys)
     const keysToDelete = existingConfigs

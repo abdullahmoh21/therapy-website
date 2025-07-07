@@ -2,10 +2,9 @@ TODO
 Fatima Website.code-workspace
 .DS_Store
 .vscode
-TODO
 .env
 .env.production
-TODO
+.env.mongo-express
 dump.rdb
 eslint.config.mjs
 package-lock.json

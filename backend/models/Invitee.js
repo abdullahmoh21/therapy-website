@@ -5,7 +5,7 @@ const inviteeSchema = new Schema({
   email: {
     type: String,
     required: true,
-    lowercase: true,
+    lowercase: true, // Ensure email is always stored in lowercase
     trim: true,
   },
   name: {
@@ -44,6 +44,14 @@ const inviteeSchema = new Schema({
     type: Date,
     default: null,
   },
+});
+
+// Add a pre-save hook to normalize email
+inviteeSchema.pre("save", function (next) {
+  if (this.isModified("email")) {
+    this.email = this.email.toLowerCase();
+  }
+  next();
 });
 
 // Index for quickly looking up active invitations by email and token

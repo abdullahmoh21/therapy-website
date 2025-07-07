@@ -1,6 +1,6 @@
 const axios = require("axios");
 const logger = require("../logs/logger");
-const { sendEmail } = require("./myQueue");
+const { sendEmail } = require("./queue/index");
 
 // Global availability flag
 global.calendlyAvailable = false;
@@ -179,16 +179,13 @@ function isWebhookConfigCorrect(webhook) {
     : "";
 
   if (!expectedWebhookUrl) {
-    logger.warn(
-      "Cannot verify Calendly webhook: CALENDLY_WEBHOOK_URL is not configured."
-    );
     return false;
   }
 
   // Log URL mismatch if they don't match
   if (webhook.callback_url.trim() !== expectedWebhookUrl) {
     logger.warn(
-      `Webhook URL mismatch: Expected "${expectedWebhookUrl}" but found "${webhook.callback_url.trim()}" in Calendly.`
+      `Webhook URL mismatch: Expected "${expectedWebhookUrl}" but found "${webhook.callback_url.trim()}" in Calendly. Attempting to fix.`
     );
   }
 

@@ -24,22 +24,8 @@ const consoleFormat = winston.format.printf(({ level, message, timestamp }) => {
   return `${timestamp} [${level}]: ${message}`;
 });
 
-// Custom format for HTTP requests
-const httpLogFormat = winston.format.printf(({ level, message, timestamp }) => {
-  if (level === "http") {
-    const [method, origin, url, statusCode, responseTime] = message.split(" ");
-    const methodPadded = method.padEnd(7, " ");
-    const originPadded = origin.padEnd(30, " ");
-    const urlPadded = url.padEnd(25, " ");
-    const statusCodePadded = statusCode.padEnd(3, " ");
-    const responseTimeWithMs = `${responseTime}ms`.padEnd(8, " ");
-    return `${timestamp}\t${methodPadded}\t${originPadded}\t${urlPadded}\t${statusCodePadded}\t${responseTimeWithMs}`;
-  }
-  return `${timestamp} [${level}]: ${message}`;
-});
-
-const httpOnlyFilter = winston.format((info) => {
-  return info.level === "http" ? info : false;
+const warnOnlyFilter = winston.format((info) => {
+  return info.level === "warn" ? info : false;
 });
 
 // Add colors to console output
@@ -53,13 +39,19 @@ const transports = [
   }),
 ];
 
-// 🚀  Only add the file transport when running in production
 if (process.env.NODE_ENV === "production") {
   transports.push(
     new winston.transports.File({
       filename: path.join(__dirname, "../logs/errors.log"),
       level: "error",
       format: winston.format.json(),
+    })
+  );
+  transports.push(
+    new winston.transports.File({
+      filename: path.join(__dirname, "../logs/warnings.log"),
+      level: "warn",
+      format: winston.format.combine(warnOnlyFilter(), winston.format.json()),
     })
   );
 }

@@ -132,7 +132,11 @@ const SignUp = () => {
   /* -------- pre-fill email / token if present in invitation link ------- */
   useEffect(() => {
     if (invitationToken && email) {
-      setForm((prev) => ({ ...prev, email, token: invitationToken }));
+      setForm((prev) => ({
+        ...prev,
+        email,
+        token: invitationToken,
+      }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -245,22 +249,99 @@ const SignUp = () => {
 
     const { phone: phoneString } = value;
     try {
-      await signUp({ ...submissionForm, phone: phoneString }).unwrap();
-      setSuccessMessage(
-        "Registration successful! Please check your email to verify your account."
-      );
+      const response = await signUp({
+        ...submissionForm,
+        phone: phoneString,
+      }).unwrap();
+
+      // Check for specific success code
+      if (response.code === "REGISTRATION_SUCCESS") {
+        setSuccessMessage(
+          response.message ||
+            "Registration successful! Please check your email to verify your account."
+        );
+      } else {
+        setSuccessMessage(
+          "Registration successful! Please check your email to verify your account."
+        );
+      }
+
       setTimeout(() => navigate("/signin"), 3000);
     } catch (err) {
-      /* -------- map error codes to friendly messages -------- */
-      const msg =
-        err?.data?.message ||
-        {
-          400: "Bad request. Please check your information and try again.",
-          409: "An account with this email already exists.",
-          500: "Server error. Please try again later.",
-        }[err?.status] ||
-        "Could not connect. Please check your internet connection.";
-      setServerError(msg);
+      console.error("Registration error:", err);
+
+      // Handle specific error codes from backend
+      let errorMessage = "Registration failed. Please try again.";
+
+      if (err?.data?.code) {
+        switch (err.data.code) {
+          case "MISSING_FIELDS":
+            errorMessage =
+              err.data.message || "Please fill in all required fields.";
+            break;
+          case "DUPLICATE_USER":
+            errorMessage =
+              "An account with this email or phone number already exists.";
+            break;
+          case "DUPLICATE_INVITATION":
+            errorMessage =
+              "This invitation has already been used. Please request a new invitation.";
+            break;
+          case "INVALID_INVITATION":
+            errorMessage =
+              "Your invitation has expired or is invalid. Please request a new invitation.";
+            break;
+          case "VALIDATION_ERROR":
+            errorMessage =
+              err.data.details ||
+              "Please check your information and try again.";
+            break;
+          case "DATABASE_ERROR":
+            errorMessage =
+              "Database connection issue. Please try again in a few moments.";
+            break;
+          case "INTERNAL_ERROR":
+            errorMessage = "Server error. Please try again later.";
+            break;
+          default:
+            errorMessage =
+              err.data.message || "Registration failed. Please try again.";
+        }
+      } else if (err?.data?.message) {
+        errorMessage = err.data.message;
+      } else if (err?.status) {
+        // Handle HTTP status codes
+        switch (err.status) {
+          case 400:
+            errorMessage =
+              "Invalid information provided. Please check your details.";
+            break;
+          case 409:
+            errorMessage =
+              "An account with this email or phone already exists.";
+            break;
+          case 500:
+            errorMessage = "Server error. Please try again later.";
+            break;
+          case 503:
+            errorMessage = "Service temporarily unavailable. Please try again.";
+            break;
+          default:
+            errorMessage = "Registration failed. Please try again.";
+        }
+      } else if (
+        err?.name === "NetworkError" ||
+        err?.message?.includes("fetch")
+      ) {
+        errorMessage =
+          "Network error. Please check your internet connection and try again.";
+      } else if (err?.name === "TimeoutError") {
+        errorMessage = "Request timed out. Please try again.";
+      } else {
+        errorMessage = "An unexpected error occurred. Please try again later";
+      }
+
+      setServerError(errorMessage);
     }
   };
 
