@@ -4,7 +4,7 @@ const { ContactMeSchema } = require("../utils/validation/ValidationSchemas");
 const expressJoiValidation = require("express-joi-validation").createValidator(
   {}
 );
-const { sendEmail } = require("../utils/myQueue");
+const { sendEmail } = require("../utils/queue/index");
 const logger = require("../logs/logger");
 const Inquiry = require("../models/Inquiry");
 
