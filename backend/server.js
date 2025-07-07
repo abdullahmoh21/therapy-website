@@ -14,9 +14,10 @@ const checkBlocked = require("./middleware/rateLimiting/checkBlocked");
 const dependencyGuard = require("./middleware/dependencyGuard");
 const { connectDB, isMongoAvailable } = require("./utils/connectDB");
 const { redisClient } = require("./utils/redisClient");
-const { initializeQueue, sendEmail } = require("./utils/myQueue");
+const { initializeQueue, sendEmail } = require("./utils/queue/index");
 const connectCalendly = require("./utils/connectCalendly");
 const startUpdateBookingStatusCron = require("./utils/cron/UpdateBookingStatus");
+const startClearLogFilesCron = require("./utils/cron/ClearLogFiles");
 const Config = require("./models/Config");
 const logger = require("./logs/logger");
 
@@ -69,8 +70,8 @@ async function bootstrap() {
 
   initializeQueue();
 
-  // Start cron jobs after database connection is established
   startUpdateBookingStatusCron();
+  startClearLogFilesCron();
 
   server = app.listen(PORT, "0.0.0.0", () => {
     logger.success(`Server listening on port ${PORT}`);
@@ -91,11 +92,10 @@ async function bootstrap() {
 const app = express();
 app.set("trust proxy", 1);
 
-// Apply middleware in the correct order
 app.use(
   helmet({
     contentSecurityPolicy: {
-      useDefaults: true, // keep Helmet’s sensible defaults for connectSrc, scriptSrc, etc.
+      useDefaults: true,
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'", "https://www.google-analytics.com"],
@@ -104,7 +104,7 @@ app.use(
         connectSrc: ["'self'", "https://www.google-analytics.com"],
         fontSrc: ["'self'", "https:", "data:"],
         objectSrc: ["'none'"],
-        upgradeInsecureRequests: [], // force HTTPS for any subresources
+        upgradeInsecureRequests: [],
       },
     },
   })
@@ -114,10 +114,8 @@ app.use(compression());
 app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 app.use(cookieParser());
-app.use(credentials); // This MUST come before cors middleware
+app.use(credentials);
 app.use(cors(require("./config/corsOptions").corsOptions));
-
-// Rate limiting and dependency guards should come AFTER CORS
 app.use(checkBlocked);
 app.use(conditionalRateLimiter);
 app.use(dependencyGuard);
