@@ -22,7 +22,7 @@ const Home = () => {
         </motion.div>
       </section>
 
-      <section className="bg-orangeBg lg:h-[650px] h-auto relative overflow-hidden px-4 md:px-0 py-8">
+      <section className="bg-orangeBg lg:h-[700px] h-auto relative overflow-hidden px-4 md:px-0 py-8">
         <div className="container mx-auto flex flex-col lg:flex-row lg:items-stretch items-center justify-between h-full relative">
           {/* Hero Image */}
           <motion.div
@@ -70,7 +70,7 @@ const Home = () => {
                 bg-whiteBg backdrop
                 border-4 border-lightPink
                 p-6 lg:p-10 rounded-lg shadow-md
-                w-full h-full flex flex-col justify-between"
+                w-full h-full lg:min-h-[550px] flex flex-col justify-between"
             >
               <div>
                 <p className="mb-4">
