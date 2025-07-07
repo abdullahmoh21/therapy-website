@@ -113,14 +113,12 @@ const getGeneralMetrics = asyncHandler(async (req, res) => {
 //@access Private(admin)
 const getMonthlyMetrics = asyncHandler(async (req, res) => {
   const currentTimestamp = new Date();
-
-  // Calculate first day of last month
   const lastMonth = new Date();
-  lastMonth.setDate(1); // First day of current month
-  lastMonth.setMonth(lastMonth.getMonth() - 1); // Go back one month
+  lastMonth.setDate(1);
+  lastMonth.setMonth(lastMonth.getMonth() - 1);
 
   const [
-    // Profit metrics
+    // Profit metrics - updated to handle multiple currencies
     totalProfitLastMonth,
 
     // User metrics
@@ -138,7 +136,7 @@ const getMonthlyMetrics = asyncHandler(async (req, res) => {
     totalInquiriesLastMonth,
     inquiriesByTypeLastMonth,
   ] = await Promise.all([
-    // Profit for last month (only completed payments)
+    // Profit for last month (convert USD to PKR using stored exchange rates)
     Payment.aggregate([
       {
         $match: {
@@ -146,7 +144,18 @@ const getMonthlyMetrics = asyncHandler(async (req, res) => {
           transactionStatus: "Completed",
         },
       },
-      { $group: { _id: null, total: { $sum: "$netAmountReceived" } } },
+      {
+        $project: {
+          netAmountInPKR: {
+            $cond: {
+              if: { $eq: ["$currency", "USD"] },
+              then: { $multiply: ["$netAmountReceived", "$exchangeRate"] },
+              else: "$netAmountReceived",
+            },
+          },
+        },
+      },
+      { $group: { _id: null, total: { $sum: "$netAmountInPKR" } } },
     ]),
 
     // New users in last month
@@ -237,15 +246,13 @@ const getMonthlyMetrics = asyncHandler(async (req, res) => {
 //@access Private(admin)
 const getYearlyMetrics = asyncHandler(async (req, res) => {
   const currentTimestamp = new Date();
-
-  // Calculate first day of last year
   const lastYear = new Date();
-  lastYear.setMonth(0); // January
-  lastYear.setDate(1); // First day of month
-  lastYear.setFullYear(lastYear.getFullYear() - 1); // Go back one year
+  lastYear.setMonth(0);
+  lastYear.setDate(1);
+  lastYear.setFullYear(lastYear.getFullYear() - 1);
 
   const [
-    // Profit metrics
+    // Profit metrics - updated to handle multiple currencies
     totalProfitLastYear,
 
     // User metrics
@@ -263,10 +270,10 @@ const getYearlyMetrics = asyncHandler(async (req, res) => {
     totalInquiriesLastYear,
     inquiriesByTypeLastYear,
 
-    // Monthly profit breakdown for the year
+    // Monthly profit breakdown for the year - updated
     monthlyProfitBreakdown,
   ] = await Promise.all([
-    // Profit for last year (only completed payments)
+    // Profit for last year (convert USD to PKR using stored exchange rates)
     Payment.aggregate([
       {
         $match: {
@@ -274,7 +281,18 @@ const getYearlyMetrics = asyncHandler(async (req, res) => {
           transactionStatus: "Completed",
         },
       },
-      { $group: { _id: null, total: { $sum: "$netAmountReceived" } } },
+      {
+        $project: {
+          netAmountInPKR: {
+            $cond: {
+              if: { $eq: ["$currency", "USD"] },
+              then: { $multiply: ["$netAmountReceived", "$exchangeRate"] },
+              else: "$netAmountReceived",
+            },
+          },
+        },
+      },
+      { $group: { _id: null, total: { $sum: "$netAmountInPKR" } } },
     ]),
 
     // New users in last year
@@ -283,7 +301,7 @@ const getYearlyMetrics = asyncHandler(async (req, res) => {
     // Completed bookings
     Booking.countDocuments({
       status: "Completed",
-      eventStartTime: { $lte: currentTimestamp }, // Completed = past events
+      eventStartTime: { $lte: currentTimestamp, $gte: lastYear.getTime() }, // Filter for last year
     }),
     // Canceled bookings in last year
     Booking.countDocuments({
@@ -295,13 +313,13 @@ const getYearlyMetrics = asyncHandler(async (req, res) => {
     Booking.countDocuments({
       "location.type": "online",
       status: "Completed",
-      eventStartTime: { $lte: currentTimestamp },
+      eventStartTime: { $lte: currentTimestamp, $gte: lastYear.getTime() }, // Filter for last year
     }),
     // In-person meetings - completed
     Booking.countDocuments({
       "location.type": "in-person",
       status: "Completed",
-      eventStartTime: { $lte: currentTimestamp },
+      eventStartTime: { $lte: currentTimestamp, $gte: lastYear.getTime() }, // Filter for last year
     }),
 
     // Inquiries in last year
@@ -312,7 +330,7 @@ const getYearlyMetrics = asyncHandler(async (req, res) => {
       { $group: { _id: "$type", count: { $sum: 1 } } },
     ]),
 
-    // Monthly profit breakdown for the year
+    // Monthly profit breakdown for the year - updated
     Payment.aggregate([
       {
         $match: {
@@ -321,12 +339,24 @@ const getYearlyMetrics = asyncHandler(async (req, res) => {
         },
       },
       {
+        $project: {
+          createdAt: 1,
+          netAmountInPKR: {
+            $cond: {
+              if: { $eq: ["$currency", "USD"] },
+              then: { $multiply: ["$netAmountReceived", "$exchangeRate"] },
+              else: "$netAmountReceived",
+            },
+          },
+        },
+      },
+      {
         $group: {
           _id: {
             year: { $year: "$createdAt" },
             month: { $month: "$createdAt" },
           },
-          profit: { $sum: "$netAmountReceived" },
+          profit: { $sum: "$netAmountInPKR" },
         },
       },
       {

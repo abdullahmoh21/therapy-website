@@ -23,7 +23,7 @@ export const authApiSlice = apiSlice.injectEndpoints({
         method: "POST",
         body: {
           ...initialUserData,
-          token: initialUserData.token, // Include token in the register request
+          token: initialUserData.token,
         },
       }),
       invalidatesTags: [{ type: "User" }],
@@ -37,13 +37,10 @@ export const authApiSlice = apiSlice.injectEndpoints({
         try {
           const result = await queryFulfilled;
           console.log("Logout successful:", result);
-          // Make sure to dispatch logOut right after successful logout
           dispatch(logOut());
-          // Then reset API state
           dispatch(apiSlice.util.resetApiState());
         } catch (err) {
           console.log("Logout error:", err);
-          // Even if there's an error, we should still log out on the client side
           dispatch(logOut());
         }
       },

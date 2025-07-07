@@ -1,6 +1,60 @@
-/* Oregla One for headings and Noto Serif as defult */
-@import url("https://fonts.googleapis.com/css2?family=Orelega+One&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Orelega+One&display=swap");
+/* orelega-one-regular - latin */
+@font-face {
+  font-display: swap;
+  font-family: "Orelega One";
+  font-style: normal;
+  font-weight: 400;
+  src: url("/fonts/orelega-one-v13-latin-regular.woff2") format("woff2");
+}
+
+/* noto-serif-regular - latin */
+@font-face {
+  font-display: swap;
+  font-family: "Noto Serif";
+  font-style: normal;
+  font-weight: 400;
+  src: url("/fonts/noto-serif-v30-latin-regular.woff2") format("woff2");
+}
+/* noto-serif-italic - latin */
+@font-face {
+  font-display: swap;
+  font-family: "Noto Serif";
+  font-style: italic;
+  font-weight: 400;
+  src: url("/fonts/noto-serif-v30-latin-italic.woff2") format("woff2");
+}
+/* noto-serif-500 - latin */
+@font-face {
+  font-display: swap;
+  font-family: "Noto Serif";
+  font-style: normal;
+  font-weight: 500;
+  src: url("/fonts/noto-serif-v30-latin-500.woff2") format("woff2");
+}
+/* noto-serif-500italic - latin */
+@font-face {
+  font-display: swap;
+  font-family: "Noto Serif";
+  font-style: italic;
+  font-weight: 500;
+  src: url("/fonts/noto-serif-v30-latin-500italic.woff2") format("woff2");
+}
+/* noto-serif-600 - latin */
+@font-face {
+  font-display: swap;
+  font-family: "Noto Serif";
+  font-style: normal;
+  font-weight: 600;
+  src: url("/fonts/noto-serif-v30-latin-600.woff2") format("woff2");
+}
+/* noto-serif-700 - latin */
+@font-face {
+  font-display: swap;
+  font-family: "Noto Serif";
+  font-style: normal;
+  font-weight: 700;
+  src: url("/fonts/noto-serif-v30-latin-700.woff2") format("woff2");
+}
 
 /* Add global font-family rule */
 body {
@@ -86,13 +140,10 @@ section {
 }
 /* Spinner page */
 .spinner-page {
-  position: fixed; /* Fixed positioning */
-  top: 50%; /* Push it down 50% from the top */
-  left: 50%; /* Push it right 50% from the left */
-  transform: translate(
-    -50%,
-    -50%
-  ); /* Offset it by negative 50% on both the X and Y axis to center it */
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   width: 50px;
   height: 50px;
   border-radius: 50%;

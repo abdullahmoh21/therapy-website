@@ -56,6 +56,16 @@ services:
       - app-network
     restart: unless-stopped
 
+  mongo-express:
+    image: mongo-express:latest
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    env_file:
+      - .env.mongo-express
+    networks:
+      - app-network
+
 networks:
   app-network:
     driver: bridge

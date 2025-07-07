@@ -9,7 +9,6 @@
  */
 
 module.exports = {
-  // Default TTL in seconds for cached endpoints if not specified
   defaultTTL: 21600, // 6 hours
 
   // Endpoints configuration
@@ -139,13 +138,13 @@ module.exports = {
         "invitation-created",
         "invitation-deleted",
         "admin-data-changed",
+        "user-created",
       ],
     },
   },
 
   events: {
     "user-login": [
-      // Use a path variable pattern that only invalidates the specific user's admin page
       {
         pattern: "admin:users",
         pathVariables: {
@@ -155,41 +154,40 @@ module.exports = {
       },
     ],
     "user-created": [
-      { pattern: "admin:users:*" }, // Only invalidate admin user lists
+      { pattern: "admin:users:*" },
+      { pattern: "admin:invitations:*" },
     ],
     "user-updated": [
-      { pattern: "user:*", userId: true }, // Only invalidate this specific user's cache
-      { pattern: "admin:users:*" }, // Invalidate admin user lists
+      { pattern: "user:*", userId: true },
+      { pattern: "admin:users:*" },
     ],
     "user-deleted": [
-      { pattern: "user:*", userId: true }, // Only invalidate this specific user's cache
-      { pattern: "admin:users:*" }, // Invalidate admin user lists
+      { pattern: "user:*", userId: true },
+      { pattern: "admin:users:*" },
     ],
     "user-profile-updated": [
-      { pattern: "user:*", userId: true }, // Only invalidate current user's cache
-      { pattern: "admin:users:*" }, // Invalidate admin user lists
+      { pattern: "user:*", userId: true },
+      { pattern: "admin:users:*" },
     ],
     "booking-created": [
-      { pattern: "bookings:*", userId: true }, // Only invalidate this user's booking lists
-      { pattern: "admin:bookings:*" }, // Invalidate admin booking lists
+      { pattern: "bookings:*", userId: true },
+      { pattern: "admin:bookings:*" },
     ],
     "booking-updated": [
-      { pattern: "bookings:*", userId: true }, // Only invalidate this user's booking lists
-      { pattern: "admin:bookings:*" }, // Invalidate admin booking lists
+      { pattern: "bookings:*", userId: true },
+      { pattern: "admin:bookings:*" },
     ],
     "booking-deleted": [
-      { pattern: "bookings:*", userId: true }, // Only invalidate this user's booking lists
-      { pattern: "admin:bookings:*" }, // Invalidate admin booking lists
+      { pattern: "bookings:*", userId: true },
+      { pattern: "admin:bookings:*" },
     ],
     "payment-updated": [
-      { pattern: "payments:*", userId: true }, // Only invalidate this user's payment lists
-      { pattern: "bookings:*", userId: true }, // Only invalidate this user's payment lists
-      { pattern: "admin:payments:*" }, // Invalidate admin payment lists
+      { pattern: "payments:*", userId: true },
+      { pattern: "bookings:*", userId: true },
+      { pattern: "admin:payments:*" },
     ],
     "invitation-created": [{ pattern: "admin:invitations:*" }],
     "invitation-deleted": [{ pattern: "admin:invitations:*" }],
-    "admin-data-changed": [
-      { pattern: "admin:*" }, // Invalidate all admin routes
-    ],
+    "admin-data-changed": [{ pattern: "admin:*" }],
   },
 };

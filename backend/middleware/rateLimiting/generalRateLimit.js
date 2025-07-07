@@ -42,7 +42,6 @@ const createLimiter = (max, prefix) => {
       });
     },
 
-    // Add debug logging on each request
     onRequest: (req, res, options) => {
       store
         .increment(req)
@@ -164,26 +163,17 @@ const allowlist = [
 /* ------------------------------------------------------------------ */
 module.exports = function conditionalRateLimiter(req, res, next) {
   const path = req.path;
-  logger.debug(`[RATE MIDDLEWARE] Processing request for path: ${path}`);
 
   // 1. Allowlisted?
   if (allowlist.some((re) => re.test(path))) {
-    logger.debug(
-      `[RATE MIDDLEWARE] Path ${path} is allowlisted, skipping rate limiting`
-    );
     return next();
   }
 
   // 2. Find first rule whose regex matches
   const matched = rules.find((r) => r.regex.test(path));
   if (matched) {
-    logger.debug(
-      `[RATE MIDDLEWARE] Path ${path} matched rule: ${matched.regex}`
-    );
     return matched.limiter(req, res, next);
   }
 
-  // 3. Fallback bucket
-  logger.debug(`[RATE MIDDLEWARE] Path ${path} using general rate limiter`);
   return limiters.general(req, res, next);
 };

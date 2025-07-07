@@ -12,8 +12,6 @@ function ProtectedRoute({ children }) {
     return children;
   }
 
-  // If no token in Redux state, try to refresh token
-  // This happens when the page is refreshed and Redux state is cleared
   return <RefreshToken>{children}</RefreshToken>;
 }
 

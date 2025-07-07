@@ -40,6 +40,9 @@ const paymentSchema = new Schema(
     feePaid: {
       type: Number,
     },
+    exchangeRate: {
+      type: Number,
+    },
     transactionStatus: {
       type: String,
       required: true,

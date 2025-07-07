@@ -6,7 +6,6 @@ const allowedEndpoints = ["/bookings/calendly", "/payments/safepay"];
 
 const checkBlocked = async (req, res, next) => {
   const isRedisReady = redisClient && redisClient.status === "ready";
-  logger.debug(`checking if ip is blocked: ${req.ip}`);
 
   if (
     !isRedisReady ||
