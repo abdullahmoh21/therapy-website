@@ -11,16 +11,34 @@ const sendRefundConfirmation = async (job) => {
       throw new Error("Missing required data for refund request email");
     }
 
-    const [user, booking, adminEmail] = await Promise.all([
-      User.findOne({ _id: payment.userId }, "name email").lean().exec(),
-      Booking.findOne({ _id: payment.bookingId }).select("").lean().exec(),
-      Config.getValue("adminEmail"),
-    ]);
+    let user, booking, adminEmail;
 
-    if (!adminEmail) {
-      logger.warn(
-        "Admin email not found in config, using default reply-to address"
+    try {
+      // Use Promise.all but handle potential failures
+      const results = await Promise.allSettled([
+        User.findOne({ _id: payment.userId }, "name email").lean().exec(),
+        Booking.findOne({ _id: payment.bookingId }).select("").lean().exec(),
+        Config.getValue("adminEmail"),
+      ]);
+
+      user = results[0].status === "fulfilled" ? results[0].value : null;
+      booking = results[1].status === "fulfilled" ? results[1].value : null;
+      adminEmail = results[2].status === "fulfilled" ? results[2].value : null;
+
+      if (!user) {
+        logger.error(`User not found for payment ${payment._id}`);
+        throw new Error(`User not found for payment`);
+      }
+
+      if (!booking) {
+        logger.error(`Booking not found for payment ${payment._id}`);
+        booking = { bookingId: "Unknown" };
+      }
+    } catch (err) {
+      logger.error(
+        `Error fetching data for refund confirmation: ${err.message}`
       );
+      throw err;
     }
 
     const eventDate = new Date(booking.eventStartTime).toLocaleDateString(

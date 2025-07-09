@@ -1,92 +1,121 @@
-const { sendEmail, initializeQueue } = require("../../utils/queue");
-const { checkRedisAvailability } = require("../../utils/redisClient");
-const jobHandlers = require("../../utils/queue/jobs/index");
-const { Queue } = require("bullmq");
-const logger = require("../../logs/logger");
+// Set environment variables
+process.env.NODE_ENV = "test";
 
-// Mock dependencies
-jest.mock("../../utils/redisClient");
-jest.mock("../../utils/emailTransporter", () => ({
-  transporter: {
-    sendMail: jest.fn().mockResolvedValue({ messageId: "test-message-id" }),
+// Mock Redis client
+jest.mock("../../utils/redisClient", () => ({
+  checkRedisAvailability: jest.fn().mockResolvedValue(true),
+  client: {
+    get: jest.fn().mockResolvedValue(null),
+    set: jest.fn().mockResolvedValue("OK"),
+    del: jest.fn().mockResolvedValue(1),
+    keys: jest.fn().mockResolvedValue([]),
   },
 }));
-jest.mock("bullmq");
+
+// Mock logger
 jest.mock("../../logs/logger", () => ({
   info: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),
   debug: jest.fn(),
 }));
-jest.mock("../../models/Config", () => ({
-  getValue: jest.fn().mockImplementation((key) => {
-    const values = {
-      adminEmail: "admin@example.com",
-      devEmail: "dev@example.com",
-      noticePeriod: 2,
-    };
-    return Promise.resolve(values[key] || null);
-  }),
-}));
-jest.mock("../../models/User", () => ({
-  findOne: jest.fn().mockResolvedValue({
-    _id: "user123",
-    name: "Test User",
-    email: "user@example.com",
-    firstName: "Test",
-    lastName: "User",
-  }),
-}));
-jest.mock("../../models/Booking", () => ({
-  findOne: jest.fn().mockResolvedValue({
-    _id: "booking123",
-    bookingId: "B12345",
-    userId: "user123",
-    eventStartTime: new Date("2023-12-25T14:00:00Z"),
-    cancellation: {
-      date: new Date(),
-      cancelledBy: "User",
-      reason: "Testing cancellation",
-    },
-  }),
-}));
-jest.mock("../../models/Payment", () => ({
-  findOne: jest.fn().mockResolvedValue({
-    _id: "payment123",
-    userId: "user123",
-    bookingId: "booking123",
-    amount: 100,
-    currency: "USD",
-    transactionStatus: "Completed",
-    transactionReferenceNumber: "TRX12345",
-    paymentCompletedDate: new Date(),
-  }),
-  updateOne: jest.fn().mockResolvedValue({ nModified: 1 }),
+
+// Mock BullMQ
+const mockAdd = jest.fn().mockResolvedValue({ id: "job123" });
+const mockQueue = { add: mockAdd };
+jest.mock("bullmq", () => ({
+  Queue: jest.fn().mockImplementation(() => mockQueue),
+  Worker: jest.fn().mockImplementation(() => ({
+    on: jest.fn(),
+  })),
 }));
 
-// Create spies for job handlers
-Object.keys(jobHandlers).forEach((jobName) => {
-  jest.spyOn(jobHandlers, jobName).mockResolvedValue({ success: true });
-});
-
-// Mock Queue implementation
-const mockQueue = {
-  add: jest.fn().mockResolvedValue({ id: "job123" }),
-};
-Queue.mockImplementation(() => mockQueue);
-
-// Mock worker setup
+// Mock worker module
 jest.mock("../../utils/queue/worker", () => ({
   buildWorker: jest.fn().mockResolvedValue({
     on: jest.fn(),
   }),
 }));
 
+// Mock ioredis
+jest.mock("ioredis", () => {
+  class Redis {
+    constructor() {
+      this.status = "ready";
+    }
+    connect() {
+      return Promise.resolve();
+    }
+    get() {
+      return Promise.resolve(null);
+    }
+    set() {
+      return Promise.resolve("OK");
+    }
+    del() {
+      return Promise.resolve(1);
+    }
+  }
+  return Redis;
+});
+
+// Import the mocked modules
+const { Queue } = require("bullmq");
+const redisClient = require("../../utils/redisClient");
+const logger = require("../../logs/logger");
+
+// Import modules being tested
+const { sendEmail, initializeQueue } = require("../../utils/queue");
+const jobHandlers = require("../../utils/queue/jobs/index");
+
+// Create spies for job handlers
+Object.keys(jobHandlers).forEach((jobName) => {
+  jest.spyOn(jobHandlers, jobName).mockResolvedValue({ success: true });
+});
+
+// Import mongoose and MongoDB Memory Server
+const mongoose = require("mongoose");
+const { MongoMemoryServer } = require("mongodb-memory-server");
+
+// Import real models
+const User = require("../../models/User");
+const Booking = require("../../models/Booking");
+const Payment = require("../../models/Payment");
+const Config = require("../../models/Config");
+
 describe("Queue System Tests", () => {
+  let mongoServer;
+
+  // Setup test database
+  beforeAll(async () => {
+    mongoServer = await MongoMemoryServer.create();
+    const uri = mongoServer.getUri();
+    await mongoose.connect(uri);
+
+    // Mock Config.getValue
+    Config.getValue = jest.fn().mockImplementation((key) => {
+      const values = {
+        adminEmail: "admin@example.com",
+        devEmail: "dev@example.com",
+        sessionPrice: 100,
+        intlSessionPrice: 50,
+        noticePeriod: 2,
+        maxBookings: 2,
+      };
+      return Promise.resolve(values[key] || null);
+    });
+  });
+
+  // Cleanup after tests
+  afterAll(async () => {
+    await mongoose.disconnect();
+    await mongoServer.stop();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     // Default: Redis is available
-    checkRedisAvailability.mockResolvedValue(true);
+    redisClient.checkRedisAvailability.mockResolvedValue(true);
   });
 
   describe("Queue Initialization", () => {
@@ -97,7 +126,7 @@ describe("Queue System Tests", () => {
     });
 
     it("should not initialize the queue when Redis is unavailable", async () => {
-      checkRedisAvailability.mockResolvedValue(false);
+      redisClient.checkRedisAvailability.mockResolvedValue(false);
       const result = await initializeQueue();
       expect(result).toBe(false);
       expect(Queue).not.toHaveBeenCalled();
@@ -107,6 +136,8 @@ describe("Queue System Tests", () => {
   describe("Send Email Function", () => {
     describe("When queue is available", () => {
       beforeEach(async () => {
+        jest.clearAllMocks();
+        redisClient.checkRedisAvailability.mockResolvedValue(true);
         await initializeQueue();
       });
 
@@ -119,7 +150,7 @@ describe("Queue System Tests", () => {
 
         await sendEmail("verifyEmail", jobData);
 
-        expect(mockQueue.add).toHaveBeenCalledWith(
+        expect(mockAdd).toHaveBeenCalledWith(
           "verifyEmail",
           jobData,
           expect.objectContaining({
@@ -141,7 +172,7 @@ describe("Queue System Tests", () => {
 
         await sendEmail("resetPassword", jobData);
 
-        expect(mockQueue.add).toHaveBeenCalledWith(
+        expect(mockAdd).toHaveBeenCalledWith(
           "resetPassword",
           jobData,
           expect.any(Object)
@@ -158,7 +189,7 @@ describe("Queue System Tests", () => {
 
         await sendEmail("sendInvitation", jobData);
 
-        expect(mockQueue.add).toHaveBeenCalledWith(
+        expect(mockAdd).toHaveBeenCalledWith(
           "sendInvitation",
           jobData,
           expect.any(Object)
@@ -177,7 +208,7 @@ describe("Queue System Tests", () => {
 
         await sendEmail("ContactMe", jobData);
 
-        expect(mockQueue.add).toHaveBeenCalledWith(
+        expect(mockAdd).toHaveBeenCalledWith(
           "ContactMe",
           jobData,
           expect.any(Object)
@@ -196,7 +227,7 @@ describe("Queue System Tests", () => {
 
         await sendEmail("eventDeleted", jobData);
 
-        expect(mockQueue.add).toHaveBeenCalledWith(
+        expect(mockAdd).toHaveBeenCalledWith(
           "eventDeleted",
           jobData,
           expect.any(Object)
@@ -215,7 +246,7 @@ describe("Queue System Tests", () => {
 
         await sendEmail("userCancellation", jobData);
 
-        expect(mockQueue.add).toHaveBeenCalledWith(
+        expect(mockAdd).toHaveBeenCalledWith(
           "userCancellation",
           jobData,
           expect.any(Object)
@@ -247,7 +278,7 @@ describe("Queue System Tests", () => {
 
         await sendEmail("adminCancellationNotif", jobData);
 
-        expect(mockQueue.add).toHaveBeenCalledWith(
+        expect(mockAdd).toHaveBeenCalledWith(
           "adminCancellationNotif",
           jobData,
           expect.any(Object)
@@ -263,7 +294,7 @@ describe("Queue System Tests", () => {
 
         await sendEmail("adminAlert", jobData);
 
-        expect(mockQueue.add).toHaveBeenCalledWith(
+        expect(mockAdd).toHaveBeenCalledWith(
           "adminAlert",
           jobData,
           expect.any(Object)
@@ -274,9 +305,9 @@ describe("Queue System Tests", () => {
 
     describe("Fallback Execution (When Queue is Down)", () => {
       beforeEach(() => {
-        // Simulate queue not initialized
-        // By not calling initializeQueue()
-        mockQueue.add.mockRejectedValue(new Error("Redis connection failed"));
+        jest.clearAllMocks();
+        // Setup for Redis connection failure
+        mockAdd.mockRejectedValue(new Error("Redis connection failed"));
       });
 
       it("should execute verifyEmail handler directly when queue is down", async () => {
@@ -332,22 +363,36 @@ describe("Queue System Tests", () => {
     });
 
     describe("Queue never initialized", () => {
-      // Don't initialize queue in this test suite
+      // Clear state between test suites
+      beforeEach(() => {
+        jest.resetModules();
+        jest.clearAllMocks();
+      });
 
       it("should execute job handler directly when queue was never initialized", async () => {
+        // Re-import job handlers and re-apply spies after module reset
+        const jobHandlers = require("../../utils/queue/jobs/index");
+        Object.keys(jobHandlers).forEach((jobName) => {
+          jest.spyOn(jobHandlers, jobName).mockResolvedValue({ success: true });
+        });
+
+        // Also re-import logger since we need to spy on it
+        const logger = require("../../logs/logger");
+
         const jobData = {
           name: "Test User",
           recipient: "test@example.com",
           link: "https://example.com/verify/token123",
         };
 
+        // Get a fresh copy of the module with queue set to null
+        const { sendEmail } = require("../../utils/queue");
         await sendEmail("verifyEmail", jobData);
 
         expect(jobHandlers.verifyEmail).toHaveBeenCalledWith({ data: jobData });
         expect(logger.warn).toHaveBeenCalled();
-        // Update this assertion to match any warning about queue being unavailable
         expect(logger.warn).toHaveBeenCalledWith(
-          expect.stringMatching(/Queue (unavailable|Redis connection failed)/)
+          expect.stringMatching(/Queue unavailable/)
         );
       });
     });
