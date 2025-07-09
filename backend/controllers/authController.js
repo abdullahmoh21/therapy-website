@@ -148,9 +148,9 @@ const refresh = asyncHandler(async (req, res) => {
     const decoded = jwt.verify(refreshToken, REFRESH_TOKEN_SECRET);
     userId = decoded.user.id;
   } catch (err) {
-    return err instanceof jwt.TokenExpiredError
+    return err.name === "TokenExpiredError" || err.message === "jwt expired"
       ? res.status(401).json({ message: "Refresh token expired" })
-      : res.sendStatus(500); // Internal Server Error for other JWT errors
+      : res.sendStatus(500);
   }
 
   if (!userId) return res.sendStatus(403); // Forbidden, userId not found in token
@@ -228,6 +228,7 @@ const register = async (req, res) => {
         code: "DUPLICATE_USER",
       });
     }
+
     const invitation = await checkInvitation(email, token);
     if (!invitation) {
       logger.warn(`Registration failed: Invalid invitation for ${email}`);
@@ -251,31 +252,50 @@ const register = async (req, res) => {
       accountType,
     });
 
-    const link = `${process.env.FRONTEND_URL}/verifyEmail?token=${verificationToken}`;
+    if (userResult) {
+      const link = `${process.env.FRONTEND_URL}/verifyEmail?token=${verificationToken}`;
 
-    try {
-      await sendEmail("verifyEmail", {
-        recipient: email,
-        name,
-        link,
+      let emailSent = false;
+      try {
+        await sendEmail("verifyEmail", {
+          recipient: email,
+          name,
+          link,
+        });
+        emailSent = true;
+        logger.info(`Verification email sent to ${email} during registration`);
+      } catch (emailError) {
+        logger.error(
+          `Error sending verification email to '${email}' during registration: ${emailError.message}`
+        );
+      }
+
+      try {
+        const markedInvitation = await markInvitationAsUsed(email, token);
+        invitationMarked = !!markedInvitation;
+      } catch (markError) {
+        logger.error(
+          `Error marking invitation for '${email}' as used: ${markError.message}`
+        );
+      }
+
+      try {
+        await invalidateByEvent("user-registered", { email });
+      } catch (cacheError) {
+        logger.error(
+          `Error invalidating cache for '${email}': ${cacheError.message}`
+        );
+      }
+
+      return res.status(201).json({
+        message: emailSent
+          ? "User created successfully. Check your email for verification link"
+          : "User created successfully, but there was an issue sending the verification email.",
+        code: "REGISTRATION_SUCCESS",
       });
-      logger.info(`Verification email sent to ${email} during registration`);
-    } catch (emailError) {
-      logger.error(
-        `Error sending verification email during registration: ${emailError.message}`
-      );
+    } else {
+      throw new Error("User creation failed");
     }
-
-    const markedInvitation = await markInvitationAsUsed(email, token);
-    invitationMarked = !!markedInvitation;
-
-    await invalidateByEvent("user-registered", { email });
-
-    return res.status(201).json({
-      message:
-        "User created successfully. Check your email for verification link",
-      code: "REGISTRATION_SUCCESS",
-    });
   } catch (error) {
     logger.error(
       `Registration error for email ${req.body?.email || "unknown"}: ${
@@ -288,9 +308,13 @@ const register = async (req, res) => {
       }
     );
 
-    // Rollback user creation if it was successful
-    if (userResult) {
-      await rollbackUserCreation(userResult.email);
+    // Rollback user creation if it was successful but other steps failed
+    if (userResult && !invitationMarked) {
+      try {
+        await rollbackUserCreation(userResult.email);
+      } catch (rollbackError) {
+        logger.error(`Error during rollback: ${rollbackError.message}`);
+      }
     }
 
     // Handle specific error types
@@ -479,4 +503,10 @@ module.exports = {
   refresh,
   register,
   logout,
+  // Export these helper functions for testing purposes
+  checkForDuplicates,
+  checkInvitation,
+  createUser,
+  markInvitationAsUsed,
+  rollbackUserCreation,
 };

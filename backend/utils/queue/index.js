@@ -63,6 +63,7 @@ async function addJob(jobName, jobData) {
       error.message.includes("ECONNREFUSED") ||
       error.message.includes("Connection is closed") ||
       error.message.includes("Connection lost") ||
+      error.message.includes("Redis connection failed") ||
       error.code === "ECONNREFUSED" ||
       error.code === "ENOTFOUND"
     ) {
