@@ -1,14 +1,14 @@
 const {
-  setupApp,
+  setupAuthApp,
   setupDatabase,
   bcrypt,
   invalidateByEvent,
   User,
-} = require("./testSetup");
+} = require("../testSetup");
 const request = require("supertest");
 
 describe("Auth Login Endpoint", () => {
-  const app = setupApp();
+  const app = setupAuthApp();
   const { connectDB, closeDB, clearCollections } = setupDatabase();
   let mongoServer;
 

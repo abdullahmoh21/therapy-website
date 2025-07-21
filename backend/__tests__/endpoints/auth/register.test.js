@@ -1,17 +1,17 @@
 const {
-  setupApp,
+  setupAuthApp,
   setupDatabase,
   bcrypt,
   sendEmail,
   User,
   Invitee,
   mongoose,
-} = require("./testSetup");
+} = require("../testSetup");
 const request = require("supertest");
 const { v4: uuid } = require("uuid"); // for random tokens
 
 describe("Auth Register Endpoint", () => {
-  const app = setupApp();
+  const app = setupAuthApp();
   const { connectDB, closeDB, clearCollections } = setupDatabase();
   let mongoServer;
 

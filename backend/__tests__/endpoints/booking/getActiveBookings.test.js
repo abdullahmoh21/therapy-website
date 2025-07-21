@@ -1,16 +1,16 @@
 const {
-  setupApp,
+  setupBookingApp,
   setupDatabase,
   createObjectId,
   Booking,
   Payment,
   Config,
   verifyJWT,
-} = require("./testSetup");
+} = require("../testSetup");
 const request = require("supertest");
 
 describe("GET /bookings - Get Active Bookings", () => {
-  const app = setupApp();
+  const app = setupBookingApp();
   const { connectDB, closeDB, clearCollections } = setupDatabase();
   let mongoServer;
 
