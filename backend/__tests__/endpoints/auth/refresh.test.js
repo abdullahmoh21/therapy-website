@@ -1,15 +1,15 @@
 const {
-  setupApp,
+  setupAuthApp,
   setupDatabase,
   jwt,
   bcrypt,
   User,
   mongoose,
-} = require("./testSetup");
+} = require("../testSetup");
 const request = require("supertest");
 
 describe("Auth Refresh Token Endpoint", () => {
-  const app = setupApp();
+  const app = setupAuthApp();
   let mongoServer;
 
   // Setup test environment

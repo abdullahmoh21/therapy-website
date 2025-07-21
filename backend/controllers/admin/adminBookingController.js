@@ -9,9 +9,20 @@ const logger = require("../../logs/logger");
 //@route GET /admin/bookings
 //@access Private(admin)
 const getAllBookings = asyncHandler(async (req, res) => {
-  // Get pagination and filter parameters from the query string
-  const page = parseInt(req.query.page, 10) || 1;
-  const limit = parseInt(req.query.limit, 10) || 10;
+  /* ---------- basic pagination & validation ---------- */
+  const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 40);
+
+  if (req.query.page === "0" || req.query.limit === "0") {
+    return res.status(400).json({
+      message:
+        "Page and limit must be positive integers and limit should not exceed 40",
+    });
+  }
+
+  const skip = (page - 1) * limit;
+
+  /* ---------- build filter object ---------- */
   const {
     search,
     status,
@@ -21,64 +32,38 @@ const getAllBookings = asyncHandler(async (req, res) => {
     location,
   } = req.query;
 
-  // Validate pagination parameters
-  if (page < 1 || limit < 1 || limit > 40) {
-    return res.status(400).json({
-      message:
-        "Page and limit must be positive integers and limit should not exceed 40",
-    });
-  }
-
-  // Calculate the number of documents to skip
-  const skip = (page - 1) * limit;
-
   const query = {};
+  if (status) query.status = status;
+  if (location) query["location.type"] = location; // nested field filter
 
-  // Status filter
-  if (status) {
-    query.status = status;
-  }
-
+  /* ----- date-preset / past-booking filters ----- */
   const now = new Date();
-  const startOfToday = new Date(now);
-  startOfToday.setHours(0, 0, 0, 0);
+  const startOfToday = new Date(now.setHours(0, 0, 0, 0));
 
-  // preset date filters
   if (datePreset) {
     query.eventStartTime = {};
-
-    switch (datePreset) {
-      case "today":
-        // Today: from start of today to end of today
+    const presets = {
+      today() {
         const endOfToday = new Date(startOfToday);
         endOfToday.setHours(23, 59, 59, 999);
-        query.eventStartTime.$gte = startOfToday;
-        query.eventStartTime.$lte = endOfToday;
-        break;
-
-      case "tomorrow":
-        // Tomorrow: from start of tomorrow to end of tomorrow
-        const startOfTomorrow = new Date(startOfToday);
-        startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
-        const endOfTomorrow = new Date(startOfTomorrow);
-        endOfTomorrow.setHours(23, 59, 59, 999);
-        query.eventStartTime.$gte = startOfTomorrow;
-        query.eventStartTime.$lte = endOfTomorrow;
-        break;
-
-      case "thisWeek":
-        // This week: from start of today to end of this week (Sunday)
-        const endOfThisWeek = new Date(startOfToday);
+        return [startOfToday, endOfToday];
+      },
+      tomorrow() {
+        const start = new Date(startOfToday);
+        start.setDate(start.getDate() + 1);
+        const end = new Date(start);
+        end.setHours(23, 59, 59, 999);
+        return [start, end];
+      },
+      thisWeek() {
+        const end = new Date(startOfToday);
         const daysUntilSunday = 7 - startOfToday.getDay();
-        endOfThisWeek.setDate(endOfThisWeek.getDate() + daysUntilSunday);
-        endOfThisWeek.setHours(23, 59, 59, 999);
-        query.eventStartTime.$gte = startOfToday;
-        query.eventStartTime.$lte = endOfThisWeek;
-        break;
-
-      case "thisMonth":
-        // This month: from today to end of month
-        const endOfThisMonth = new Date(
+        end.setDate(end.getDate() + daysUntilSunday);
+        end.setHours(23, 59, 59, 999);
+        return [startOfToday, end];
+      },
+      thisMonth() {
+        const end = new Date(
           now.getFullYear(),
           now.getMonth() + 1,
           0,
@@ -87,13 +72,10 @@ const getAllBookings = asyncHandler(async (req, res) => {
           59,
           999
         );
-        query.eventStartTime.$gte = startOfToday;
-        query.eventStartTime.$lte = endOfThisMonth;
-        break;
-
-      case "nextMonth":
-        // Next month: entire next month
-        const startOfNextMonth = new Date(
+        return [startOfToday, end];
+      },
+      nextMonth() {
+        const start = new Date(
           now.getFullYear(),
           now.getMonth() + 1,
           1,
@@ -102,7 +84,7 @@ const getAllBookings = asyncHandler(async (req, res) => {
           0,
           0
         );
-        const endOfNextMonth = new Date(
+        const end = new Date(
           now.getFullYear(),
           now.getMonth() + 2,
           0,
@@ -111,13 +93,10 @@ const getAllBookings = asyncHandler(async (req, res) => {
           59,
           999
         );
-        query.eventStartTime.$gte = startOfNextMonth;
-        query.eventStartTime.$lte = endOfNextMonth;
-        break;
-
-      case "lastMonth":
-        // Last month: entire previous month
-        const startOfLastMonth = new Date(
+        return [start, end];
+      },
+      lastMonth() {
+        const start = new Date(
           now.getFullYear(),
           now.getMonth() - 1,
           1,
@@ -126,7 +105,7 @@ const getAllBookings = asyncHandler(async (req, res) => {
           0,
           0
         );
-        const endOfLastMonth = new Date(
+        const end = new Date(
           now.getFullYear(),
           now.getMonth(),
           0,
@@ -135,43 +114,53 @@ const getAllBookings = asyncHandler(async (req, res) => {
           59,
           999
         );
-        query.eventStartTime.$gte = startOfLastMonth;
-        query.eventStartTime.$lte = endOfLastMonth;
-        break;
+        return [start, end];
+      },
+    };
 
-      default:
-        // Default case - don't apply specific date preset filter
-        delete query.eventStartTime;
+    const range = presets[datePreset]?.();
+    if (range) {
+      query.eventStartTime.$gte = range[0];
+      query.eventStartTime.$lte = range[1];
+    } else {
+      delete query.eventStartTime; // unsupported preset
     }
   }
 
-  if (showPastBookings !== "true") {
-    if (!query.eventStartTime) {
-      query.eventStartTime = { $gte: startOfToday };
-    }
-  } else if (!datePreset) {
-    // If showing past bookings and no datePreset specified,
-    // we don't need any eventStartTime filter
+  if (showPastBookings !== "true" && !query.eventStartTime) {
+    query.eventStartTime = { $gte: startOfToday };
+  } else if (showPastBookings === "true" && !datePreset) {
     delete query.eventStartTime;
   }
 
-  // Location filter - fixed to query the nested type field
-  if (location) {
-    query["location.type"] = location;
-  }
+  /* ---------- parallel pre-queries (user & payment lookups) ---------- */
+  const userSearchPromise = search
+    ? User.find({
+        $or: [
+          { name: { $regex: search, $options: "i" } },
+          { email: { $regex: search, $options: "i" } },
+        ],
+      })
+        .select("_id")
+        .lean()
+    : Promise.resolve([]);
 
-  let userIds = [];
+  const overduePaymentsPromise =
+    paymentOverdue === "true"
+      ? Payment.find({ transactionStatus: { $ne: "Completed" } })
+          .select("_id")
+          .lean()
+      : Promise.resolve([]);
+
+  const [users, overduePayments] = await Promise.all([
+    userSearchPromise,
+    overduePaymentsPromise,
+  ]);
+
+  /* ----- apply user search filter (early exit if none found) ----- */
   if (search) {
-    const users = await User.find({
-      $or: [
-        { name: { $regex: search, $options: "i" } },
-        { email: { $regex: search, $options: "i" } },
-      ],
-    }).select("_id");
-    userIds = users.map((user) => user._id);
-    if (userIds.length > 0) {
-      query.userId = { $in: userIds };
-    } else {
+    const userIds = users.map((u) => u._id);
+    if (!userIds.length) {
       return res.json({
         page,
         limit,
@@ -180,80 +169,43 @@ const getAllBookings = asyncHandler(async (req, res) => {
         bookings: [],
       });
     }
+    query.userId = { $in: userIds };
   }
 
-  try {
-    // Handle payment overdue filter
-    let paymentOverdueIds = [];
-    if (paymentOverdue === "true") {
-      // Find all completed bookings that have payments and payments are not completed
-      const bookingsWithOverduePayments = await Booking.aggregate([
-        {
-          $match: { status: "Completed" },
-        },
-        {
-          $lookup: {
-            from: "payments",
-            localField: "paymentId",
-            foreignField: "_id",
-            as: "payment",
-          },
-        },
-        {
-          $match: {
-            $or: [
-              { payment: { $size: 0 } }, // No payment record
-              { "payment.transactionStatus": { $ne: "Completed" } }, // Payment not completed
-            ],
-          },
-        },
-        {
-          $project: { _id: 1 },
-        },
-      ]);
-
-      paymentOverdueIds = bookingsWithOverduePayments.map((b) => b._id);
-
-      if (paymentOverdueIds.length > 0) {
-        query._id = { $in: paymentOverdueIds };
-      } else if (paymentOverdue === "true") {
-        // If no overdue payments found, return empty result
-        return res.json({
-          page,
-          limit,
-          totalBookings: 0,
-          totalPages: 0,
-          bookings: [],
-        });
-      }
-    }
-
-    // Only select fields needed for the table display
-    const bookings = await Booking.find(query)
-      .skip(skip)
-      .limit(limit)
-      .select("_id status eventStartTime eventEndTime")
-      .populate({
-        path: "userId",
-        select: "name email",
-      })
-      .sort({ eventStartTime: -1 })
-      .lean()
-      .exec();
-
-    const totalBookings = await Booking.countDocuments(query);
-
-    res.json({
-      page,
-      limit,
-      totalBookings,
-      totalPages: Math.ceil(totalBookings / limit),
-      bookings,
-    });
-  } catch (error) {
-    logger.error(`Error retrieving bookings: ${error.message}`);
-    res.status(500).json({ message: "Failed to retrieve bookings" });
+  /* ----- apply overdue-payment filter ----- */
+  if (paymentOverdue === "true") {
+    query.status = "Completed"; // only completed bookings matter here
+    query.$or = [
+      { paymentId: { $exists: false } }, // no payment recorded
+      { paymentId: { $in: overduePayments.map((p) => p._id) } }, // payment not completed
+    ];
   }
+
+  /* ---------- final data & count (parallel) ---------- */
+  const bookingsPromise = Booking.find(query)
+    .skip(skip)
+    .limit(limit)
+    .select("_id status eventStartTime eventEndTime location")
+    .populate({ path: "userId", select: "name email" })
+    .sort({ eventStartTime: -1 })
+    .lean()
+    .exec();
+
+  const countPromise = Booking.countDocuments(query);
+
+  const [bookings, totalBookings] = await Promise.all([
+    bookingsPromise,
+    countPromise,
+  ]);
+
+  /* ---------- response ---------- */
+  res.json({
+    page,
+    limit,
+    totalBookings,
+    totalPages: Math.ceil(totalBookings / limit),
+    bookings,
+  });
 });
 
 //@desc returns upcoming booking timeline for display in /admin/upcoming
@@ -262,8 +214,7 @@ const getAllBookings = asyncHandler(async (req, res) => {
 //@access Private(admin)
 const getBookingTimeline = asyncHandler(async (req, res) => {
   try {
-    // Get today's date at 00:00:00
-    const now = new Date();
+    const now = new Date(Date.now());
     const startOfToday = new Date(now);
     startOfToday.setHours(0, 0, 0, 0);
 
@@ -409,13 +360,14 @@ const getBookingDetails = asyncHandler(async (req, res) => {
     const booking = await Booking.findById(bookingId)
       .populate({
         path: "userId",
-        select: "name email phone",
+        select: "name email phone accountType",
       })
       .populate({
         path: "paymentId",
         select:
-          "transactionStatus transactionReferenceNumber amount currency paymentCompletedDate paymentMethod paymentRefundedDate refundRequestedDate",
+          "amount currency transactionStatus transactionReferenceNumber paymentMethod paymentCompletedDate",
       })
+      .select("-__v -eventTypeURI -scheduledEventURI ")
       .lean()
       .exec();
 
@@ -423,7 +375,12 @@ const getBookingDetails = asyncHandler(async (req, res) => {
       return res.status(404).json({ message: "Booking not found" });
     }
 
-    res.status(200).json(booking);
+    // Ensure paymentId is null when no payment exists, rather than undefined
+    if (!booking.paymentId) {
+      booking.paymentId = null;
+    }
+
+    res.json(booking);
   } catch (error) {
     logger.error(`Error retrieving booking details: ${error.message}`);
     res.status(500).json({ message: "Failed to retrieve booking details" });

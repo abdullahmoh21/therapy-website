@@ -1,8 +1,8 @@
-const { setupApp, setupDatabase, jwt, User } = require("./testSetup");
+const { setupAuthApp, setupDatabase, jwt, User } = require("../testSetup");
 const request = require("supertest");
 
 describe("Auth Logout Endpoint", () => {
-  const app = setupApp();
+  const app = setupAuthApp();
   const { connectDB, closeDB, clearCollections } = setupDatabase();
   let mongoServer;
 

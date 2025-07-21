@@ -1,7 +1,7 @@
 const {
-  setupApp,
+  setupBookingApp,
   setupDatabase,
-  jsonwebtoken,
+  jwt,
   axios,
   sendEmail,
   logger,
@@ -11,11 +11,11 @@ const {
   Config,
   mongoose,
   createObjectId,
-} = require("./testSetup");
+} = require("../testSetup");
 const request = require("supertest");
 
 describe("POST /bookings/calendly - Calendly Webhook", () => {
-  const app = setupApp();
+  const app = setupBookingApp();
   const { connectDB, closeDB, clearCollections } = setupDatabase();
   let mongoServer;
 
@@ -108,7 +108,7 @@ describe("POST /bookings/calendly - Calendly Webhook", () => {
     });
 
     // Override verify for this test
-    jsonwebtoken.verify.mockReturnValueOnce({
+    jwt.verify.mockReturnValueOnce({
       userId: user._id.toString(),
       jti: "valid-jti",
     });
@@ -149,7 +149,7 @@ describe("POST /bookings/calendly - Calendly Webhook", () => {
   });
 
   it("should reject invitee.created with invalid JWT token", async () => {
-    jsonwebtoken.verify.mockImplementationOnce(() => {
+    jwt.verify.mockImplementationOnce(() => {
       throw new Error("Invalid token");
     });
 
@@ -181,7 +181,7 @@ describe("POST /bookings/calendly - Calendly Webhook", () => {
     // Setup token that has valid format but non-existent user
     const nonExistentId = createObjectId(); // Create a valid ObjectId that doesn't exist in DB
 
-    jsonwebtoken.verify.mockReturnValueOnce({
+    jwt.verify.mockReturnValueOnce({
       userId: nonExistentId.toString(),
       jti: "some-jti",
     });
@@ -220,7 +220,7 @@ describe("POST /bookings/calendly - Calendly Webhook", () => {
       password: "hashedPassword123", // Add required field
     });
 
-    jsonwebtoken.verify.mockReturnValueOnce({
+    jwt.verify.mockReturnValueOnce({
       userId: user._id.toString(),
       jti: "invalid-jti",
     });
@@ -310,7 +310,7 @@ describe("POST /bookings/calendly - Calendly Webhook", () => {
     });
 
     // Override verify for this test
-    jsonwebtoken.verify.mockReturnValueOnce({
+    jwt.verify.mockReturnValueOnce({
       userId: user._id.toString(),
       jti: "valid-jti",
     });
@@ -504,7 +504,7 @@ describe("POST /bookings/calendly - Calendly Webhook", () => {
   });
 
   it("should handle invitee.created with malformed JWT token", async () => {
-    jsonwebtoken.verify.mockImplementationOnce(() => {
+    jwt.verify.mockImplementationOnce(() => {
       return {
         // Missing jti field
         userId: "507f1f77bcf86cd799439011",
@@ -539,7 +539,7 @@ describe("POST /bookings/calendly - Calendly Webhook", () => {
 
   it("should handle error when finding user", async () => {
     // Setup token with valid structure
-    jsonwebtoken.verify.mockReturnValueOnce({
+    jwt.verify.mockReturnValueOnce({
       userId: "invalid-id-format", // This will cause an error in findById
       jti: "valid-jti",
     });
@@ -582,7 +582,7 @@ describe("POST /bookings/calendly - Calendly Webhook", () => {
     });
 
     // Override verify for this test
-    jsonwebtoken.verify.mockReturnValueOnce({
+    jwt.verify.mockReturnValueOnce({
       userId: user._id.toString(),
       jti: "valid-jti",
     });
@@ -634,7 +634,7 @@ describe("POST /bookings/calendly - Calendly Webhook", () => {
     });
 
     // Override verify for this test
-    jsonwebtoken.verify.mockReturnValueOnce({
+    jwt.verify.mockReturnValueOnce({
       userId: user._id.toString(),
       jti: "valid-jti",
     });
@@ -699,7 +699,7 @@ describe("POST /bookings/calendly - Calendly Webhook", () => {
     });
 
     // Override verify for this test
-    jsonwebtoken.verify.mockReturnValueOnce({
+    jwt.verify.mockReturnValueOnce({
       userId: user._id.toString(),
       jti: "valid-jti",
     });
@@ -783,7 +783,7 @@ describe("POST /bookings/calendly - Calendly Webhook", () => {
       password: "hashedPassword123",
     });
 
-    jsonwebtoken.verify.mockReturnValueOnce({
+    jwt.verify.mockReturnValueOnce({
       userId: user._id.toString(),
       jti: "invalid-jti", // JTI mismatch
     });

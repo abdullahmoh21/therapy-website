@@ -1,16 +1,16 @@
 const {
-  setupApp,
+  setupBookingApp,
   setupDatabase,
   verifyJWT,
-  jsonwebtoken,
+  jwt,
   User,
   Booking,
   mongoose,
-} = require("./testSetup");
+} = require("../testSetup");
 const request = require("supertest");
 
 describe("GET /bookings/calendly - Get New Booking Link", () => {
-  const app = setupApp();
+  const app = setupBookingApp();
   const { connectDB, closeDB, clearCollections } = setupDatabase();
   let mongoServer;
 
@@ -52,7 +52,7 @@ describe("GET /bookings/calendly - Get New Booking Link", () => {
     expect(res.statusCode).toBe(200);
     expect(res.body).toHaveProperty("link");
     expect(res.body.link).toContain(process.env.CALENDLY_SESSION_URL);
-    expect(jsonwebtoken.sign).toHaveBeenCalled();
+    expect(jwt.sign).toHaveBeenCalled();
 
     // Verify user was updated with JTI
     const updatedUser = await User.findById(user._id);
