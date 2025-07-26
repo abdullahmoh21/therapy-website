@@ -79,7 +79,13 @@ jest.mock("crypto", () => {
 
 // Setup Jest mocks for internal modules
 jest.mock("../../utils/queue/index", () => ({
-  sendEmail: jest.fn().mockResolvedValue(true),
+  sendEmail: jest
+    .fn()
+    .mockImplementation((jobName, jobData) =>
+      Promise.resolve({ success: true })
+    ),
+  initializeQueue: jest.fn().mockResolvedValue(true),
+  addJob: jest.fn().mockResolvedValue({ success: true }),
 }));
 
 jest.mock("../../middleware/redisCaching", () => ({
@@ -88,13 +94,19 @@ jest.mock("../../middleware/redisCaching", () => ({
   invalidateResourceCache: jest.fn().mockResolvedValue(true),
 }));
 
+// Use this instead of referencing mongoose directly in the mock
+const mockObjectId = () => {
+  // Return a valid 24-character hex string that can be cast to ObjectId
+  return "507f1f77bcf86cd799439011";
+};
+
 jest.mock("../../middleware/verifyJWT", () => ({
   verifyJWT: jest.fn().mockImplementation((req, res, next) => {
-    req.user = { id: "userId123", email: "test@example.com", role: "user" };
+    req.user = { id: mockObjectId(), email: "test@example.com", role: "user" };
     next();
   }),
   verifyAdmin: jest.fn().mockImplementation((req, res, next) => {
-    req.user = { id: "userId123", email: "test@example.com", role: "admin" };
+    req.user = { id: mockObjectId(), email: "test@example.com", role: "admin" };
     next();
   }),
 }));

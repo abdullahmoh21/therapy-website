@@ -238,14 +238,22 @@ describe("Admin Get All Bookings Endpoint", () => {
     it("should filter bookings by search term", async () => {
       const { user1 } = await createTestData();
 
+      // Search using a partial name that should match user1's name
+      const searchTerm = user1.name.substring(0, 4); // Use first 4 chars of name
       const res = await request(app).get(
-        `/admin/bookings?search=${user1.name}`
+        `/admin/bookings?search=${searchTerm}`
       );
 
       expect(res.statusCode).toBe(200);
-      // Instead of checking exact count, verify the user data if results exist
+
+      // If results exist, at least one should be for user1
       if (res.body.bookings.length > 0) {
-        expect(res.body.bookings[0].userId.name).toBe(user1.name);
+        const foundUser1 = res.body.bookings.some(
+          (booking) =>
+            booking.userId.name.includes(user1.name) ||
+            booking.userId._id.toString() === user1._id.toString()
+        );
+        expect(foundUser1).toBe(true);
       }
     });
 
