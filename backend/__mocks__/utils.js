@@ -13,7 +13,9 @@ const logger = {
 
 // Mock queue utility
 const queueUtils = {
-  sendEmail: jest.fn().mockResolvedValue(true),
+  sendEmail: jest
+    .fn()
+    .mockImplementation(() => Promise.resolve({ success: true })),
   initializeQueue: jest.fn().mockResolvedValue(true),
 };
 

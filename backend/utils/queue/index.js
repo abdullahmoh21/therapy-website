@@ -74,6 +74,7 @@ async function addJob(jobName, jobData) {
 }
 
 const sendEmail = async (jobName, jobData) => {
+  // If queue is unavailable, execute directly
   if (!queue) {
     logger.warn(`Queue unavailable — executing ${jobName} directly`);
     return fallbackExecute(jobName, jobData);

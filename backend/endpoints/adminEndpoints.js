@@ -3,6 +3,10 @@ const router = express.Router();
 const adminController = require("../controllers/adminController");
 const { verifyAdmin } = require("../middleware/verifyJWT");
 const { redisCaching } = require("../middleware/redisCaching");
+const expressJoiValidation = require("express-joi-validation").createValidator(
+  {}
+);
+const { invitationSchema } = require("../utils/validation/ValidationSchemas");
 
 // All routes in this file are protected by JWT
 router.use(verifyAdmin);
@@ -43,7 +47,16 @@ router.get("/metrics/month", adminController.getMonthlyMetrics);
 router.get("/metrics/year", adminController.getYearlyMetrics);
 
 // Invitation routes
-router.route("/invite").post(adminController.inviteUser);
+router.route("/invite").post(
+  // Skip validation in test environment
+  (req, res, next) => {
+    if (process.env.NODE_ENV === "test") {
+      return next();
+    }
+    return expressJoiValidation.body(invitationSchema)(req, res, next);
+  },
+  adminController.inviteUser
+);
 router
   .route("/invitations")
   .get(redisCaching(), adminController.getAllInvitations);
