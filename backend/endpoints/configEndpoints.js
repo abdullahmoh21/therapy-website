@@ -98,6 +98,14 @@ const updateConfig = asyncHandler(async (req, res) => {
     // First check if the config exists
     const configItem = await Config.findOne({ key });
 
+    // If config doesn't exist, return 404
+    if (!configItem) {
+      logger.error(`Config key '${key}' not found`);
+      return res.status(404).json({
+        message: `Configuration '${key}' not found`,
+      });
+    }
+
     // If config exists, update it using setValue method
     let updatedConfig;
     try {
