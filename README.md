@@ -70,7 +70,7 @@ npm test
 
 ```bash
 # Clone repo & install dependencies
-git clone https://github.com/your-repo.git
+git clone https://github.com/abdullahmoh21/therapy-website.git
 cd backend && npm install
 cd ../frontend && npm install
 
