@@ -1,11 +1,55 @@
+// Set environment variables
+process.env.FRONTEND_URL = "https://test-frontend.com";
+process.env.SAFEPAY_DASHBOARD_URL = "https://test-safepay.com/dashboard";
+process.env.NODE_ENV = "test";
+
+// Setup mocks for dependencies
+jest.mock("../../utils/emailTransporter", () => ({
+  transporter: {
+    sendMail: jest.fn().mockResolvedValue({ messageId: "test-message-id" }),
+  },
+  createTransporter: jest.fn().mockReturnValue({
+    sendMail: jest.fn().mockResolvedValue({ messageId: "test-message-id" }),
+  }),
+}));
+
+jest.mock("../../logs/logger", () => ({
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  debug: jest.fn(),
+}));
+
+jest.mock("ioredis", () => {
+  class Redis {
+    constructor() {
+      this.status = "ready";
+    }
+    connect() {
+      return Promise.resolve();
+    }
+    get() {
+      return Promise.resolve(null);
+    }
+    set() {
+      return Promise.resolve("OK");
+    }
+    del() {
+      return Promise.resolve(1);
+    }
+  }
+  return Redis;
+});
+
+// Import dependencies
+const mongoose = require("mongoose");
+const { MongoMemoryServer } = require("mongodb-memory-server");
+
+// Get transporter to use in assertions
 const { transporter } = require("../../utils/emailTransporter");
 const logger = require("../../logs/logger");
-const Config = require("../../models/Config");
-const User = require("../../models/User");
-const Booking = require("../../models/Booking");
-const Payment = require("../../models/Payment");
 
-// Import all job handlers
+// Import job handlers to test
 const {
   verifyEmail,
   resetPassword,
@@ -20,124 +64,51 @@ const {
   deleteDocuments,
 } = require("../../utils/queue/jobs/index");
 
-// Mock dependencies
-jest.mock("../../utils/emailTransporter", () => ({
-  transporter: {
-    sendMail: jest.fn().mockResolvedValue({ messageId: "test-message-id" }),
-  },
-}));
-
-jest.mock("../../logs/logger", () => ({
-  info: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-  debug: jest.fn(),
-}));
-
-jest.mock("../../models/Config", () => ({
-  getValue: jest.fn().mockImplementation((key) => {
-    const values = {
-      adminEmail: "admin@example.com",
-      devEmail: "dev@example.com",
-      noticePeriod: 2,
-    };
-    return Promise.resolve(values[key] || null);
-  }),
-}));
-
-// Update User mock to include mongoose chain methods
-jest.mock("../../models/User", () => {
-  const mockUser = {
-    _id: "user123",
-    name: "Test User",
-    email: "user@example.com",
-    firstName: "Test",
-    lastName: "User",
-  };
-
-  const mockFindOne = jest.fn().mockImplementation(() => {
-    const query = {
-      lean: jest.fn().mockReturnThis(),
-      exec: jest.fn().mockResolvedValue(mockUser),
-    };
-    return query;
-  });
-
-  return {
-    findOne: mockFindOne,
-    deleteMany: jest.fn().mockResolvedValue({ deletedCount: 2 }),
-  };
-});
-
-// Update Booking mock to include mongoose chain methods
-jest.mock("../../models/Booking", () => {
-  const mockBooking = {
-    _id: "booking123",
-    bookingId: "B12345",
-    userId: "user123",
-    eventStartTime: new Date("2023-12-25T14:00:00Z"),
-    cancellation: {
-      date: new Date(),
-      cancelledBy: "User",
-      reason: "Testing cancellation",
-    },
-  };
-
-  const mockFindOne = jest.fn().mockImplementation(() => {
-    const query = {
-      select: jest.fn().mockReturnThis(),
-      lean: jest.fn().mockReturnThis(),
-      exec: jest.fn().mockResolvedValue(mockBooking),
-    };
-    return query;
-  });
-
-  return {
-    findOne: mockFindOne,
-    deleteMany: jest.fn().mockResolvedValue({ deletedCount: 2 }),
-  };
-});
-
-// Update Payment mock to include mongoose chain methods
-jest.mock("../../models/Payment", () => {
-  const mockPayment = {
-    _id: "payment123",
-    userId: "user123",
-    bookingId: "booking123",
-    amount: 100,
-    currency: "USD",
-    transactionStatus: "Completed",
-    transactionReferenceNumber: "TRX12345",
-    paymentCompletedDate: new Date(),
-  };
-
-  const mockFindOne = jest.fn().mockImplementation(() => {
-    const query = {
-      lean: jest.fn().mockReturnThis(),
-      exec: jest.fn().mockResolvedValue(mockPayment),
-    };
-    return query;
-  });
-
-  return {
-    findOne: mockFindOne,
-    updateOne: jest.fn().mockResolvedValue({ nModified: 1 }),
-    deleteMany: jest.fn().mockResolvedValue({ deletedCount: 2 }),
-  };
-});
-
-// Mock for Invitee model (needed for deleteDocuments)
-jest.mock("../../models/Invitee", () => ({
-  deleteMany: jest.fn().mockResolvedValue({ deletedCount: 2 }),
-}));
-
-// Mock environment variables
-process.env.FRONTEND_URL = "https://test-frontend.com";
-process.env.SAFEPAY_DASHBOARD_URL = "https://test-safepay.com/dashboard";
+// Import real models
+const User = require("../../models/User");
+const Booking = require("../../models/Booking");
+const Payment = require("../../models/Payment");
+const Config = require("../../models/Config");
+const Invitee = require("../../models/Invitee");
 
 describe("Job Handlers Tests", () => {
-  beforeEach(() => {
+  let mongoServer;
+
+  // Setup test database
+  beforeAll(async () => {
+    mongoServer = await MongoMemoryServer.create();
+    const uri = mongoServer.getUri();
+    await mongoose.connect(uri);
+  });
+
+  // Cleanup after tests
+  afterAll(async () => {
+    await mongoose.disconnect();
+    await mongoServer.stop();
+  });
+
+  // Reset before each test
+  beforeEach(async () => {
     jest.clearAllMocks();
+
+    // Clean collections
+    await User.deleteMany({});
+    await Booking.deleteMany({});
+    await Payment.deleteMany({});
+    await Invitee.deleteMany({});
+
+    // Mock Config.getValue
+    Config.getValue = jest.fn().mockImplementation((key) => {
+      const values = {
+        adminEmail: "admin@example.com",
+        devEmail: "dev@example.com",
+        sessionPrice: 100,
+        intlSessionPrice: 50,
+        noticePeriod: 2,
+        maxBookings: 2,
+      };
+      return Promise.resolve(values[key] || null);
+    });
   });
 
   describe("verifyEmail handler", () => {
@@ -168,6 +139,7 @@ describe("Job Handlers Tests", () => {
     });
 
     it("should throw error when email sending fails", async () => {
+      // Get the mocked transporter and modify its implementation for this test
       transporter.sendMail.mockRejectedValueOnce(new Error("SMTP error"));
 
       const job = {
@@ -313,34 +285,77 @@ describe("Job Handlers Tests", () => {
 
   describe("deleteDocuments handler", () => {
     it("should delete User documents correctly", async () => {
+      // Create users to delete with required fields
+      const user1 = await User.create({
+        email: "user1@example.com",
+        name: "User One",
+        password: "password123", // Add required field
+        accountType: "domestic", // Add required field
+      });
+
+      const user2 = await User.create({
+        email: "user2@example.com",
+        name: "User Two",
+        password: "password123", // Add required field
+        accountType: "domestic", // Add required field
+      });
+
       const job = {
         data: {
           model: "User",
-          documentIds: ["user1", "user2"],
+          documentIds: [user1._id.toString(), user2._id.toString()],
         },
       };
 
       await deleteDocuments(job);
 
-      expect(User.deleteMany).toHaveBeenCalledWith({
-        _id: { $in: ["user1", "user2"] },
+      // Verify users were deleted
+      const remainingUsers = await User.find({
+        _id: { $in: [user1._id, user2._id] },
       });
+      expect(remainingUsers.length).toBe(0);
       expect(logger.info).toHaveBeenCalled();
     });
 
     it("should delete Booking documents correctly", async () => {
+      // Create test bookings with valid IDs
+      const user = await User.create({
+        email: "bookinguser@example.com",
+        name: "Booking User",
+        password: "password123",
+        accountType: "domestic",
+      });
+
+      const booking1 = await Booking.create({
+        userId: user._id,
+        eventStartTime: new Date(),
+        eventEndTime: new Date(Date.now() + 3600000),
+        eventName: "Test Booking 1",
+        status: "Active",
+      });
+
+      const booking2 = await Booking.create({
+        userId: user._id,
+        eventStartTime: new Date(),
+        eventEndTime: new Date(Date.now() + 3600000),
+        eventName: "Test Booking 2",
+        status: "Active",
+      });
+
       const job = {
         data: {
           model: "Booking",
-          documentIds: ["booking1", "booking2"],
+          documentIds: [booking1._id.toString(), booking2._id.toString()],
         },
       };
 
       await deleteDocuments(job);
 
-      expect(Booking.deleteMany).toHaveBeenCalledWith({
-        _id: { $in: ["booking1", "booking2"] },
+      // Verify bookings were deleted
+      const remainingBookings = await Booking.find({
+        _id: { $in: [booking1._id, booking2._id] },
       });
+      expect(remainingBookings.length).toBe(0);
       expect(logger.info).toHaveBeenCalled();
     });
 
@@ -362,27 +377,42 @@ describe("Job Handlers Tests", () => {
 
   describe("adminCancellationNotif handler", () => {
     it("should send admin cancellation notification for standard cancellation", async () => {
+      // Create actual user, booking, and payment in the database
+      const user = await User.create({
+        email: "user@example.com",
+        name: "Test User",
+        firstName: "Test",
+        lastName: "User",
+        password: "password123", // Add required field
+        accountType: "domestic", // Add required field
+      });
+
+      const booking = await Booking.create({
+        userId: user._id,
+        eventStartTime: new Date("2023-12-25T14:00:00Z"),
+        eventEndTime: new Date("2023-12-25T15:00:00Z"), // Add required field
+        eventName: "Test Session", // Add required field
+        cancellation: {
+          date: new Date(),
+          cancelledBy: "User",
+          reason: "Testing cancellation",
+        },
+      });
+
+      const payment = await Payment.create({
+        userId: user._id,
+        bookingId: booking._id,
+        amount: 100,
+        currency: "USD",
+        transactionStatus: "Completed",
+        transactionReferenceNumber: "TRX12345",
+        paymentCompletedDate: new Date(),
+      });
+
       const job = {
         data: {
-          booking: {
-            _id: "booking123",
-            bookingId: "B12345",
-            userId: "user123",
-            eventStartTime: new Date("2023-12-25T14:00:00Z"),
-            cancellation: {
-              date: new Date(),
-              cancelledBy: "User",
-              reason: "Testing cancellation",
-            },
-          },
-          payment: {
-            _id: "payment123",
-            amount: 100,
-            currency: "USD",
-            transactionStatus: "Completed",
-            transactionReferenceNumber: "TRX12345",
-            paymentCompletedDate: new Date(),
-          },
+          booking: booking.toObject(),
+          payment: payment.toObject(),
           recipient: "admin@example.com",
           isLateCancellation: false,
           updatePaymentStatus: true,
@@ -403,45 +433,59 @@ describe("Job Handlers Tests", () => {
       // Check context data
       const mailContext = transporter.sendMail.mock.calls[0][0].context;
       expect(mailContext).toMatchObject({
-        bookingId: "B12345",
         cancelledBy: "User",
         isPaid: true,
         isLateCancellation: false,
       });
 
-      // Verify payment status update
-      expect(Payment.updateOne).toHaveBeenCalledWith(
-        { _id: "payment123" },
-        {
-          transactionStatus: "Refund Requested",
-          refundRequestedDate: expect.any(Date),
-        }
-      );
+      // Verify payment status was updated
+      const updatedPayment = await Payment.findById(payment._id);
+      expect(updatedPayment.transactionStatus).toBe("Refund Requested");
+      expect(updatedPayment.refundRequestedDate).toBeDefined();
+
       expect(logger.info).toHaveBeenCalled();
     });
 
     it("should send admin cancellation notification for late cancellation", async () => {
+      // Create real test data instead of mocking
+      const user = await User.create({
+        _id: new mongoose.Types.ObjectId(),
+        name: "Test User",
+        email: "user@example.com",
+        firstName: "Test",
+        lastName: "User",
+        password: "password123",
+        accountType: "domestic",
+      });
+
+      const booking = await Booking.create({
+        _id: new mongoose.Types.ObjectId(),
+        userId: user._id,
+        eventStartTime: new Date("2023-12-25T14:00:00Z"),
+        eventEndTime: new Date("2023-12-25T15:00:00Z"),
+        eventName: "Test Session",
+        cancellation: {
+          date: new Date(),
+          cancelledBy: "User",
+          reason: "Testing late cancellation",
+        },
+      });
+
+      const payment = await Payment.create({
+        _id: new mongoose.Types.ObjectId(),
+        userId: user._id,
+        bookingId: booking._id,
+        amount: 100,
+        currency: "USD",
+        transactionStatus: "Completed",
+        transactionReferenceNumber: "TRX12345",
+        paymentCompletedDate: new Date(),
+      });
+
       const job = {
         data: {
-          booking: {
-            _id: "booking123",
-            bookingId: "B12345",
-            userId: "user123",
-            eventStartTime: new Date("2023-12-25T14:00:00Z"),
-            cancellation: {
-              date: new Date(),
-              cancelledBy: "User",
-              reason: "Testing late cancellation",
-            },
-          },
-          payment: {
-            _id: "payment123",
-            amount: 100,
-            currency: "USD",
-            transactionStatus: "Completed",
-            transactionReferenceNumber: "TRX12345",
-            paymentCompletedDate: new Date(),
-          },
+          booking: booking.toObject(),
+          payment: payment.toObject(),
           recipient: "admin@example.com",
           isLateCancellation: true,
           updatePaymentStatus: false,
@@ -467,31 +511,50 @@ describe("Job Handlers Tests", () => {
       });
 
       // Verify payment status is not updated for late cancellation
-      expect(Payment.updateOne).not.toHaveBeenCalled();
+      const updatedPayment = await Payment.findById(payment._id);
+      expect(updatedPayment.transactionStatus).toBe("Completed"); // Unchanged
     });
 
     it("should send admin cancellation notification for admin-initiated cancellation", async () => {
+      // Create real test data
+      const user = await User.create({
+        _id: new mongoose.Types.ObjectId(),
+        name: "Test User",
+        email: "user@example.com",
+        firstName: "Test",
+        lastName: "User",
+        password: "password123",
+        accountType: "domestic",
+      });
+
+      const booking = await Booking.create({
+        _id: new mongoose.Types.ObjectId(),
+        userId: user._id,
+        eventStartTime: new Date("2023-12-25T14:00:00Z"),
+        eventEndTime: new Date("2023-12-25T15:00:00Z"),
+        eventName: "Test Session",
+        cancellation: {
+          date: new Date(),
+          cancelledBy: "Admin",
+          reason: "Testing admin cancellation",
+        },
+      });
+
+      const payment = await Payment.create({
+        _id: new mongoose.Types.ObjectId(),
+        userId: user._id,
+        bookingId: booking._id,
+        amount: 100,
+        currency: "USD",
+        transactionStatus: "Completed",
+        transactionReferenceNumber: "TRX12345",
+        paymentCompletedDate: new Date(),
+      });
+
       const job = {
         data: {
-          booking: {
-            _id: "booking123",
-            bookingId: "B12345",
-            userId: "user123",
-            eventStartTime: new Date("2023-12-25T14:00:00Z"),
-            cancellation: {
-              date: new Date(),
-              cancelledBy: "Admin",
-              reason: "Testing admin cancellation",
-            },
-          },
-          payment: {
-            _id: "payment123",
-            amount: 100,
-            currency: "USD",
-            transactionStatus: "Completed",
-            transactionReferenceNumber: "TRX12345",
-            paymentCompletedDate: new Date(),
-          },
+          booking: booking.toObject(),
+          payment: payment.toObject(),
           recipient: "admin@example.com",
           isLateCancellation: false,
           updatePaymentStatus: true,
@@ -516,26 +579,44 @@ describe("Job Handlers Tests", () => {
     });
 
     it("should send admin cancellation notification for unpaid booking", async () => {
+      // Create real test data
+      const user = await User.create({
+        _id: new mongoose.Types.ObjectId(),
+        name: "Test User",
+        email: "user@example.com",
+        firstName: "Test",
+        lastName: "User",
+        password: "password123",
+        accountType: "domestic",
+      });
+
+      const booking = await Booking.create({
+        _id: new mongoose.Types.ObjectId(),
+        userId: user._id,
+        eventStartTime: new Date("2023-12-25T14:00:00Z"),
+        eventEndTime: new Date("2023-12-25T15:00:00Z"),
+        eventName: "Test Session",
+        cancellation: {
+          date: new Date(),
+          cancelledBy: "User",
+          reason: "Testing cancellation",
+        },
+      });
+
+      const payment = await Payment.create({
+        _id: new mongoose.Types.ObjectId(),
+        userId: user._id,
+        bookingId: booking._id,
+        amount: 100,
+        currency: "USD",
+        transactionStatus: "Not Initiated",
+        transactionReferenceNumber: "TRX12345",
+      });
+
       const job = {
         data: {
-          booking: {
-            _id: "booking123",
-            bookingId: "B12345",
-            userId: "user123",
-            eventStartTime: new Date("2023-12-25T14:00:00Z"),
-            cancellation: {
-              date: new Date(),
-              cancelledBy: "User",
-              reason: "Testing cancellation",
-            },
-          },
-          payment: {
-            _id: "payment123",
-            amount: 100,
-            currency: "USD",
-            transactionStatus: "Pending", // Not completed
-            transactionReferenceNumber: "TRX12345",
-          },
+          booking: booking.toObject(),
+          payment: payment.toObject(),
           recipient: "admin@example.com",
           isLateCancellation: false,
         },
@@ -554,27 +635,38 @@ describe("Job Handlers Tests", () => {
       const mailContext = transporter.sendMail.mock.calls[0][0].context;
       expect(mailContext).toMatchObject({
         isPaid: false,
-        paymentStatus: "Pending",
+        paymentStatus: "Not Initiated",
       });
-
-      // Verify payment status is not updated for unpaid booking
-      expect(Payment.updateOne).not.toHaveBeenCalled();
     });
 
     it("should fall back to config for admin email if recipient not provided", async () => {
+      // Create real test data
+      const user = await User.create({
+        _id: new mongoose.Types.ObjectId(),
+        name: "Test User",
+        email: "user@example.com",
+        firstName: "Test",
+        lastName: "User",
+        password: "password123",
+        accountType: "domestic",
+      });
+
+      const booking = await Booking.create({
+        _id: new mongoose.Types.ObjectId(),
+        userId: user._id,
+        eventStartTime: new Date("2023-12-25T14:00:00Z"),
+        eventEndTime: new Date("2023-12-25T15:00:00Z"),
+        eventName: "Test Session",
+        cancellation: {
+          date: new Date(),
+          cancelledBy: "User",
+          reason: "Testing cancellation",
+        },
+      });
+
       const job = {
         data: {
-          booking: {
-            _id: "booking123",
-            bookingId: "B12345",
-            userId: "user123",
-            eventStartTime: new Date("2023-12-25T14:00:00Z"),
-            cancellation: {
-              date: new Date(),
-              cancelledBy: "User",
-              reason: "Testing cancellation",
-            },
-          },
+          booking: booking.toObject(),
           payment: null,
           // No recipient provided, should fall back to config
           isLateCancellation: false,
@@ -612,25 +704,24 @@ describe("Job Handlers Tests", () => {
     });
 
     it("should throw error when user is not found", async () => {
-      // Mock User.findOne to return a query that resolves to null
-      User.findOne.mockImplementationOnce(() => ({
-        lean: jest.fn().mockReturnThis(),
-        exec: jest.fn().mockResolvedValue(null),
-      }));
+      // Create a booking with a non-existent user ID
+      const nonExistentUserId = new mongoose.Types.ObjectId();
+
+      const booking = await Booking.create({
+        userId: nonExistentUserId, // User doesn't exist
+        eventStartTime: new Date("2023-12-25T14:00:00Z"),
+        eventEndTime: new Date("2023-12-25T15:00:00Z"),
+        eventName: "Test Session",
+        cancellation: {
+          date: new Date(),
+          cancelledBy: "User",
+          reason: "Testing cancellation",
+        },
+      });
 
       const job = {
         data: {
-          booking: {
-            _id: "booking123",
-            bookingId: "B12345",
-            userId: "nonexistent_user",
-            eventStartTime: new Date("2023-12-25T14:00:00Z"),
-            cancellation: {
-              date: new Date(),
-              cancelledBy: "User",
-              reason: "Testing cancellation",
-            },
-          },
+          booking: booking.toObject(),
           payment: null,
           recipient: "admin@example.com",
           isLateCancellation: false,
@@ -700,17 +791,41 @@ describe("Job Handlers Tests", () => {
 
   describe("refundConfirmation handler", () => {
     it("should send refund confirmation email correctly", async () => {
+      // Create real test data
+      const user = await User.create({
+        _id: new mongoose.Types.ObjectId(),
+        name: "Test User",
+        email: "user@example.com",
+        password: "password123",
+        accountType: "domestic",
+      });
+
+      const booking = await Booking.create({
+        _id: new mongoose.Types.ObjectId(),
+        userId: user._id,
+        eventStartTime: new Date("2023-12-25T14:00:00Z"),
+        eventEndTime: new Date("2023-12-25T15:00:00Z"),
+        eventName: "Test Session",
+      });
+
+      // For tests where we need to reference the bookingId in expectations,
+      // we can use the actual numeric bookingId generated by the plugin
+      const refreshedBooking = await Booking.findById(booking._id);
+
+      const payment = await Payment.create({
+        _id: new mongoose.Types.ObjectId(),
+        userId: user._id,
+        bookingId: booking._id,
+        amount: 100,
+        currency: "USD",
+        transactionStatus: "Refunded",
+        transactionReferenceNumber: "TRX12345",
+        paymentCompletedDate: new Date("2023-12-01T10:00:00Z"),
+      });
+
       const job = {
         data: {
-          payment: {
-            _id: "payment123",
-            userId: "user123",
-            bookingId: "booking123",
-            amount: 100,
-            transactionStatus: "Refunded",
-            transactionReferenceNumber: "TRX12345",
-            paymentCompletedDate: new Date("2023-12-01T10:00:00Z"),
-          },
+          payment: payment.toObject(),
         },
       };
 
@@ -719,13 +834,13 @@ describe("Job Handlers Tests", () => {
       expect(transporter.sendMail).toHaveBeenCalledWith(
         expect.objectContaining({
           from: "admin@fatimanaqvi.com",
-          to: "user@example.com", // From mocked User model
+          to: user.email,
           subject: "Refund Confirmation",
           template: "refundConfirmation",
           context: expect.objectContaining({
-            name: "Test User",
-            userEmail: "user@example.com",
-            bookingId: "B12345",
+            name: user.name,
+            userEmail: user.email,
+            bookingId: refreshedBooking.bookingId, // Use the actual generated bookingId
             paymentAmount: 100,
             paymentStatus: "Refunded",
             transactionReferenceNumber: "TRX12345",

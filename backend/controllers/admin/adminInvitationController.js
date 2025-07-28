@@ -5,6 +5,25 @@ const { invalidateByEvent } = require("../../middleware/redisCaching");
 const logger = require("../../logs/logger");
 const crypto = require("crypto");
 const { sendEmail } = require("../../utils/queue/index");
+const mongoose = require("mongoose");
+
+// Helper function to safely convert user ID to a valid string for MongoDB ObjectId
+const safeObjectId = (id) => {
+  if (!id) return null;
+
+  // If it's already a string, return it
+  if (typeof id === "string") return id;
+
+  // If it's an ObjectId, convert to string
+  if (id instanceof mongoose.Types.ObjectId) return id.toString();
+
+  // If it's an object with toString method (like our test mock), use that
+  if (typeof id === "object" && id.toString) return id.toString();
+
+  // Otherwise return the original (let Mongoose handle any conversion errors)
+  return id;
+};
+
 //@desc Get all invitations with filters
 //@param {Object} req with valid role, optional search, role filter
 //@route GET /admin/invitations
@@ -113,7 +132,7 @@ const deleteInvitation = asyncHandler(async (req, res) => {
 const inviteUser = asyncHandler(async (req, res) => {
   try {
     const { email, name, accountType } = req.body;
-    const adminId = req.user.id;
+    const adminId = safeObjectId(req.user.id);
 
     if (!email) {
       return res.status(400).json({ message: "Email is required" });
@@ -248,7 +267,7 @@ const inviteUser = asyncHandler(async (req, res) => {
 const resendInvitation = asyncHandler(async (req, res) => {
   try {
     const { inviteId } = req.params;
-    const adminId = req.user.id;
+    const adminId = safeObjectId(req.user.id);
 
     // Find existing invitee by ID
     const invitee = await Invitee.findById(inviteId).exec();
@@ -285,15 +304,19 @@ const resendInvitation = asyncHandler(async (req, res) => {
         name: invitee.name,
         link: invitationUrl,
       });
-    } catch (e) {
-      return res.sendStatus(500);
-    }
 
-    // Success response
-    res.status(200).json({
-      message: "Invitation resent successfully",
-      invitationUrl: invitationUrl, // For development/testing
-    });
+      // Success response
+      return res.status(200).json({
+        message: "Invitation resent successfully",
+        invitationUrl: invitationUrl,
+      });
+    } catch (emailError) {
+      logger.error(`Failed to resend invitation email: ${emailError.message}`);
+      return res.status(500).json({
+        message: "Failed to send invitation email",
+        error: emailError.message,
+      });
+    }
   } catch (error) {
     logger.error(`Unexpected error in resendInvitation: ${error.message}`);
     res.status(500).json({ message: "Internal server error" });

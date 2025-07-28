@@ -113,7 +113,7 @@ const resendEvLink = asyncHandler(async (req, res) => {
 //@access Public
 const verifyEmail = asyncHandler(async (req, res) => {
   const { token } = req.body;
-  if (!token) return res.status(400).send("Invalid request");
+  if (!token) return res.status(400).json({ message: "Invalid request" });
 
   logger.info(
     `Attempting to verify email with token: ${token.substring(0, 6)}...`
@@ -203,9 +203,13 @@ const forgotPassword = asyncHandler(async (req, res) => {
 //@param {Object} req body with valid password and token in query params
 //@route POST /users/resetPassword?token=tokenString
 //@access Public
-const resetPassword = async (req, res) => {
+const resetPassword = asyncHandler(async (req, res) => {
   const { token } = req.query;
   const { password } = req.body;
+
+  if (!token || !password) {
+    return res.status(400).json({ message: "Missing token or password" });
+  }
 
   //find user with reset token
   let user;
@@ -225,10 +229,10 @@ const resetPassword = async (req, res) => {
   user.resetPasswordEncryptedToken = undefined;
   user.resetPasswordExp = undefined;
   await user.save();
-  logger.info(`Password reset to ${password}`);
+  logger.info(`Password reset successfully for user: ${user.email}`);
 
   res.status(200).json({ message: "Password reset successfully!" });
-};
+});
 
 //@desc get users own data
 //@route GET /users/me
@@ -303,4 +307,5 @@ module.exports = {
   resendEvLink,
   forgotPassword,
   resetPassword,
+  encrypt, // Export encrypt for testing
 };

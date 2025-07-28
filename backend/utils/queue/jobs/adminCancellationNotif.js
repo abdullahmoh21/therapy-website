@@ -20,12 +20,22 @@ const sendAdminCancellationNotification = async (job) => {
       );
     }
 
-    const user = await User.findOne(
-      { _id: booking.userId },
-      "name email firstName lastName"
-    )
-      .lean()
-      .exec();
+    // Improved error handling for finding user
+    let user;
+    try {
+      user = await User.findOne(
+        { _id: booking.userId },
+        "name email firstName lastName"
+      )
+        .lean()
+        .exec();
+    } catch (err) {
+      logger.error(
+        `Error finding user for booking ${booking._id}: ${err.message}`
+      );
+      user = null;
+    }
+
     if (!user) {
       logger.info(
         `User not found for booking ${booking._id}. Could not send admin cancellation email.`
