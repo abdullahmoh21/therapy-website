@@ -355,4 +355,5 @@ module.exports = {
   Invitee,
   Config,
   mongoose,
+  request,
 };
