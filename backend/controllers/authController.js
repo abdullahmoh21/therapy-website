@@ -3,7 +3,10 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const Booking = require("../models/Booking");
 const asyncHandler = require("express-async-handler");
+const { createHash } = require("crypto");
 const crypto = require("crypto");
+const { promisify } = require("util");
+const jwtSignAsync = promisify(jwt.sign);
 const logger = require("../logs/logger");
 const { sendEmail } = require("../utils/queue/index");
 const { response } = require("express");
@@ -36,10 +39,14 @@ function encrypt(text) {
 const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
+  // Indexed, lean read (no doc hydration)
   const foundUser = await User.findOne(
     { email },
-    "email role password emailVerified"
-  ).exec();
+    { email: 1, role: 1, password: 1, emailVerified: 1 } // projection
+  )
+    .lean()
+    .exec();
+
   if (!foundUser) {
     return res.status(401).json({ message: "Invalid login credentials" });
   }
@@ -49,7 +56,7 @@ const login = asyncHandler(async (req, res) => {
     return res.status(401).json({ message: "Invalid login credentials" });
   }
 
-  if (!foundUser.emailVerified.state) {
+  if (!foundUser.emailVerified?.state) {
     return res.status(401).json({
       message: "Email not verified. Check your email for verification link",
     });
@@ -63,21 +70,36 @@ const login = asyncHandler(async (req, res) => {
     },
   };
 
-  const accessToken = jwt.sign(payload, ACCESS_TOKEN_SECRET, {
+  // Async signing avoids blocking the event loop
+  const accessToken = await jwtSignAsync(payload, ACCESS_TOKEN_SECRET, {
     expiresIn: ACCESS_TOKEN_EXPIRY,
   });
 
-  const refreshToken = jwt.sign(payload, REFRESH_TOKEN_SECRET, {
+  const refreshToken = await jwtSignAsync(payload, REFRESH_TOKEN_SECRET, {
     expiresIn: REFRESH_TOKEN_EXPIRY,
   });
 
+  // Use fast SHA-256 for refresh token persistence (no bcrypt here)
   const REFRESH_TOKEN_TTL_MS = 8 * 60 * 60 * 1000; // 8 hours in ms
+  const refreshTokenHash = crypto
+    .createHash("sha256")
+    .update(refreshToken)
+    .digest("hex");
+  const refreshTokenExp = new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
 
-  foundUser.refreshTokenHash = await bcrypt.hash(refreshToken, 10);
-  foundUser.refreshTokenExp = Date.now() + REFRESH_TOKEN_TTL_MS;
-  foundUser.lastLoginAt = new Date();
-  await foundUser.save();
+  // Targeted atomic update; avoids doc save overhead
+  await User.updateOne(
+    { _id: foundUser._id },
+    {
+      $set: {
+        refreshTokenHash,
+        refreshTokenExp,
+        lastLoginAt: new Date(),
+      },
+    }
+  ).exec();
 
+  // Fire-and-forget; if you want strict durability, await this
   invalidateByEvent("user-login", { userId: foundUser._id });
 
   const ONE_DAY_MS = 24 * 60 * 60 * 1000; // 24 hours in ms
@@ -143,6 +165,7 @@ const refresh = asyncHandler(async (req, res) => {
   const { jwt: refreshToken } = req.cookies;
   if (!refreshToken) return res.sendStatus(401);
 
+  // Verify the refresh JWT
   let userId;
   try {
     const decoded = jwt.verify(refreshToken, REFRESH_TOKEN_SECRET);
@@ -155,30 +178,45 @@ const refresh = asyncHandler(async (req, res) => {
 
   if (!userId) return res.sendStatus(403); // Forbidden, userId not found in token
 
-  // Optimized database query with projection to minimize data retrieval
+  // Minimal, lean read (no doc hydration)
   const foundUser = await User.findById(
-    userId, // Pass the userId directly, not as an object
-    "_id email role refreshTokenHash"
-  ).exec();
+    userId,
+    "_id email role refreshTokenHash refreshTokenExp"
+  )
+    .lean()
+    .exec();
+
   if (!foundUser) return res.sendStatus(403); // Forbidden, user not found
 
-  const isMatch = await bcrypt.compare(
-    refreshToken,
-    foundUser.refreshTokenHash
-  );
-  if (!isMatch) return res.sendStatus(403); // Forbidden, token mismatch
+  // Server-side TTL guard (independent of JWT's own exp)
+  if (
+    foundUser.refreshTokenExp &&
+    new Date(foundUser.refreshTokenExp).getTime() < Date.now()
+  ) {
+    return res.status(401).json({ message: "Refresh token expired" });
+  }
 
-  const accessToken = jwt.sign(
-    {
-      user: {
-        email: foundUser.email,
-        role: foundUser.role,
-        id: foundUser._id,
+  // Hash the presented refresh token with SHA-256 and compare (no bcrypt here)
+  const presentedHash = createHash("sha256").update(refreshToken).digest("hex");
+  if (presentedHash !== foundUser.refreshTokenHash) {
+    return res.sendStatus(403); // Forbidden, token mismatch
+  }
+
+  // Async sign to avoid blocking the event loop
+  const accessToken = await new Promise((resolve, reject) => {
+    jwt.sign(
+      {
+        user: {
+          email: foundUser.email,
+          role: foundUser.role,
+          id: foundUser._id,
+        },
       },
-    },
-    ACCESS_TOKEN_SECRET,
-    { expiresIn: ACCESS_TOKEN_EXPIRY }
-  );
+      ACCESS_TOKEN_SECRET,
+      { expiresIn: ACCESS_TOKEN_EXPIRY },
+      (err, token) => (err ? reject(err) : resolve(token))
+    );
+  });
 
   res.json({ accessToken });
 });
