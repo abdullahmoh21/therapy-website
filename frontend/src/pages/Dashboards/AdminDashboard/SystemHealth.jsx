@@ -13,6 +13,7 @@ import {
 } from "react-icons/fa";
 import { SiRedis } from "react-icons/si";
 import LoadingPage from "../../../pages/LoadingPage";
+import GoogleCalendarConnection from "./GoogleCalendarConnection";
 
 const StatusIndicator = ({ status }) => {
   let icon;
@@ -434,6 +435,9 @@ const SystemHealth = () => {
           </div>
         </div>
       </div>
+
+      {/* Google Calendar Integration */}
+      <GoogleCalendarConnection />
     </div>
   );
 };
