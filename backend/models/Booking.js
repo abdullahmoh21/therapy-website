@@ -25,20 +25,7 @@ const bookingSchema = new Schema(
       type: Date,
       required: true,
     },
-    eventName: {
-      type: String,
-      required: true,
-    },
-    scheduledEventURI: {
-      type: String,
-    },
-    eventTypeURI: {
-      type: String,
-    },
-    cancelURL: {
-      type: String,
-    },
-    rescheduleURL: {
+    eventTimezone: {
       type: String,
     },
     status: {
@@ -47,15 +34,82 @@ const bookingSchema = new Schema(
       enum: ["Active", "Completed", "Cancelled"],
       default: "Active",
     },
+    source: {
+      type: String,
+      enum: ["admin", "system", "calendly"],
+    },
+    recurring: {
+      state: {
+        type: Boolean,
+        default: false,
+      },
+      seriesId: {
+        type: mongoose.Schema.Types.ObjectId,
+        index: true,
+      },
+      interval: {
+        type: String,
+        enum: ["weekly", "biweekly", "monthly"],
+      },
+      day: {
+        type: Number,
+        enum: [0, 1, 2, 3, 4, 5, 6],
+      },
+      time: {
+        type: String,
+        validate: {
+          validator: function (v) {
+            return /^([01]\d|2[0-3]):([0-5]\d)$/.test(v);
+          },
+          message: (props) =>
+            `${props.value} is not a valid time format (HH:MM)!`,
+        },
+      },
+      endDate: {
+        type: Date,
+      },
+    },
+    calendly: {
+      eventName: {
+        type: String,
+      },
+      scheduledEventURI: {
+        type: String,
+      },
+      eventTypeURI: {
+        type: String,
+      },
+      cancelURL: {
+        type: String,
+      },
+      rescheduleURL: {
+        type: String,
+      },
+    },
+    googleEventId: {
+      type: String,
+    },
+    googleHtmlLink: {
+      type: String,
+    },
+    syncStatus: {
+      google: {
+        type: String,
+        enum: ["pending", "synced", "failed", "not_applicable"],
+        default: "pending",
+      },
+      lastSyncAttempt: Date,
+    },
+    invitationSent: {
+      type: Boolean,
+      default: false,
+    },
     location: {
       type: {
         type: String,
         enum: ["in-person", "online"],
       },
-      join_url: {
-        type: String,
-      },
-      zoom_pwd: {
+      meetingLink: {
         type: String,
       },
       inPersonLocation: {
@@ -71,7 +125,7 @@ const bookingSchema = new Schema(
       },
       cancelledBy: {
         type: String,
-        enum: ["User", "Admin"],
+        enum: ["User", "Admin", "System"],
       },
     },
   },
@@ -86,7 +140,18 @@ bookingSchema.plugin(autoIncrement, {
   start_seq: 208,
   unique: true,
 });
-bookingSchema.index({ eventStartTime: 1 });
+bookingSchema.index({ eventStartTime: 1, _id: 1 });
 bookingSchema.index({ status: 1 });
+bookingSchema.index({ source: 1 });
+
+// Helper method to check if this is a Calendly booking
+bookingSchema.methods.isCalendlyBooking = function () {
+  return this.source === "calendly";
+};
+
+// Helper method to check if this is an admin-created booking
+bookingSchema.methods.isAdminCreated = function () {
+  return this.source === "admin";
+};
 
 module.exports = mongoose.model("Booking", bookingSchema);

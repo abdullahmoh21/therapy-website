@@ -45,6 +45,42 @@ const userSchema = new Schema(
       enum: ["domestic", "international"],
       required: true,
     },
+    recurring: {
+      state: {
+        type: Boolean,
+        default: false,
+      },
+      interval: {
+        type: String,
+        enum: ["weekly", "biweekly", "monthly"],
+      },
+      day: {
+        type: String,
+        enum: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+      },
+      time: {
+        type: String,
+        validate: {
+          validator: function (v) {
+            return /^([01]\d|2[0-3]):([0-5]\d)$/.test(v);
+          },
+          message: (props) =>
+            `${props.value} is not a valid time format (HH:MM)!`,
+        },
+      },
+      location: {
+        type: {
+          type: String,
+          enum: ["in-person", "online"],
+        },
+        inPersonLocation: {
+          type: String,
+        },
+      },
+      recurringSeriesId: {
+        type: mongoose.Schema.Types.ObjectId,
+      },
+    },
     lastLoginAt: {
       type: Date,
       default: null,
