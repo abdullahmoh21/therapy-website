@@ -70,6 +70,37 @@ export const adminApiSlice = apiSlice.injectEndpoints({
       invalidatesTags: ["User"],
     }),
 
+    // Set a user as recurring
+    setUserRecurring: builder.mutation({
+      query: ({ userId, ...data }) => ({
+        url: `/admin/users/${userId}/recurring`,
+        method: "POST",
+        body: data,
+      }),
+      validateStatus: (response, result) => {
+        if (response.status === undefined) {
+          throw new Error("No response from server");
+        }
+        return response.status === 200;
+      },
+      invalidatesTags: ["User", "Booking"],
+    }),
+
+    // Stop recurring for a user
+    stopUserRecurring: builder.mutation({
+      query: (userId) => ({
+        url: `/admin/users/${userId}/recurring`,
+        method: "DELETE",
+      }),
+      validateStatus: (response, result) => {
+        if (response.status === undefined) {
+          throw new Error("No response from server");
+        }
+        return response.status === 200;
+      },
+      invalidatesTags: ["User", "Booking"],
+    }),
+
     inviteUser: builder.mutation({
       query: (userData) => ({
         url: "/admin/invite",
@@ -156,11 +187,27 @@ export const adminApiSlice = apiSlice.injectEndpoints({
           : [{ type: "Booking", id: "LIST" }],
     }),
 
+    // New endpoint for creating a booking
+    createAdminBooking: builder.mutation({
+      query: (bookingData) => ({
+        url: "/admin/bookings",
+        method: "POST",
+        body: bookingData,
+      }),
+      validateStatus: (response, result) => {
+        if (response.status === undefined) {
+          throw new Error("No response from server");
+        }
+        return response.status === 201 && !result.isError;
+      },
+      invalidatesTags: [{ type: "Booking", id: "LIST" }],
+    }),
+
     updateAdminBooking: builder.mutation({
       query: ({ bookingId, ...data }) => ({
-        url: "/admin/bookings",
+        url: `/admin/bookings/${bookingId}`,
         method: "PATCH",
-        body: { bookingId, ...data },
+        body: data,
       }),
       validateStatus: (response, result) => {
         if (response.status === undefined) {
@@ -175,9 +222,23 @@ export const adminApiSlice = apiSlice.injectEndpoints({
 
     deleteAdminBooking: builder.mutation({
       query: (bookingId) => ({
-        url: "/admin/bookings",
+        url: `/admin/bookings/${bookingId}`,
         method: "DELETE",
-        body: { bookingId },
+      }),
+      validateStatus: (response, result) => {
+        if (response.status === undefined) {
+          throw new Error("No response from server");
+        }
+        return response.status === 200 && !result.isError;
+      },
+      invalidatesTags: [{ type: "Booking", id: "LIST" }],
+    }),
+
+    cancelAdminBooking: builder.mutation({
+      query: ({ bookingId, reason, notifyUser }) => ({
+        url: `/admin/bookings/${bookingId}/cancel`,
+        method: "PATCH",
+        body: { reason, notifyUser },
       }),
       validateStatus: (response, result) => {
         if (response.status === undefined) {
@@ -187,6 +248,26 @@ export const adminApiSlice = apiSlice.injectEndpoints({
       },
       invalidatesTags: (result, error, arg) => [
         { type: "Booking", id: "LIST" },
+        { type: "Booking", id: arg.bookingId },
+      ],
+    }),
+
+    // New endpoint for canceling a specific instance of a booking
+    cancelBookingInstance: builder.mutation({
+      query: ({ bookingId, instanceData }) => ({
+        url: `/admin/bookings/${bookingId}/cancel-instance`,
+        method: "PATCH",
+        body: instanceData,
+      }),
+      validateStatus: (response, result) => {
+        if (response.status === undefined) {
+          throw new Error("No response from server");
+        }
+        return response.status === 200 && !result.isError;
+      },
+      invalidatesTags: (result, error, arg) => [
+        { type: "Booking", id: "LIST" },
+        { type: "Booking", id: arg.bookingId },
       ],
     }),
 
@@ -259,7 +340,7 @@ export const adminApiSlice = apiSlice.injectEndpoints({
     markPaymentAsPaid: builder.mutation({
       query: (paymentId) => ({
         url: `/admin/payments/${paymentId}/paid`,
-        method: "POST",
+        method: "PATCH", // Changed from POST to PATCH
       }),
       validateStatus: (response, result) => {
         if (response.status === undefined) {
@@ -362,6 +443,21 @@ export const adminApiSlice = apiSlice.injectEndpoints({
       providesTags: ["Invitation"],
     }),
 
+    inviteUser: builder.mutation({
+      query: (userData) => ({
+        url: "/admin/invitations",
+        method: "POST",
+        body: userData,
+      }),
+      validateStatus: (response, result) => {
+        if (response.status === undefined) {
+          throw new Error("No response from server");
+        }
+        return response.status === 200 || response.status === 201;
+      },
+      invalidatesTags: ["User"],
+    }),
+
     deleteInvitation: builder.mutation({
       query: (invitationId) => ({
         url: `/admin/invitations/${invitationId}`,
@@ -371,8 +467,8 @@ export const adminApiSlice = apiSlice.injectEndpoints({
     }),
 
     resendInvitation: builder.mutation({
-      query: (inviteId) => ({
-        url: `/admin/invite/${inviteId}/resend`,
+      query: (invitationId) => ({
+        url: `/admin/invitations/${invitationId}/resend`,
         method: "POST",
       }),
       invalidatesTags: ["Invitation"],
@@ -385,12 +481,61 @@ export const adminApiSlice = apiSlice.injectEndpoints({
         method: "GET",
       }),
       validateStatus: (response, result) => {
-        if (response.status === undefined) {
-          throw new Error("No response from server");
-        }
-        return response.status === 200 && !result.isError;
+        return response.status === 200 && !result?.error;
       },
       providesTags: (result, error, arg) => [{ type: "User", id: arg }],
+    }),
+
+    searchUsers: builder.query({
+      query: (searchQuery) => ({
+        url: `/admin/users/search`,
+        method: "GET",
+        params: { q: searchQuery, limit: 10 },
+      }),
+      validateStatus: (response, result) => {
+        return response.status === 200 && !result?.error;
+      },
+    }),
+
+    // -------------------- GOOGLE CALENDAR ENDPOINTS --------------------
+    getGoogleCalendarStatus: builder.query({
+      query: () => ({
+        url: "/admin/google-calendar/status",
+        method: "GET",
+      }),
+      providesTags: ["GoogleCalendar"],
+    }),
+
+    getGoogleCalendarAuthUrl: builder.query({
+      query: () => ({
+        url: "/admin/google-calendar/auth-url",
+        method: "GET",
+      }),
+    }),
+
+    handleGoogleCalendarCallback: builder.mutation({
+      query: (code) => ({
+        url: "/admin/google-calendar/callback",
+        method: "POST",
+        body: { code },
+      }),
+      invalidatesTags: ["GoogleCalendar"],
+    }),
+
+    testGoogleCalendarConnection: builder.mutation({
+      query: () => ({
+        url: "/admin/google-calendar/test",
+        method: "POST",
+      }),
+      invalidatesTags: ["GoogleCalendar"],
+    }),
+
+    disconnectGoogleCalendar: builder.mutation({
+      query: () => ({
+        url: "/admin/google-calendar/disconnect",
+        method: "POST",
+      }),
+      invalidatesTags: ["GoogleCalendar"],
     }),
   }),
 });
@@ -400,9 +545,12 @@ export const {
   useGetAdminUsersQuery,
   useDeleteUserMutation,
   useUpdateUserMutation,
+  useSetUserRecurringMutation,
+  useStopUserRecurringMutation,
   useInviteUserMutation,
   useResendInvitationMutation,
   useGetUserDetailsQuery,
+  useLazySearchUsersQuery,
 
   // Booking endpoints
   useGetAdminBookingsQuery,
@@ -410,6 +558,9 @@ export const {
   useUpdateAdminBookingMutation,
   useDeleteAdminBookingMutation,
   useGetAdminBookingDetailQuery,
+  useCreateAdminBookingMutation, // New hook
+  useCancelAdminBookingMutation, // New hook
+  useCancelBookingInstanceMutation, // New hook
 
   // Payment endpoints
   useGetAdminPaymentsQuery,
@@ -429,4 +580,12 @@ export const {
   // Invitation endpoints
   useGetInvitedUsersQuery,
   useDeleteInvitationMutation,
+
+  // Google Calendar endpoints
+  useGetGoogleCalendarStatusQuery,
+  useGetGoogleCalendarAuthUrlQuery,
+  useLazyGetGoogleCalendarAuthUrlQuery,
+  useHandleGoogleCalendarCallbackMutation,
+  useTestGoogleCalendarConnectionMutation,
+  useDisconnectGoogleCalendarMutation,
 } = adminApiSlice;
