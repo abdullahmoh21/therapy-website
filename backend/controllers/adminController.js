@@ -12,7 +12,9 @@ module.exports = {
   deleteUser: userController.deleteUser,
   updateUser: userController.updateUser,
   getUserDetails: userController.getUserDetails,
-
+  recurUser: userController.recurUser,
+  stopRecurring: userController.stopRecurring,
+  searchUsers: userController.searchUsers,
   // Invitation controller functions
   inviteUser: invitationController.inviteUser,
   getAllInvitations: invitationController.getAllInvitations,
@@ -21,6 +23,8 @@ module.exports = {
 
   // Booking controller functions
   getAllBookings: bookingController.getAllBookings,
+  createBooking: bookingController.createBooking,
+  cancelBooking: bookingController.cancelBooking,
   getBookingTimeline: bookingController.getBookingTimeline,
   updateBooking: bookingController.updateBooking,
   deleteBooking: bookingController.deleteBooking,

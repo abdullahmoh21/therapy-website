@@ -169,6 +169,17 @@ module.exports = {
       { pattern: "user:*", userId: true },
       { pattern: "admin:users:*" },
     ],
+    "user-recurring-updated": [
+      { pattern: "user:*", userId: true },
+      { pattern: "admin:users:*" },
+      {
+        pattern: "admin:users",
+        pathVariables: {
+          urlPattern: "/api/admin/users/{{userId}}",
+          variable: "userId",
+        },
+      },
+    ],
     "booking-created": [
       { pattern: "bookings:*", userId: true },
       { pattern: "admin:bookings:*" },
