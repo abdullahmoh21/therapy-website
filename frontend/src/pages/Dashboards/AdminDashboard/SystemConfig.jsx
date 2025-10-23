@@ -161,7 +161,7 @@ const ConfigItem = ({ configKey, data, onSave, isSaving }) => {
                 "Bank and mobile payment account details for client payments"}
             </p>
           </div>
-          {data.editable && !isEditing && (
+          {data.viewable && !isEditing && (
             <button
               className="p-2 text-gray-500 hover:text-gray-700 rounded transition-colors"
               title="Edit Payment Methods"
@@ -244,7 +244,7 @@ const ConfigItem = ({ configKey, data, onSave, isSaving }) => {
             <p className="text-sm text-gray-600 mt-1">{data.description}</p>
           )}
         </div>
-        {data.editable && !isEditing && (
+        {data.viewable && !isEditing && (
           <button
             className="p-2 text-gray-500 hover:text-gray-700 rounded transition-colors"
             title="Edit"
