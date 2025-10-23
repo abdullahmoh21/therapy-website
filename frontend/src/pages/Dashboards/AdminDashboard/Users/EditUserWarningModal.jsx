@@ -1,31 +1,114 @@
 import React from "react";
-import { BiErrorCircle } from "react-icons/bi"; // Use BiErrorCircle instead of BiExclamationTriangle
-import ConfirmationModal from "../../../../components/confirmationModal";
+import { BiErrorCircle, BiX, BiEdit, BiCheck } from "react-icons/bi";
 
 const EditUserWarningModal = ({ isOpen, onClose, onConfirm }) => {
+  if (!isOpen) return null;
+
   return (
-    <ConfirmationModal
-      isOpen={isOpen}
-      onClose={onClose}
-      onConfirm={onConfirm}
-      title="Are you sure this is necessary?"
-      message={
-        <>
-          <p className="mb-3">
-            <strong>Important:</strong> Please do not edit any information of
-            the client unless absolutely necessary. Any changes made here will
-            be reflected in their account and are not just for display purposes.
-          </p>
-          <p>
-            There is rarely ever any need to change a client's email unless they
-            have specifically requested this change.
-          </p>
-        </>
-      }
-      confirmText="I Understand"
-      cancelText="Cancel"
-      variant="warning"
-    />
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black bg-opacity-50"
+        onClick={onClose}
+      />
+
+      {/* Modal */}
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-xs sm:max-w-md lg:max-w-lg max-h-[95vh] m-4 overflow-hidden">
+        {/* Header */}
+        <div className="bg-white border-b border-gray-200 p-4 sm:p-6">
+          <div className="flex items-center">
+            <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 bg-yellow-500 rounded-xl flex items-center justify-center mr-2 sm:mr-3">
+              <BiErrorCircle className="text-white text-lg sm:text-xl" />
+            </div>
+            <div>
+              <h2 className="text-lg sm:text-xl font-bold text-gray-800">
+                Are you sure this is necessary?
+              </h2>
+              <p className="text-xs sm:text-sm text-gray-600">
+                Review before proceeding
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="ml-auto p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <BiX className="text-xl text-gray-500" />
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-4 sm:p-6">
+          <div className="text-center mb-4 sm:mb-6">
+            <p className="text-base sm:text-lg text-gray-700 mb-2">
+              Please ensure this edit is absolutely necessary
+            </p>
+            <p className="text-xs sm:text-sm text-gray-600">
+              Changes will be reflected in the user's actual account
+            </p>
+          </div>
+
+          {/* Warning Card */}
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <BiErrorCircle className="text-yellow-500 text-lg sm:text-xl mt-0.5" />
+              </div>
+              <div className="ml-3">
+                <h4 className="text-xs sm:text-sm font-semibold text-yellow-800 mb-2">
+                  Important: Please consider carefully
+                </h4>
+                <ul className="space-y-1 text-xs sm:text-sm text-yellow-700">
+                  <li className="flex items-center">
+                    <BiCheck className="mr-2 text-yellow-600 flex-shrink-0" />
+                    Changes affect the user's actual account data
+                  </li>
+                  <li className="flex items-center">
+                    <BiCheck className="mr-2 text-yellow-600 flex-shrink-0" />
+                    Email changes are rarely necessary
+                  </li>
+                  <li className="flex items-center">
+                    <BiCheck className="mr-2 text-yellow-600 flex-shrink-0" />
+                    Only proceed if user has specifically requested changes
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* Info Card */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
+            <div className="flex items-start">
+              <BiEdit className="text-blue-600 text-base sm:text-lg mr-2 mt-0.5 flex-shrink-0" />
+              <p className="text-xs sm:text-sm text-blue-800 font-medium">
+                These changes are not just for display purposes - they will
+                update the user's actual account information
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex justify-end gap-2 sm:gap-3 p-4 sm:p-6 border-t border-gray-200 bg-white">
+          <button
+            onClick={onClose}
+            className="px-3 sm:px-6 py-2 sm:py-3 bg-gray-100 text-gray-700 rounded-lg text-sm sm:text-base font-medium hover:bg-gray-200 transition-all duration-200 flex items-center"
+          >
+            <BiX className="mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Cancel</span>
+            <span className="sm:hidden">No</span>
+          </button>
+          <button
+            onClick={onConfirm}
+            className="px-3 sm:px-6 py-2 sm:py-3 bg-yellow-500 text-white rounded-lg text-sm sm:text-base font-medium hover:bg-yellow-600 transition-all duration-200 flex items-center shadow-lg hover:shadow-xl"
+          >
+            <BiCheck className="mr-1 sm:mr-2 text-base sm:text-lg" />
+            <span className="hidden sm:inline">I Understand, Proceed</span>
+            <span className="sm:hidden">Proceed</span>
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
 
