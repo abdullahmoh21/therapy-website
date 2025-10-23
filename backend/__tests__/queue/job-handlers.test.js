@@ -330,7 +330,10 @@ describe("Job Handlers Tests", () => {
         userId: user._id,
         eventStartTime: new Date(),
         eventEndTime: new Date(Date.now() + 3600000),
-        eventName: "Test Booking 1",
+        calendly: {
+          eventName: "Test Booking 1",
+        },
+        source: "system",
         status: "Active",
       });
 
@@ -338,7 +341,10 @@ describe("Job Handlers Tests", () => {
         userId: user._id,
         eventStartTime: new Date(),
         eventEndTime: new Date(Date.now() + 3600000),
-        eventName: "Test Booking 2",
+        calendly: {
+          eventName: "Test Booking 2",
+        },
+        source: "system",
         status: "Active",
       });
 

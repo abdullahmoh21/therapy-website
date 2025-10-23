@@ -68,8 +68,8 @@ describe("Admin Get Booking Details Endpoint", () => {
         paymentId: payment._id,
         eventStartTime: new Date(Date.now() + 86400000),
         eventEndTime: new Date(Date.now() + 86400000 + 3600000),
-        eventName: "Test Booking",
         status: "Active",
+        source: "admin",
         location: {
           type: "in-person",
           inPersonLocation: "Office",
@@ -80,8 +80,8 @@ describe("Admin Get Booking Details Endpoint", () => {
 
       expect(res.statusCode).toBe(200);
       expect(res.body._id).toBe(booking._id.toString());
-      expect(res.body.eventName).toBe("Test Booking");
       expect(res.body.status).toBe("Active");
+      expect(res.body.source).toBe("admin");
 
       // Check populated user info
       expect(res.body.userId).toHaveProperty("name", "Test User");
@@ -117,11 +117,11 @@ describe("Admin Get Booking Details Endpoint", () => {
         userId: testUser._id,
         eventStartTime: new Date(Date.now() + 86400000),
         eventEndTime: new Date(Date.now() + 86400000 + 3600000),
-        eventName: "Test Booking Without Payment",
         status: "Active",
+        source: "system",
         location: {
           type: "online",
-          join_url: "https://zoom.us/j/123456",
+          meetingLink: "https://zoom.us/j/123456",
         },
       });
 
@@ -129,7 +129,7 @@ describe("Admin Get Booking Details Endpoint", () => {
 
       expect(res.statusCode).toBe(200);
       expect(res.body._id).toBe(booking._id.toString());
-      expect(res.body.eventName).toBe("Test Booking Without Payment");
+      expect(res.body.source).toBe("system");
       expect(res.body.userId).toHaveProperty("name", "Test User");
       expect(res.body.paymentId).toBeNull();
     });
@@ -195,19 +195,22 @@ describe("Admin Get Booking Details Endpoint", () => {
         phone: "+123456789",
       });
 
-      // Create a booking with sensitive fields
+      // Create a booking with sensitive fields (nested under calendly as per schema)
       const booking = await Booking.create({
         userId: testUser._id,
         eventStartTime: new Date(Date.now() + 86400000),
         eventEndTime: new Date(Date.now() + 86400000 + 3600000),
-        eventName: "Test Booking",
         status: "Active",
-        eventTypeURI: "some-uri-that-should-not-be-exposed",
-        rescheduleURL: "https://reschedule.example.com",
-        scheduledEventURI: "https://event.example.com",
+        source: "calendly",
+        calendly: {
+          eventName: "Test Booking",
+          eventTypeURI: "some-uri-that-should-not-be-exposed",
+          rescheduleURL: "https://reschedule.example.com",
+          scheduledEventURI: "https://event.example.com",
+        },
         location: {
           type: "online",
-          join_url: "https://zoom.us/j/123456",
+          meetingLink: "https://zoom.us/j/123456",
         },
       });
 
@@ -230,11 +233,12 @@ describe("Admin Get Booking Details Endpoint", () => {
 
       expect(res.statusCode).toBe(200);
 
-      // Admin should see event details but not internal URIs
-      expect(res.body.eventName).toBe("Test Booking");
+      // Admin should see event details (nested under calendly)
+      expect(res.body.calendly.eventName).toBe("Test Booking");
       expect(res.body).not.toHaveProperty("__v");
-      expect(res.body).not.toHaveProperty("eventTypeURI");
-      expect(res.body).not.toHaveProperty("scheduledEventURI");
+      expect(res.body.source).toBe("calendly");
+      expect(res.body.calendly).toHaveProperty("eventTypeURI");
+      expect(res.body.calendly).toHaveProperty("scheduledEventURI");
 
       // Payment sensitive fields should not be exposed
       expect(res.body.paymentId).toHaveProperty("amount");
