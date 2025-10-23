@@ -62,7 +62,8 @@ const getBankAccountDetails = asyncHandler(async (req, res) => {
 //@access Private(admin)
 const getAllConfigs = asyncHandler(async (req, res) => {
   try {
-    const configurations = await Config.findAllOrdered();
+    // Get configurations excluding sensitive Google tokens
+    const configurations = await Config.findAllOrdered(false);
 
     res.status(200).json({
       configurations: configurations.reduce((acc, config) => {
@@ -70,7 +71,7 @@ const getAllConfigs = asyncHandler(async (req, res) => {
           value: config.value,
           description: config.description,
           displayName: config.displayName,
-          editable: config.editable,
+          viewable: config.viewable !== false, // Default to true if not specified
           _id: config._id,
         };
         return acc;
@@ -120,7 +121,7 @@ const updateConfig = asyncHandler(async (req, res) => {
           value: updatedConfig.value,
           description: updatedConfig.description,
           displayName: updatedConfig.displayName,
-          editable: updatedConfig.editable !== false, // Default to true if undefined
+          viewable: updatedConfig.viewable !== false, // Default to true if undefined
           _id: updatedConfig._id,
         },
       });

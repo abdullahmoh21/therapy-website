@@ -1,4 +1,7 @@
-const { redisClient, checkRedisAvailability } = require("../utils/redisClient");
+const {
+  redisCacheClient,
+  checkRedisCacheAvailability,
+} = require("../utils/redisClient");
 const logger = require("../logs/logger");
 const { promisify } = require("util");
 const path = require("path");
@@ -22,7 +25,7 @@ async function isRedisWorking() {
     now - lastRedisCheckTime > REDIS_CHECK_INTERVAL
   ) {
     lastRedisCheckTime = now;
-    const isConnected = await checkRedisAvailability();
+    const isConnected = await checkRedisCacheAvailability();
     if (redisAvailable !== isConnected) {
       if (isConnected) {
         logger.debug("Redis is now available for caching");
@@ -313,7 +316,7 @@ async function invalidateByEvent(eventName, options = {}) {
     let cursor = "0";
     do {
       try {
-        const [nextCursor, keys] = await redisClient.scan(
+        const [nextCursor, keys] = await redisCacheClient.scan(
           cursor,
           "MATCH",
           pattern,
@@ -324,7 +327,7 @@ async function invalidateByEvent(eventName, options = {}) {
         cursor = nextCursor;
 
         if (keys.length > 0) {
-          await redisClient.del(keys);
+          await redisCacheClient.del(keys);
           totalDeleted += keys.length;
         }
       } catch (error) {
@@ -360,7 +363,7 @@ async function addToCache(keyName, data, options = { EX: 1800 }) {
   try {
     const buffer = await deflateAsync(dataString);
     const compressedData = buffer.toString("base64");
-    await redisClient.set(keyName, compressedData, "EX", options.EX);
+    await redisCacheClient.set(keyName, compressedData, "EX", options.EX);
   } catch (error) {
     if (redisAvailable) {
       logger.debug(
@@ -378,7 +381,7 @@ async function getFromCache(key) {
   }
 
   try {
-    const cachedValue = await redisClient.get(key);
+    const cachedValue = await redisCacheClient.get(key);
     if (cachedValue) {
       const buffer = await inflateAsync(Buffer.from(cachedValue, "base64"));
       let data = buffer.toString();
@@ -459,7 +462,7 @@ function redisCaching(options = {}) {
         if (isRedisWorking()) {
           try {
             // Reset expiry on cache hit
-            await redisClient.expire(key, cacheTTL);
+            await redisCacheClient.expire(key, cacheTTL);
           } catch (expireError) {
             logger.debug(
               `Failed to reset expiry for key: ${key} - ${expireError.message}`
