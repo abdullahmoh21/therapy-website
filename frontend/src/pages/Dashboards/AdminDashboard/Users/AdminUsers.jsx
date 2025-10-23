@@ -13,12 +13,15 @@ import UserTable from "./UserTable";
 import InvitedUsers from "./InvitedUsers";
 import InviteUserPopup from "./InviteUserPopup";
 import EditUserPopup from "./EditUserPopup"; // Import the EditUserPopup component
+import SetRecurringPopup from "./SetRecurringPopup"; // Import the SetRecurringPopup component
 
 // Import the user RTK Query hooks
 import {
   useGetAdminUsersQuery,
   useDeleteUserMutation,
   useUpdateUserMutation,
+  useSetUserRecurringMutation,
+  useStopUserRecurringMutation,
 } from "../../../../features/admin/adminApiSlice";
 
 // Pagination: users/page
@@ -35,13 +38,18 @@ const AdminUsers = () => {
   const [showInviteUserPopup, setShowInviteUserPopup] = useState(false);
   const [showInvitedUsers, setShowInvitedUsers] = useState(false);
 
-  // State for user editing
+  // State for user editing and recurring
   const [showEditPopup, setShowEditPopup] = useState(false);
   const [userToEdit, setUserToEdit] = useState(null);
+  const [showRecurringPopup, setShowRecurringPopup] = useState(false);
+  const [userForRecurring, setUserForRecurring] = useState(null);
+  const [isProcessingRecurring, setIsProcessingRecurring] = useState(false);
 
   // Add the mutation hooks
   const [deleteUser] = useDeleteUserMutation();
   const [updateUser] = useUpdateUserMutation();
+  const [setUserRecurring] = useSetUserRecurringMutation();
+  const [stopUserRecurring] = useStopUserRecurringMutation();
 
   // Additional state for edit warning modal
   const [showEditWarning, setShowEditWarning] = useState(false);
@@ -153,6 +161,60 @@ const AdminUsers = () => {
     setUserToEdit(null);
   };
 
+  // Handle setting user as recurring
+  const handleSetRecurringClick = (user) => {
+    setUserForRecurring(user);
+    setShowRecurringPopup(true);
+  };
+
+  // Function to check if recurring option should be shown (hide for admins)
+  const shouldShowRecurringOption = (user) => {
+    return user.role !== "admin";
+  };
+
+  // Handle setting up recurring sessions
+  const handleSetRecurringConfirm = async (recurringData) => {
+    setIsProcessingRecurring(true);
+    try {
+      const result = await setUserRecurring({
+        userId: recurringData.userId,
+        ...recurringData,
+      }).unwrap();
+
+      toast.success("Recurring sessions scheduled successfully");
+      refetch();
+      setShowRecurringPopup(false);
+    } catch (err) {
+      console.error("Error setting up recurring sessions:", err);
+      toast.error(
+        err?.data?.error ||
+          err?.data?.message ||
+          "Failed to set up recurring sessions"
+      );
+    } finally {
+      setIsProcessingRecurring(false);
+    }
+  };
+
+  // Handle stopping recurring sessions
+  const handleStopRecurring = async (user) => {
+    try {
+      // Extract userId from user object
+      const userId = user._id;
+      const result = await stopUserRecurring(userId).unwrap();
+
+      toast.success("Recurring sessions stopped successfully");
+      refetch();
+    } catch (err) {
+      console.error("Error stopping recurring sessions:", err);
+      toast.error(
+        err?.data?.error ||
+          err?.data?.message ||
+          "Failed to stop recurring sessions"
+      );
+    }
+  };
+
   // Check if any filters are active
   const anyFiltersActive = filters.role || searchTerm;
 
@@ -230,6 +292,9 @@ const AdminUsers = () => {
         setExpandedRows={setExpandedRows}
         onDeleteClick={handleDeleteClick}
         onEditClick={handleEditClick}
+        onSetRecurringClick={handleSetRecurringClick}
+        shouldShowRecurringOption={shouldShowRecurringOption}
+        onStopRecurring={handleStopRecurring}
         clearFilters={clearFilters}
         anyFiltersActive={anyFiltersActive}
       />
@@ -269,6 +334,18 @@ const AdminUsers = () => {
         isOpen={showEditWarning}
         onClose={() => setShowEditWarning(false)}
         onConfirm={handleEditConfirm}
+      />
+
+      {/* Set Recurring Popup */}
+      <SetRecurringPopup
+        isOpen={showRecurringPopup}
+        onClose={() => {
+          setShowRecurringPopup(false);
+          setUserForRecurring(null);
+        }}
+        onConfirm={handleSetRecurringConfirm}
+        isProcessing={isProcessingRecurring}
+        selectedUser={userForRecurring}
       />
 
       <ConfirmDialog />
