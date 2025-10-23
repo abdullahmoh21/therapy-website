@@ -34,6 +34,9 @@ function getJobUniqueId(jobName, jobData) {
     case "userCancellation":
       stableKey = jobData.recipient || jobData.calendlyEmail;
       break;
+    case "syncCalendar":
+      stableKey = jobData.bookingId;
+      break;
     default:
       stableKey = stableStringify(jobData);
   }

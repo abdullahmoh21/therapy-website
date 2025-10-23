@@ -2,6 +2,7 @@ const { Worker } = require("bullmq");
 const { getRedisConnection } = require("./connection");
 const logger = require("../../logs/logger");
 const Config = require("../../models/Config");
+const Job = require("../../models/Job");
 const { transporter } = require("../emailTransporter");
 const jobHandlers = require("./jobs/index");
 
@@ -11,17 +12,75 @@ async function buildWorker(queueName) {
   const worker = new Worker(
     queueName,
     async (job) => {
-      const handler = jobHandlers[job.name];
-      if (!handler) {
-        logger.error(`Unknown job name: ${job.name}`);
-        return { success: false, error: "Unknown job type" };
+      const { name, data } = job;
+      logger.info(`Processing job ${name} (${job.id})`);
+
+      // Make sure handler exists
+      if (!jobHandlers[name]) {
+        throw new Error(`Unknown job type: ${name}`);
       }
-      return handler(job);
+
+      try {
+        // Call appropriate handler based on job name
+        const result = await jobHandlers[name]({ data });
+        logger.info(`Completed job ${name} (${job.id})`);
+
+        // Mark as completed in MongoDB
+        try {
+          const mongoJob = await Job.findOne({ jobId: job.id });
+          if (mongoJob && mongoJob.status === "promoted") {
+            await mongoJob.markCompleted(result);
+          }
+        } catch (mongoError) {
+          logger.error(
+            `Failed to update MongoDB job status: ${mongoError.message}`
+          );
+          // Don't fail the Redis job just because MongoDB update failed
+        }
+
+        return result;
+      } catch (error) {
+        logger.error(
+          `Error processing job ${name} (${job.id}): ${error.message}`
+        );
+
+        // Mark as failed in MongoDB
+        try {
+          const mongoJob = await Job.findOne({ jobId: job.id });
+          if (mongoJob) {
+            await mongoJob.markFailed(error.message);
+          }
+        } catch (mongoError) {
+          logger.error(
+            `Failed to update MongoDB job failure: ${mongoError.message}`
+          );
+        }
+
+        throw error;
+      }
     },
-    { connection }
+    {
+      connection: {
+        host:
+          process.env.REDIS_QUEUE_HOST || process.env.REDIS_HOST || "localhost",
+        port:
+          process.env.REDIS_QUEUE_PORT ||
+          (process.env.REDIS_PORT
+            ? parseInt(process.env.REDIS_PORT) + 1
+            : 6380),
+      },
+      concurrency: 5, // Process 5 jobs at a time
+      lockDuration: 30000, // 30 seconds lock
+    }
   );
 
+  // Set up event handlers
+  worker.on("completed", (job) => {
+    logger.debug(`Job ${job.id} completed successfully`);
+  });
+
   worker.on("failed", async (job, err) => {
+    logger.error(`Job ${job?.id} failed with error: ${err.message}`);
     if (job.attemptsMade === job.opts.attempts) {
       const devEmail = await Config.getValue("devEmail");
       if (!devEmail) {

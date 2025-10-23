@@ -9,6 +9,11 @@ const eventDeleted = require("./eventDeleted");
 const unauthorizedBooking = require("./unauthorizedBooking");
 const adminAlert = require("./adminAlert");
 const userCancellation = require("./userCancellation");
+const adminInitiatedCancellation = require("./adminInitiatedCancellation");
+const syncCalendar = require("./syncCalendar");
+const deleteCalendarEvent = require("./deleteCalendarEvent");
+const addClientAttendee = require("./addClientAttendee");
+const cancelGoogleCalendarEvent = require("./cancelGoogleCalendarEvent");
 
 module.exports = {
   verifyEmail,
@@ -22,4 +27,9 @@ module.exports = {
   unauthorizedBooking,
   adminAlert,
   userCancellation,
+  adminInitiatedCancellation,
+  syncCalendar,
+  deleteCalendarEvent,
+  addClientAttendee,
+  cancelGoogleCalendarEvent,
 };
