@@ -62,6 +62,38 @@ const REQUIRED_CONFIG_KEYS = [
     description:
       "Bank account details for payments. Please ensure they are correct since all clients will see on their dashboard.",
   },
+  {
+    key: "googleRefreshToken",
+    value: null,
+    displayName: "Google Calendar Refresh Token",
+    description:
+      "OAuth2 refresh token for Google Calendar API access. This is automatically managed by the system.",
+    viewable: false, // Hidden from admin interface
+  },
+  {
+    key: "googleAccessToken",
+    value: null,
+    displayName: "Google Calendar Access Token",
+    description:
+      "OAuth2 access token for Google Calendar API access. This is automatically refreshed and managed by the system.",
+    viewable: false, // Hidden from admin interface
+  },
+  {
+    key: "googleTokenExpiry",
+    value: null,
+    displayName: "Google Token Expiry",
+    description:
+      "Expiry timestamp for Google access token. This is automatically updated when tokens are refreshed.",
+    viewable: false, // Hidden from admin interface
+  },
+  {
+    key: "googleUserEmail",
+    value: null,
+    displayName: "Google Account Email",
+    description:
+      "Email address of the connected Google account. This is automatically set when connecting to Google Calendar.",
+    viewable: false, // Hidden from admin interface
+  },
 ];
 
 // Load local cache from binary file
@@ -117,6 +149,10 @@ const CONFIG_DEFAULTS = {
       accountTitle: "Fatima Mohsin Naqvi",
     },
   ],
+  googleRefreshToken: null,
+  googleAccessToken: null,
+  googleTokenExpiry: null,
+  googleUserEmail: null,
 };
 
 // Track error logged state to prevent log spam
@@ -132,7 +168,40 @@ const configSchema = new mongoose.Schema(
     },
     value: {
       type: mongoose.Schema.Types.Mixed,
-      required: true,
+      required: false, // Make value field optional
+      validate: {
+        validator: function (value) {
+          // Allow null values for Google tokens
+          const googleTokenKeys = [
+            "googleRefreshToken",
+            "googleAccessToken",
+            "googleTokenExpiry",
+            "googleUserEmail",
+          ];
+
+          // If it's a Google token key, allow null values
+          if (googleTokenKeys.includes(this.key)) {
+            return true; // Always valid for Google token keys
+          }
+
+          // For other keys, require a non-null, non-undefined value
+          return value !== null && value !== undefined;
+        },
+        message: "Value is required for non-Google token configuration keys",
+      },
+      default: function () {
+        // Set default to null for Google tokens
+        const googleTokenKeys = [
+          "googleRefreshToken",
+          "googleAccessToken",
+          "googleTokenExpiry",
+          "googleUserEmail",
+        ];
+        if (googleTokenKeys.includes(this.key)) {
+          return null;
+        }
+        return undefined;
+      },
     },
     displayName: {
       type: String,
@@ -143,9 +212,9 @@ const configSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
-    editable: {
+    viewable: {
       type: Boolean,
-      default: true,
+      default: true, // By default, configs are viewable in admin interface
     },
   },
   {
@@ -252,12 +321,32 @@ configSchema.statics.setValue = async function (key, value) {
 
     let result;
     if (existingConfig) {
-      // If it exists, just update the value directly
-      result = await this.findOneAndUpdate(
-        { key },
-        { $set: { value } },
-        { new: true, runValidators: true }
-      ).maxTimeMS(5000);
+      // Check if this is a Google token being set to null
+      const googleTokenKeys = [
+        "googleRefreshToken",
+        "googleAccessToken",
+        "googleTokenExpiry",
+        "googleUserEmail",
+      ];
+
+      const isGoogleToken = googleTokenKeys.includes(key);
+      const isSettingToNull = value === null || value === undefined;
+
+      if (isGoogleToken && isSettingToNull) {
+        // For Google tokens being set to null, use $set with null explicitly
+        result = await this.findOneAndUpdate(
+          { key },
+          { $set: { value: null } },
+          { new: true, runValidators: false } // Skip validation for null Google tokens
+        ).maxTimeMS(5000);
+      } else {
+        // For regular updates, use normal validation
+        result = await this.findOneAndUpdate(
+          { key },
+          { $set: { value } },
+          { new: true, runValidators: true }
+        ).maxTimeMS(5000);
+      }
 
       if (!result) {
         throw new Error(`Failed to update config with key: ${key}`);
@@ -274,7 +363,7 @@ configSchema.statics.setValue = async function (key, value) {
         value,
         displayName: key.charAt(0).toUpperCase() + key.slice(1), // Capitalize first letter
         description: `Auto-generated for key ${key}`,
-        editable: true,
+        viewable: true, // Default to viewable for auto-generated configs
       });
 
       result = await newConfig.save();
@@ -343,8 +432,18 @@ configSchema.statics.invalidateCache = async function (key) {
   }
 };
 
+// Method to check if a config key should be viewable in admin interface
+configSchema.statics.isViewable = function (key) {
+  // Find the config definition in REQUIRED_CONFIG_KEYS
+  const configDef = REQUIRED_CONFIG_KEYS.find((config) => config.key === key);
+  if (configDef) {
+    return configDef.viewable !== false; // Default to true if not specified
+  }
+  return true; // Default to viewable for unknown keys
+};
+
 // Method to get all configs in the order of REQUIRED_CONFIG_KEYS
-configSchema.statics.findAllOrdered = async function () {
+configSchema.statics.findAllOrdered = async function (includeHidden = false) {
   try {
     if (mongoose.connection.readyState !== 1) {
       logger.warn("Cannot get configs: MongoDB not connected");
@@ -357,17 +456,28 @@ configSchema.statics.findAllOrdered = async function () {
     // Create a map for quick lookup
     const configMap = new Map();
     allConfigs.forEach((config) => {
+      // Skip non-viewable configs unless explicitly requested
+      if (!includeHidden && !this.isViewable(config.key)) {
+        return;
+      }
       configMap.set(config.key, config);
     });
 
     const orderedConfigs = [];
     REQUIRED_CONFIG_KEYS.forEach((requiredConfig) => {
+      // Skip non-viewable configs unless explicitly requested
+      if (!includeHidden && requiredConfig.viewable === false) {
+        return;
+      }
+
       const config = configMap.get(requiredConfig.key);
       if (config) {
         orderedConfigs.push(config);
         configMap.delete(requiredConfig.key);
       }
     });
+
+    // Add any remaining configs that are viewable
     configMap.forEach((config) => {
       orderedConfigs.push(config);
     });
