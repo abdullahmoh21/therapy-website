@@ -28,9 +28,23 @@ const BookingStatusBadge = ({ status }) => {
       icon = <BiInfoCircle className="mr-1" />;
   }
 
+  const getHoverEffect = () => {
+    switch (status) {
+      case "Active":
+        return "hover:bg-green-200 hover:shadow-sm";
+      case "Completed":
+        return "hover:bg-blue-200 hover:shadow-sm";
+      case "Cancelled":
+        return "hover:bg-red-200 hover:shadow-sm";
+      default:
+        return "hover:bg-gray-200 hover:shadow-sm";
+    }
+  };
+
   return (
     <span
-      className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${bgColor} ${textColor}`}
+      className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-200 cursor-help ${bgColor} ${textColor} ${getHoverEffect()}`}
+      title={`Booking status: ${status}`}
     >
       {icon} {status}
     </span>
