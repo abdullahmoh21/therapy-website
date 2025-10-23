@@ -48,6 +48,9 @@ const SystemHealth = lazy(() =>
 const SystemConfig = lazy(() =>
   import("../pages/Dashboards/AdminDashboard/SystemConfig")
 );
+const GoogleCalendarCallback = lazy(() =>
+  import("../pages/Dashboards/AdminDashboard/GoogleCalendarCallback")
+);
 const UpcomingBookings = lazy(() =>
   import("../pages/Dashboards/AdminDashboard/UpcomingBookings")
 );
@@ -90,6 +93,10 @@ const Routers = () => {
           <Route path="system" element={<SystemHealth />} />
           <Route path="config" element={<SystemConfig />} />
           <Route path="upcoming" element={<UpcomingBookings />} />
+          <Route
+            path="google-calendar-callback"
+            element={<GoogleCalendarCallback />}
+          />
         </Route>
 
         <Route path="*" element={<NotFound />} />
