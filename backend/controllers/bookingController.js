@@ -254,7 +254,7 @@ async function createBooking({
   calendlyEmail,
 }) {
   const [existingBooking, user] = await Promise.all([
-    Booking.findOne({ scheduledEventURI: eventURI }).lean(),
+    Booking.findOne({ "calendly.scheduledEventURI": eventURI }).lean(),
     User.findById(userId).lean(),
   ]);
 
@@ -292,11 +292,14 @@ async function createBooking({
     userId: user._id,
     eventStartTime: start_time,
     eventEndTime: end_time,
-    eventName,
-    scheduledEventURI: eventURI,
-    eventTypeURI,
-    cancelURL: cancel_url,
-    rescheduleURL: reschedule_url,
+    source: "calendly",
+    calendly: {
+      eventName,
+      scheduledEventURI: eventURI,
+      eventTypeURI,
+      cancelURL: cancel_url,
+      rescheduleURL: reschedule_url,
+    },
     amount: sessionPrice,
     location: (() => {
       const loc = {};
@@ -352,7 +355,9 @@ async function cancelBooking({
   cancelReason,
   cancellationDate,
 }) {
-  const booking = await Booking.findOne({ scheduledEventURI: eventURI }).exec();
+  const booking = await Booking.findOne({
+    "calendly.scheduledEventURI": eventURI,
+  }).exec();
   if (!booking) {
     return;
   }
@@ -703,12 +708,15 @@ const getActiveBookings = asyncHandler(async (req, res) => {
     // strip cancelURL if cancellation window passed
     const diffMs = new Date(booking.eventStartTime).getTime() - Date.now();
     const daysLeft = diffMs / (1000 * 60 * 60 * 24);
-    if (daysLeft < noticePeriod) {
-      delete booking.cancelURL;
+    if (daysLeft < noticePeriod && booking.calendly) {
+      delete booking.calendly.cancelURL;
     }
 
     // skip payment merge for free consultations
-    if (booking.eventName === "15 Minute Consultation") {
+    if (
+      booking.calendly &&
+      booking.calendly.eventName === "15 Minute Consultation"
+    ) {
       return booking;
     }
 

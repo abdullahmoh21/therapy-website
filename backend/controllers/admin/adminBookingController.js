@@ -1,10 +1,443 @@
 const Booking = require("../../models/Booking");
 const Payment = require("../../models/Payment");
 const User = require("../../models/User");
+const Config = require("../../models/Config");
+const ShortUniqueId = require("short-unique-id");
 const asyncHandler = require("express-async-handler");
+const { zonedTimeToUtc } = require("date-fns-tz");
+const { addMinutes } = require("date-fns");
 const logger = require("../../logs/logger");
+const { addJob, sendEmail } = require("../../utils/queue/index");
+const { invalidateByEvent } = require("../../middleware/redisCaching");
 
-//@desc returns all bookings with only the fields to e displayed in frontend table
+/**
+ * @desc Creates a one-off admin booking with Google Calendar integration
+ * @route POST /admin/bookings
+ * @access Private (admin only)
+ *
+ * @param {Object} req.body
+ * @param {string} req.body.userId - MongoDB ObjectId of the user
+ * @param {string} req.body.eventDate - Date in YYYY-MM-DD format (e.g., "2025-08-23")
+ * @param {string} req.body.eventTime - Time in 24-hour format HH:MM (e.g., "16:00")
+ * @param {number} req.body.sessionLengthMinutes - Duration in minutes (e.g., 50)
+ * @param {string} req.body.location - "online" or "in-person"
+ * @param {string} [req.body.inPersonLocation] - Required if location is "in-person"
+ *
+ * @returns {Object} JSON response with booking and payment details
+ * @throws {400} - Missing/invalid parameters
+ * @throws {404} - User not found
+ * @throws {409} - Booking conflict
+ * @throws {500} - Server error
+ */
+const createBooking = asyncHandler(async (req, res) => {
+  const {
+    userId,
+    eventDate, // Date string in YYYY-MM-DD format
+    eventTime, // Time string in 24-hour format HH:MM
+    sessionLengthMinutes = 50, // Duration in minutes
+    location,
+    inPersonLocation,
+  } = req.body;
+
+  logger.debug(
+    `createBooking called with userId: ${userId}, eventDate: ${eventDate}, eventTime: ${eventTime}, sessionLength: ${sessionLengthMinutes}`
+  );
+  logger.debug(
+    `Location type: ${location}, inPersonLocation: ${
+      inPersonLocation || "None"
+    }`
+  );
+
+  // Validate required inputs
+  if (!userId || !eventDate || !eventTime || !location) {
+    logger.debug("Create booking validation failed: missing required fields");
+    return res.status(400).json({
+      message:
+        "Missing required fields: userId, eventDate, eventTime, location",
+    });
+  }
+
+  // Validate date format (YYYY-MM-DD)
+  if (
+    !eventDate ||
+    typeof eventDate !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(eventDate)
+  ) {
+    logger.debug(`Invalid date format provided: ${eventDate}`);
+    return res.status(400).json({
+      error: "Valid eventDate parameter is required in format YYYY-MM-DD",
+    });
+  }
+
+  // Validate time format (HH:MM in 24-hour format)
+  if (
+    !eventTime ||
+    typeof eventTime !== "string" ||
+    !/^([01]\d|2[0-3]):([0-5]\d)$/.test(eventTime)
+  ) {
+    logger.debug(`Invalid time format provided: ${eventTime}`);
+    return res.status(400).json({
+      error: "Valid eventTime parameter is required in 24-hour format (HH:MM)",
+    });
+  }
+
+  // Validate session length
+  if (sessionLengthMinutes <= 0 || sessionLengthMinutes > 240) {
+    logger.debug(`Invalid session length: ${sessionLengthMinutes}`);
+    return res
+      .status(400)
+      .json({ error: "Session length must be between 1 and 240 minutes" });
+  }
+
+  // Validate location data
+  if (!["online", "in-person"].includes(location)) {
+    logger.debug(`Invalid location type: ${location}`);
+    return res
+      .status(400)
+      .json({ message: "Location must be either 'online' or 'in-person'" });
+  }
+
+  if (location === "in-person" && !inPersonLocation) {
+    logger.debug("In-person location missing");
+    return res
+      .status(400)
+      .json({ message: "inPersonLocation required for in-person events" });
+  }
+
+  logger.debug(`All validation checks passed`);
+
+  // Convert date and time to UTC using Pakistani timezone
+  const TZ = "Asia/Karachi";
+  let startDate, endDate;
+
+  try {
+    // Combine date and time into a wall-clock datetime string
+    const wallClockStart = `${eventDate}T${eventTime}:00`;
+
+    // Convert to UTC using Pakistani timezone
+    startDate = zonedTimeToUtc(wallClockStart, TZ);
+
+    // Calculate end time by adding session duration
+    endDate = addMinutes(startDate, sessionLengthMinutes);
+
+    logger.debug(
+      `Converting ${wallClockStart} (${TZ}) to UTC: ${startDate.toISOString()} - ${endDate.toISOString()}`
+    );
+  } catch (err) {
+    logger.debug(`Failed to convert local time to UTC: ${err.message}`);
+    return res.status(400).json({
+      message: "Failed to interpret eventDate/eventTime",
+    });
+  }
+
+  // Validate dates after conversion
+  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+    logger.debug("Invalid date after conversion to UTC");
+    return res
+      .status(400)
+      .json({ message: "Invalid date for eventDate or eventTime" });
+  }
+
+  if (startDate >= endDate) {
+    logger.debug("Event start must be before end");
+    return res
+      .status(400)
+      .json({ message: "Event start time must be before end time" });
+  }
+
+  // Validate that the booking is in the future
+  const now = new Date();
+  if (startDate <= now) {
+    logger.debug("Booking time must be in the future");
+    return res
+      .status(400)
+      .json({ message: "Booking time must be in the future" });
+  }
+
+  logger.debug(
+    `Creating booking for user ${userId} from ${startDate.toISOString()} to ${endDate.toISOString()} (${TZ})`
+  );
+
+  // Check for user and booking conflicts (UTC window)
+  const [user, existingBooking] = await Promise.all([
+    User.findById(userId).lean().exec(),
+    Booking.findOne({
+      eventStartTime: { $lt: endDate },
+      eventEndTime: { $gt: startDate },
+      status: { $ne: "Cancelled" },
+    })
+      .select("_id userId eventStartTime eventEndTime status")
+      .lean()
+      .exec(),
+  ]);
+
+  // Handle validation results
+  if (!user) {
+    logger.debug(`User ${userId} not found`);
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  if (existingBooking) {
+    logger.debug(`Booking conflict detected for time slot`);
+    return res.status(409).json({
+      message:
+        "There is a conflicting booking. Please cancel that booking first.",
+      existingBooking,
+    });
+  }
+
+  // Determine session price based on user account type
+  let sessionPrice;
+  let currency;
+  try {
+    if (user.accountType === "international") {
+      sessionPrice = await Config.getValue("intlSessionPrice");
+      currency = "USD";
+    } else {
+      sessionPrice = await Config.getValue("sessionPrice");
+      currency = "PKR";
+    }
+
+    if (sessionPrice === undefined) {
+      logger.error("Session price not configured");
+      return res.status(500).json({ message: "Session price not configured" });
+    }
+  } catch (err) {
+    logger.error(`Error fetching session price: ${err.message}`);
+    return res
+      .status(500)
+      .json({ message: "Failed to determine session price" });
+  }
+
+  // Create location object based on type
+  const locationObj = {
+    type: location,
+  };
+
+  if (location === "in-person") {
+    locationObj.inPersonLocation = inPersonLocation;
+  }
+
+  // Generate transaction reference number
+  const uid = new ShortUniqueId({ length: 5 });
+  const transactionReferenceNumber = `T-${uid.rnd()}`;
+
+  // Create booking and payment objects
+  const bookingData = {
+    userId: user._id,
+    eventStartTime: startDate, // stored in UTC
+    eventEndTime: endDate, // stored in UTC
+    eventTimezone: TZ, // persist wall-clock intent (Pakistani timezone)
+    source: "admin", // Mark as admin-created
+    status: "Active",
+    location: locationObj,
+    syncStatus: {
+      google: "pending", // Will be updated by the sync job
+      lastSyncAttempt: null,
+    },
+  };
+
+  const paymentData = {
+    userId: user._id,
+    amount: sessionPrice,
+    currency,
+    transactionStatus: "Not Initiated",
+    transactionReferenceNumber,
+  };
+
+  try {
+    // Create booking and payment documents
+    const [booking, payment] = await Promise.all([
+      Booking.create(bookingData),
+      Payment.create(paymentData),
+    ]);
+
+    // Link the documents
+    booking.paymentId = payment._id;
+    payment.bookingId = booking._id;
+
+    await Promise.all([booking.save(), payment.save()]);
+
+    // Queue sync job for Google Calendar
+    await addJob("syncCalendar", { bookingId: booking._id.toString() });
+    logger.info(`Queued Google Calendar sync for booking ${booking._id}`);
+
+    // Invalidate cache
+    await invalidateByEvent("booking-created", {
+      userId: user._id,
+    });
+
+    logger.info(`Admin created new booking: ${booking._id} for user ${userId}`);
+    return res.status(201).json({
+      message: "Booking created successfully",
+      booking,
+      payment,
+    });
+  } catch (err) {
+    logger.error(`Error creating booking: ${err.message}`);
+    return res.status(500).json({
+      message: "Failed to create booking",
+      error: err.message,
+    });
+  }
+});
+
+/**
+ * @desc Cancels an existing booking and its Google Calendar event
+ * @route PUT /admin/bookings/cancel
+ * @access Private (admin only)
+ *
+ * @param {Object} req.body
+ * @param {string} req.body.bookingId - MongoDB ID of the booking to cancel
+ * @param {string} [req.body.reason="Cancelled by admin"] - Reason for cancellation
+ * @param {boolean} [req.body.notifyUser=false] - Whether to send cancellation email to user
+ *
+ * @returns {Object} JSON response with updated booking
+ * @throws {400} - Missing booking ID
+ * @throws {404} - Booking not found
+ * @throws {409} - Booking already cancelled
+ * @throws {500} - Server error
+ */
+const cancelBooking = asyncHandler(async (req, res) => {
+  const { bookingId } = req.params;
+  const { reason, notifyUser } = req.body;
+
+  if (!bookingId) {
+    return res.status(400).json({ message: "Booking ID is required" });
+  }
+  if (!reason) {
+    return res.status(400).json({ message: "reason is required" });
+  }
+  if (notifyUser === undefined || notifyUser === null) {
+    return res.status(400).json({ message: "notifyUser is required" });
+  }
+
+  logger.debug(`Attempting to cancel booking: ${bookingId}`);
+
+  try {
+    // Find the booking
+    const booking = await Booking.findById(bookingId);
+
+    if (!booking) {
+      logger.debug(`Booking ${bookingId} not found`);
+      return res.status(404).json({ message: "Booking not found" });
+    }
+
+    if (booking.status === "Cancelled") {
+      logger.debug(`Booking ${bookingId} is already cancelled`);
+      return res.status(400).json({ message: "Booking is already cancelled" });
+    }
+
+    // Check if this is a valid booking source for admin cancellation
+    if (!["admin", "system"].includes(booking.source)) {
+      logger.debug(
+        `Booking ${bookingId} has invalid source for admin cancellation: ${booking.source}`
+      );
+      return res.status(400).json({
+        message: `Cannot cancel ${booking.source} booking via admin panel`,
+      });
+    }
+
+    // Update booking status and add cancellation details
+    booking.status = "Cancelled";
+    booking.cancellation = {
+      reason,
+      date: new Date(),
+      cancelledBy: "Admin",
+    };
+    if (booking.googleEventId) {
+      booking.syncStatus.google = "pending";
+      booking.markModified("syncStatus");
+    }
+
+    await booking.save();
+
+    logger.info(`Booking ${bookingId} cancelled by admin`);
+
+    // Queue Google Calendar deletion job with notification flag
+    // This job will handle both Google Calendar deletion and user notification
+    if (booking.googleEventId) {
+      try {
+        await addJob("cancelGoogleCalendarEvent", {
+          bookingId: booking._id.toString(),
+          notifyUser: notifyUser,
+          reason: reason,
+        });
+        logger.info(
+          `Queued Google Calendar deletion for booking ${booking._id} with notifyUser: ${notifyUser}`
+        );
+      } catch (error) {
+        logger.error(
+          `Failed to queue Google Calendar deletion: ${error.message}`
+        );
+        return res.status(500).json({
+          message: "Failed to queue Google Calendar deletion",
+          error: error.message,
+        });
+      }
+    } else {
+      // No Google Calendar event, but still send notification if requested
+      if (notifyUser) {
+        try {
+          const user = await User.findById(booking.userId);
+          if (user) {
+            await sendEmail("adminInitiatedCancellation", {
+              recipient: user.email,
+              name: user.name,
+              bookingId: booking.bookingId || booking._id.toString(),
+              eventDate: booking.eventStartTime.toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+                timeZone: booking.eventTimezone || "Asia/Karachi",
+              }),
+              eventTime: booking.eventStartTime.toLocaleTimeString("en-US", {
+                hour: "2-digit",
+                minute: "2-digit",
+                timeZone: booking.eventTimezone || "Asia/Karachi",
+              }),
+              reason: reason,
+              cancellationDate: new Date().toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              }),
+            });
+            logger.info(
+              `Queued cancellation notification email to user ${user._id}`
+            );
+          }
+        } catch (emailError) {
+          logger.error(
+            `Failed to send cancellation email: ${emailError.message}`
+          );
+        }
+      } else {
+        logger.debug(
+          `Admin chose not to notify user for booking ${bookingId} cancellation`
+        );
+      }
+    }
+
+    // Invalidate cache
+    await invalidateByEvent("booking-updated", {
+      userId: booking.userId,
+    });
+
+    return res.status(200).json({
+      message: "Booking cancelled successfully",
+      booking,
+    });
+  } catch (err) {
+    logger.error(`Error cancelling booking: ${err.message}`);
+    return res.status(500).json({
+      message: "Failed to cancel booking",
+      error: err.message,
+    });
+  }
+});
+
+//@desc returns all bookings with only the fields to be displayed in frontend table
 //@param valid admin jwt token
 //@route GET /admin/bookings
 //@access Private(admin)
@@ -27,57 +460,74 @@ const getAllBookings = asyncHandler(async (req, res) => {
     search,
     status,
     datePreset,
-    showPastBookings,
+    view, // NEW: 'future' | 'past'
     paymentOverdue,
     location,
+    source,
   } = req.query;
 
   const query = {};
   if (status) query.status = status;
   if (location) query["location.type"] = location; // nested field filter
+  if (source) query.source = source; // source filter for calendly/admin/system
 
-  /* ----- date-preset / past-booking filters ----- */
+  /* ----- view toggle (past or future only) ----- */
   const now = new Date();
-  const startOfToday = new Date(now.setHours(0, 0, 0, 0));
+  const viewingPast = view === "past"; // default is future if param missing/invalid
 
+  if (viewingPast) {
+    query.eventStartTime = { $lt: now };
+  } else {
+    query.eventStartTime = { $gte: now };
+  }
+
+  /* ----- optional date-preset (applied inside chosen view) ----- */
   if (datePreset) {
-    query.eventStartTime = {};
+    const baseNow = new Date();
+    const startToday = new Date(
+      baseNow.getFullYear(),
+      baseNow.getMonth(),
+      baseNow.getDate()
+    );
     const presets = {
       today() {
-        const endOfToday = new Date(startOfToday);
-        endOfToday.setHours(23, 59, 59, 999);
-        return [startOfToday, endOfToday];
+        const start = new Date(startToday);
+        const end = new Date(startToday);
+        end.setHours(23, 59, 59, 999);
+        return [start, end];
       },
       tomorrow() {
-        const start = new Date(startOfToday);
+        const start = new Date(startToday);
         start.setDate(start.getDate() + 1);
         const end = new Date(start);
         end.setHours(23, 59, 59, 999);
         return [start, end];
       },
       thisWeek() {
-        const end = new Date(startOfToday);
-        const daysUntilSunday = 7 - startOfToday.getDay();
+        const start = new Date(startToday);
+        const end = new Date(startToday);
+        const daysUntilSunday = 7 - start.getDay();
         end.setDate(end.getDate() + daysUntilSunday);
         end.setHours(23, 59, 59, 999);
-        return [startOfToday, end];
+        return [start, end];
       },
       thisMonth() {
+        const start = new Date(startToday);
         const end = new Date(
-          now.getFullYear(),
-          now.getMonth() + 1,
+          baseNow.getFullYear(),
+          baseNow.getMonth() + 1,
           0,
           23,
           59,
           59,
           999
         );
-        return [startOfToday, end];
+        return [start, end];
       },
       nextMonth() {
         const start = new Date(
-          now.getFullYear(),
-          now.getMonth() + 1,
+          baseNow.getFullYear(),
+          baseNow.getMonth() + 1,
           1,
           0,
           0,
@@ -85,8 +535,8 @@ const getAllBookings = asyncHandler(async (req, res) => {
           0
         );
         const end = new Date(
-          now.getFullYear(),
-          now.getMonth() + 2,
+          baseNow.getFullYear(),
+          baseNow.getMonth() + 2,
           0,
           23,
           59,
@@ -97,8 +547,8 @@ const getAllBookings = asyncHandler(async (req, res) => {
       },
       lastMonth() {
         const start = new Date(
-          now.getFullYear(),
-          now.getMonth() - 1,
+          baseNow.getFullYear(),
+          baseNow.getMonth() - 1,
           1,
           0,
           0,
@@ -106,8 +556,8 @@ const getAllBookings = asyncHandler(async (req, res) => {
           0
         );
         const end = new Date(
-          now.getFullYear(),
-          now.getMonth(),
+          baseNow.getFullYear(),
+          baseNow.getMonth(),
           0,
           23,
           59,
@@ -120,18 +570,22 @@ const getAllBookings = asyncHandler(async (req, res) => {
 
     const range = presets[datePreset]?.();
     if (range) {
-      query.eventStartTime.$gte = range[0];
-      query.eventStartTime.$lte = range[1];
-    } else {
-      delete query.eventStartTime; // unsupported preset
+      const [rangeStart, rangeEnd] = range;
+      // Intersect with view bounds
+      if (viewingPast) {
+        query.eventStartTime.$gte = rangeStart;
+        query.eventStartTime.$lte = rangeEnd < now ? rangeEnd : now;
+      } else {
+        query.eventStartTime.$gte = rangeStart > now ? rangeStart : now;
+        query.eventStartTime.$lte = rangeEnd;
+      }
     }
   }
 
-  if (showPastBookings !== "true" && !query.eventStartTime) {
-    query.eventStartTime = { $gte: startOfToday };
-  } else if (showPastBookings === "true" && !datePreset) {
-    delete query.eventStartTime;
-  }
+  /* ----- sort according to view ----- */
+  const sortSpec = viewingPast
+    ? { eventStartTime: -1, _id: 1 } // past: most recent first
+    : { eventStartTime: 1, _id: 1 }; // future: soonest first
 
   /* ---------- parallel pre-queries (user & payment lookups) ---------- */
   const userSearchPromise = search
@@ -174,10 +628,10 @@ const getAllBookings = asyncHandler(async (req, res) => {
 
   /* ----- apply overdue-payment filter ----- */
   if (paymentOverdue === "true") {
-    query.status = "Completed"; // only completed bookings matter here
+    query.status = "Completed";
     query.$or = [
-      { paymentId: { $exists: false } }, // no payment recorded
-      { paymentId: { $in: overduePayments.map((p) => p._id) } }, // payment not completed
+      { paymentId: { $exists: false } },
+      { paymentId: { $in: overduePayments.map((p) => p._id) } },
     ];
   }
 
@@ -185,9 +639,18 @@ const getAllBookings = asyncHandler(async (req, res) => {
   const bookingsPromise = Booking.find(query)
     .skip(skip)
     .limit(limit)
-    .select("_id status eventStartTime eventEndTime location")
-    .populate({ path: "userId", select: "name email" })
-    .sort({ eventStartTime: -1 })
+    .select(
+      "_id bookingId status eventStartTime eventEndTime location source recurring"
+    )
+    .populate({
+      path: "userId",
+      select: "name email phone",
+    })
+    .populate({
+      path: "paymentId",
+      select: "transactionStatus amount currency",
+    })
+    .sort(sortSpec)
     .lean()
     .exec();
 
@@ -207,7 +670,6 @@ const getAllBookings = asyncHandler(async (req, res) => {
     bookings,
   });
 });
-
 //@desc returns upcoming booking timeline for display in /admin/upcoming
 //@param valid admin jwt token
 //@route GET /admin/bookings
@@ -229,7 +691,7 @@ const getBookingTimeline = asyncHandler(async (req, res) => {
       status: { $ne: "Cancelled" }, // Exclude cancelled bookings
     })
       .select(
-        "_id eventStartTime eventEndTime eventName location status bookingId notes"
+        "_id eventStartTime eventEndTime eventName location status bookingId notes source"
       )
       .populate({
         path: "userId",
@@ -308,10 +770,10 @@ const updateBooking = asyncHandler(async (req, res) => {
 
 //@desc Delete a booking
 //@param {Object} req with valid role and bookingId
-//@route DELETE /admin/bookings
+//@route DELETE /admin/bookings:bookingId
 //@access Private (admin)
 const deleteBooking = asyncHandler(async (req, res) => {
-  const { bookingId } = req.body;
+  const { bookingId } = req.params;
 
   if (!bookingId) {
     return res.status(400).json({ message: "Booking ID is required" });
@@ -325,20 +787,52 @@ const deleteBooking = asyncHandler(async (req, res) => {
       return res.status(404).json({ message: "Booking not found" });
     }
 
-    // Delete any associated payment if it exists
-    if (booking.paymentId) {
-      await Payment.findByIdAndDelete(booking.paymentId);
+    // Check if booking is synced with Google Calendar and not from Calendly
+    const isGoogleSynced =
+      booking.googleEventId && booking.source !== "calendly";
+
+    if (isGoogleSynced) {
+      // Queue the deletion job to handle Google Calendar deletion and database cleanup
+      try {
+        await addJob("deleteCalendarEvent", {
+          bookingId: bookingId.toString(),
+          googleEventId: booking.googleEventId,
+        });
+
+        logger.info(`Queued deleteCalendarEvent job for booking: ${bookingId}`);
+
+        res.status(200).json({
+          message:
+            "Booking deletion scheduled (includes Google Calendar cleanup)",
+          deletedBookingId: bookingId,
+          queued: true,
+        });
+      } catch (queueError) {
+        logger.error(
+          `Failed to queue deletion job for booking ${bookingId}: ${queueError.message}`
+        );
+        res
+          .status(500)
+          .json({ message: "Failed to schedule booking deletion" });
+      }
+    } else {
+      // Direct deletion for non-Google synced bookings
+      // Delete any associated payment if it exists
+      if (booking.paymentId) {
+        await Payment.findByIdAndDelete(booking.paymentId);
+      }
+
+      // Delete the booking
+      await Booking.findByIdAndDelete(bookingId);
+
+      logger.info(`Admin deleted booking: ${bookingId}`);
+
+      res.status(200).json({
+        message: "Booking successfully deleted",
+        deletedBookingId: bookingId,
+        queued: false,
+      });
     }
-
-    // Delete the booking
-    await Booking.findByIdAndDelete(bookingId);
-
-    logger.info(`Admin deleted booking: ${bookingId}`);
-
-    res.status(200).json({
-      message: "Booking successfully deleted",
-      deletedBookingId: bookingId,
-    });
   } catch (error) {
     logger.error(`Error deleting booking: ${error.message}`);
     res.status(500).json({ message: "Failed to delete booking" });
@@ -367,10 +861,11 @@ const getBookingDetails = asyncHandler(async (req, res) => {
         select:
           "amount currency transactionStatus transactionReferenceNumber paymentMethod paymentCompletedDate",
       })
-      .select("-__v -eventTypeURI -scheduledEventURI ")
+      .select(
+        "_id bookingId userId paymentId eventStartTime eventEndTime status source calendly googleHtmlLink invitationSent location cancellation createdAt updatedAt notes"
+      )
       .lean()
       .exec();
-
     if (!booking) {
       return res.status(404).json({ message: "Booking not found" });
     }
@@ -378,6 +873,12 @@ const getBookingDetails = asyncHandler(async (req, res) => {
     // Ensure paymentId is null when no payment exists, rather than undefined
     if (!booking.paymentId) {
       booking.paymentId = null;
+    }
+
+    // Handle missing bookingId for older documents (should be rare after migration)
+    if (!booking.bookingId) {
+      logger.warn(`Booking ${booking._id} is missing bookingId field.`);
+      booking.bookingId = null;
     }
 
     res.json(booking);
@@ -388,6 +889,8 @@ const getBookingDetails = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
+  createBooking,
+  cancelBooking,
   getAllBookings,
   getBookingTimeline,
   updateBooking,
