@@ -23,6 +23,19 @@ module.exports = {
       invalidateOn: ["user-updated", "user-profile-updated"],
     },
 
+    // User recurring booking endpoint
+    "^/api/user/recurring$": {
+      ttl: 1800, // 30 minutes - recurring schedule doesn't change often
+      cachePerUser: true,
+      allowQueryParams: [],
+      invalidateOn: [
+        "user-recurring-updated",
+        "booking-created",
+        "booking-updated",
+        "booking-deleted",
+      ],
+    },
+
     // User bookings endpoints
     "^/api/bookings$": {
       ttl: 1800, // 30 minutes
@@ -64,6 +77,7 @@ module.exports = {
       allowQueryParams: ["page", "limit"],
       invalidateOn: [
         "user-created",
+        "user-registered",
         "user-updated",
         "user-deleted",
         "admin-data-changed",
@@ -75,7 +89,12 @@ module.exports = {
       ttl: 300, // 5 minutes
       cachePerUser: false,
       allowQueryParams: [],
-      invalidateOn: ["user-updated", "user-deleted", "admin-data-changed"],
+      invalidateOn: [
+        "user-registered",
+        "user-updated",
+        "user-deleted",
+        "admin-data-changed",
+      ],
     },
 
     // Admin bookings endpoint
@@ -138,7 +157,7 @@ module.exports = {
         "invitation-created",
         "invitation-deleted",
         "admin-data-changed",
-        "user-created",
+        "user-registered",
       ],
     },
   },
@@ -153,7 +172,7 @@ module.exports = {
         },
       },
     ],
-    "user-created": [
+    "user-registered": [
       { pattern: "admin:users:*" },
       { pattern: "admin:invitations:*" },
     ],
@@ -192,9 +211,17 @@ module.exports = {
       { pattern: "bookings:*", userId: true },
       { pattern: "admin:bookings:*" },
     ],
+    "payment-created": [
+      { pattern: "payments:*", userId: true },
+      { pattern: "admin:payments:*" },
+    ],
     "payment-updated": [
       { pattern: "payments:*", userId: true },
       { pattern: "bookings:*", userId: true },
+      { pattern: "admin:payments:*" },
+    ],
+    "payment-deleted": [
+      { pattern: "payments:*", userId: true },
       { pattern: "admin:payments:*" },
     ],
     "invitation-created": [{ pattern: "admin:invitations:*" }],

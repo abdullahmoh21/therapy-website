@@ -4,14 +4,25 @@ const Booking = require("../../../models/Booking");
 const User = require("../../../models/User");
 const { createOAuth2Client } = require("../../googleOAuth");
 
-const addClientAttendee = async (job) => {
+/**
+ * Handle adding client as attendee to Google Calendar event
+ * Sends calendar invitation to client 2 days before session
+ *
+ * @param {Object} job - BullMQ job object
+ * @param {string} job.data.bookingId - MongoDB ID of the booking
+ */
+const handleClientCalendarInvitation = async (job) => {
   try {
     const { bookingId } = job.data;
-    logger.debug(`addClientAttendee job started for booking: ${bookingId}`);
+    logger.debug(
+      `handleClientCalendarInvitation job started for booking: ${bookingId}`
+    );
 
     // Validate input
     if (!bookingId) {
-      logger.error(`addClientAttendee job failed: No booking ID provided`);
+      logger.error(
+        `handleClientCalendarInvitation job failed: No booking ID provided`
+      );
       return { success: false, error: "No booking ID provided" };
     }
 
@@ -117,7 +128,7 @@ const addClientAttendee = async (job) => {
     return { success: true, invitationSent: true };
   } catch (error) {
     logger.error(
-      `Error in addClientAttendee job for booking ${job.data.bookingId}: ${error.message}`
+      `Error in handleClientCalendarInvitation job for booking ${job.data.bookingId}: ${error.message}`
     );
     logger.debug(`Error details: ${error.stack}`);
     return {
@@ -127,4 +138,4 @@ const addClientAttendee = async (job) => {
   }
 };
 
-module.exports = addClientAttendee;
+module.exports = handleClientCalendarInvitation;

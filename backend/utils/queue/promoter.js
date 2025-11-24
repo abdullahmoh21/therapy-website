@@ -44,7 +44,6 @@ async function promoteJobs(redisQueue, promotionWindowMinutes = 60) {
       .limit(100); // Process in batches of 100
 
     if (dueJobs.length === 0) {
-      logger.debug("No jobs to promote");
       return { promoted: 0, failed: 0 };
     }
 

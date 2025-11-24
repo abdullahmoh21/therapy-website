@@ -1,17 +1,43 @@
 const Joi = require("joi");
 const phonevalidator = require("libphonenumber-js");
 
-// Fix the phone validator to be more lenient in test environment
+// Consistent phone validator between frontend and backend
 const validPhone = Joi.string().custom((value, helpers) => {
-  // In test environment, be more lenient with phone validation
-  if (process.env.NODE_ENV === "test" && value && value.startsWith("+")) {
-    return value;
+  const cleanedValue = value.replace(/[^\d+]/g, "");
+
+  // Ensure it starts with +
+  if (!cleanedValue.startsWith("+")) {
+    return helpers.message(
+      "Phone number must start with + followed by country code"
+    );
   }
 
-  if (!phonevalidator(value)?.isValid()) {
+  // Simple check for reasonable length (international numbers are typically 7-15 digits plus country code)
+  if (cleanedValue.length < 8) {
+    return helpers.message("Phone number is too short");
+  }
+  if (cleanedValue.length > 16) {
+    return helpers.message("Phone number is too long");
+  }
+
+  // In test environment, be more lenient with phone validation
+  if (process.env.NODE_ENV === "test") {
+    return cleanedValue;
+  }
+
+  // Use libphonenumber-js for validation in production
+  try {
+    const phoneNumber = phonevalidator(cleanedValue);
+    if (!phoneNumber?.isValid()) {
+      return helpers.message(
+        "Phone number must be a valid international number"
+      );
+    }
+  } catch (error) {
     return helpers.message("Phone number must be a valid international number");
   }
-  return value;
+
+  return cleanedValue;
 }, "Phone number validation");
 
 //for route: /auth/register

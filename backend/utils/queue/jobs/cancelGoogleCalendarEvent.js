@@ -1,13 +1,13 @@
-// Google Calendar deletion worker
+// Google Calendar cancellation worker
 const { google } = require("googleapis");
 const Booking = require("../../../models/Booking");
 const User = require("../../../models/User");
 const logger = require("../../../logs/logger");
 const { createOAuth2Client } = require("../../googleOAuth");
-const { sendEmail } = require("../index");
 
 /**
- * Job to delete Google Calendar event and optionally notify user
+ * Handle Google Calendar event cancellation
+ * Deletes event from Google Calendar and optionally notifies user
  *
  * @param {Object} jobData - Job data
  * @param {Object} jobData.data - Job parameters
@@ -15,10 +15,10 @@ const { sendEmail } = require("../index");
  * @param {boolean} [jobData.data.notifyUser=false] - Whether to send cancellation email to user
  * @param {string} [jobData.data.reason] - Reason for cancellation
  */
-const cancelGoogleCalendarEvent = async (jobData) => {
+const handleGoogleCalendarCancellation = async (jobData) => {
   const { bookingId, notifyUser = false, reason } = jobData.data;
   logger.debug(
-    `cancelGoogleCalendarEvent job started for booking: ${bookingId}`
+    `handleGoogleCalendarCancellation job started for booking: ${bookingId}`
   );
 
   try {
@@ -61,36 +61,45 @@ const cancelGoogleCalendarEvent = async (jobData) => {
     booking.markModified("syncStatus");
     await booking.save();
 
-    // 5) If notifyUser is true and deletion was successful, send admin initiated cancellation email
+    // 5) If notifyUser is true and deletion was successful, send cancellation notification
     if (notifyUser) {
       try {
         const user = await User.findById(booking.userId);
         if (user) {
-          await sendEmail("adminInitiatedCancellation", {
-            recipient: user.email,
-            name: user.name,
-            bookingId: booking.bookingId || booking._id.toString(),
-            eventDate: booking.eventStartTime.toLocaleDateString("en-US", {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-              timeZone: booking.eventTimezone || "Asia/Karachi",
-            }),
-            eventTime: booking.eventStartTime.toLocaleTimeString("en-US", {
-              hour: "2-digit",
-              minute: "2-digit",
-              timeZone: booking.eventTimezone || "Asia/Karachi",
-            }),
-            reason: reason || "Session cancelled",
-            cancellationDate: new Date().toLocaleDateString("en-US", {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            }),
+          // Format dates for email (moved into job handler)
+          const eventDate = booking.eventStartTime.toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+            timeZone: booking.eventTimezone || "Asia/Karachi",
           });
-          logger.info(
-            `Queued admin initiated cancellation email for user ${user._id}`
-          );
+
+          const eventTime = booking.eventStartTime.toLocaleTimeString("en-US", {
+            hour: "2-digit",
+            minute: "2-digit",
+            timeZone: booking.eventTimezone || "Asia/Karachi",
+          });
+
+          const cancellationDate = new Date().toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          });
+
+          // Import from jobScheduler to avoid circular dependency
+          const { sendEmail } = require("../jobScheduler");
+          await sendEmail("BookingCancellationNotifications", {
+            bookingId: booking._id.toString(),
+            userId: booking.userId.toString(),
+            cancelledBy: "admin",
+            reason: reason || "Session cancelled",
+            eventStartTime: booking.eventStartTime,
+            cancellationDate: new Date(),
+            paymentId: booking.paymentId ? booking.paymentId.toString() : null,
+            bookingIdNumber: booking.bookingId,
+            notifyAdmin: false, // Admin already knows - they cancelled it
+          });
+          logger.info(`Queued cancellation notification for user ${user._id}`);
         }
       } catch (emailError) {
         logger.error(
@@ -116,29 +125,23 @@ const cancelGoogleCalendarEvent = async (jobData) => {
       // Still try to send notification email if requested
       if (notifyUser) {
         try {
-          const user = await User.findById(booking.userId);
-          if (user) {
-            await sendEmail("adminInitiatedCancellation", {
-              recipient: user.email,
-              name: user.name,
-              bookingId: booking.bookingId || booking._id.toString(),
-              eventDate: booking.eventStartTime.toLocaleDateString("en-US", {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-                timeZone: booking.eventTimezone || "Asia/Karachi",
-              }),
-              eventTime: booking.eventStartTime.toLocaleTimeString("en-US", {
-                hour: "2-digit",
-                minute: "2-digit",
-                timeZone: booking.eventTimezone || "Asia/Karachi",
-              }),
+          const booking = await Booking.findById(bookingId);
+          const user = await User.findById(booking?.userId);
+          if (user && booking) {
+            // Import from jobScheduler to avoid circular dependency
+            const { sendEmail } = require("../jobScheduler");
+            await sendEmail("BookingCancellationNotifications", {
+              bookingId: booking._id.toString(),
+              userId: booking.userId.toString(),
+              cancelledBy: "admin",
               reason: reason || "Session cancelled",
-              cancellationDate: new Date().toLocaleDateString("en-US", {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              }),
+              eventStartTime: booking.eventStartTime,
+              cancellationDate: new Date(),
+              paymentId: booking.paymentId
+                ? booking.paymentId.toString()
+                : null,
+              bookingIdNumber: booking.bookingId,
+              notifyAdmin: false,
             });
           }
         } catch (emailError) {
@@ -155,4 +158,4 @@ const cancelGoogleCalendarEvent = async (jobData) => {
   }
 };
 
-module.exports = cancelGoogleCalendarEvent;
+module.exports = handleGoogleCalendarCancellation;

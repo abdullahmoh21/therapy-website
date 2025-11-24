@@ -46,7 +46,7 @@ async function bootstrap() {
   } catch (err) {
     logger.error("Could not connect to Calendly — aborting startup.");
     if (process.env.NODE_ENV === "production") {
-      await sendEmail("adminAlert", {
+      await sendEmail("SystemAlert", {
         alertType: "calendlyWebhookDown",
       }).catch(() => {});
     }
@@ -59,7 +59,7 @@ async function bootstrap() {
   } catch (err) {
     logger.warn(`Redis Cache unavailable — caching disabled: ${err.message}`);
     if (process.env.NODE_ENV === "production") {
-      await sendEmail("adminAlert", {
+      await sendEmail("SystemAlert", {
         alertType: "redisCacheDisconnectedInitial",
       }).catch(() => {});
     }
@@ -73,7 +73,7 @@ async function bootstrap() {
       `Redis Queue unavailable — jobs will be MongoDB-only: ${err.message}`
     );
     if (process.env.NODE_ENV === "production") {
-      await sendEmail("adminAlert", {
+      await sendEmail("SystemAlert", {
         alertType: "redisQueueDisconnectedInitial",
       }).catch(() => {});
     }
@@ -97,7 +97,7 @@ async function bootstrap() {
   server.on("error", async (error) => {
     logger.error(`Server error: ${error.message}`);
     if (process.env.NODE_ENV === "production") {
-      await sendEmail("adminAlert", {
+      await sendEmail("SystemAlert", {
         alertType: "serverError",
         extraData: { error: error.message },
       }).catch(() => {});

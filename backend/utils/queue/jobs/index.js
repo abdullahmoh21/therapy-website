@@ -1,35 +1,45 @@
-const verifyEmail = require("./verifyEmail");
-const resetPassword = require("./resetPassword");
-const adminCancellationNotif = require("./adminCancellationNotif");
-const refundConfirmation = require("./refundConfirmation");
-const ContactMe = require("./ContactMe");
-const deleteDocuments = require("./deleteDocuments");
-const sendInvitation = require("./sendInvitation");
-const eventDeleted = require("./eventDeleted");
-const unauthorizedBooking = require("./unauthorizedBooking");
-const adminAlert = require("./adminAlert");
-const userCancellation = require("./userCancellation");
-const adminInitiatedCancellation = require("./adminInitiatedCancellation");
-const syncCalendar = require("./syncCalendar");
-const deleteCalendarEvent = require("./deleteCalendarEvent");
-const addClientAttendee = require("./addClientAttendee");
-const cancelGoogleCalendarEvent = require("./cancelGoogleCalendarEvent");
+// Import refactored job handlers with clear, descriptive names
+const handleUserAccountVerificationEmail = require("./verifyEmail");
+const handleUserPasswordResetEmail = require("./resetPassword");
+const handleBookingCancellationNotifications = require("./handleBookingCancellationNotifications");
+const handlePaymentRefundConfirmation = require("./refundConfirmation");
+const handleContactInquiry = require("./ContactMe");
+const handleDatabaseCleanup = require("./deleteDocuments");
+const handleUserInvitationEmail = require("./sendInvitation");
+const handleSessionDeletionNotification = require("./eventDeleted");
+const handleUnauthorizedBookingNotification = require("./unauthorizedBooking");
+const handleSystemAlert = require("./adminAlert");
+const handleGoogleCalendarSync = require("./syncCalendar");
+const handleGoogleCalendarDeletion = require("./deleteCalendarEvent");
+const handleClientCalendarInvitation = require("./addClientAttendee");
+const handleGoogleCalendarCancellation = require("./cancelGoogleCalendarEvent");
+const handleRecurringBookingBufferRefresh = require("./refreshRecurringBuffer");
 
 module.exports = {
-  verifyEmail,
-  resetPassword,
-  adminCancellationNotif,
-  refundConfirmation,
-  ContactMe,
-  deleteDocuments,
-  sendInvitation,
-  eventDeleted,
-  unauthorizedBooking,
-  adminAlert,
-  userCancellation,
-  adminInitiatedCancellation,
-  syncCalendar,
-  deleteCalendarEvent,
-  addClientAttendee,
-  cancelGoogleCalendarEvent,
+  // Email jobs - Authentication & Verification
+  UserAccountVerificationEmail: handleUserAccountVerificationEmail,
+  UserPasswordResetEmail: handleUserPasswordResetEmail,
+
+  // Email jobs - Booking Cancellations (consolidated)
+  BookingCancellationNotifications: handleBookingCancellationNotifications,
+  EventDeletedNotification: handleSessionDeletionNotification,
+  UnauthorizedBookingNotification: handleUnauthorizedBookingNotification,
+
+  // Email jobs - Payments
+  PaymentRefundConfirmation: handlePaymentRefundConfirmation,
+
+  // Email jobs - Other
+  ContactInquiry: handleContactInquiry,
+  UserInvitationEmail: handleUserInvitationEmail,
+  SystemAlert: handleSystemAlert,
+
+  // Non-email jobs - Calendar sync & management
+  GoogleCalendarEventSync: handleGoogleCalendarSync,
+  GoogleCalendarEventDeletion: handleGoogleCalendarDeletion,
+  GoogleCalendarEventCancellation: handleGoogleCalendarCancellation,
+  ClientCalendarInvitation: handleClientCalendarInvitation,
+
+  // Non-email jobs - System tasks
+  RecurringBookingBufferRefresh: handleRecurringBookingBufferRefresh,
+  DatabaseCleanup: handleDatabaseCleanup,
 };
