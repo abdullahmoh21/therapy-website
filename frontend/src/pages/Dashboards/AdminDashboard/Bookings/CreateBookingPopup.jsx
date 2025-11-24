@@ -15,7 +15,7 @@ import { useDebounce } from "../../../../hooks/useDebounce";
 import {
   useLazySearchUsersQuery,
   useCreateAdminBookingMutation,
-} from "../../../../features/admin/adminApiSlice";
+} from "../../../../features/admin";
 import { toast } from "react-toastify";
 import { format } from "date-fns";
 

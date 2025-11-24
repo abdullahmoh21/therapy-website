@@ -27,16 +27,16 @@ const validPhone = Joi.string().custom((value, helpers) => {
     return helpers.message("Phone number is too long");
   }
 
-  // Use the library for additional validation if available
+  // Use libphonenumber-js for validation - same as backend
   try {
     const phoneNumber = parsePhoneNumberFromString(cleanedValue);
     if (phoneNumber && !phoneNumber.isValid()) {
       return helpers.message(
-        "Invalid phone number format. Please check country code and number"
+        "Phone number must be a valid international number"
       );
     }
   } catch (error) {
-    // If parsing fails, we'll rely on our basic validation
+    return helpers.message("Phone number must be a valid international number");
   }
 
   return cleanedValue;
@@ -228,10 +228,12 @@ const SignUp = () => {
     setServerError("");
     setSuccessMessage("");
 
-    // Clean up phone format before validation
+    // Clean up phone format and normalize email before validation
     const submissionForm = {
       ...form,
       phone: form.phone.replace(/\s/g, ""),
+      email: form.email.toLowerCase().trim(),
+      token: form.token.trim(),
     };
 
     const { error, value } = schema.validate(submissionForm, {

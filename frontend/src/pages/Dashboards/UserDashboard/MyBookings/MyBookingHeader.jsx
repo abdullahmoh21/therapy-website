@@ -21,24 +21,12 @@ const DashboardHeader = ({
   // Local states
   const [isLoading, setIsLoading] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 768);
   const modalRef = useRef(null);
 
-  // Check for screen size changes
-  useEffect(() => {
-    const handleResize = () => {
-      setIsDesktop(window.innerWidth >= 768);
-    };
-
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  // Handle click outside modal to close on desktop
+  // Handle click outside modal to close
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
-        isDesktop &&
         modalRef.current &&
         !modalRef.current.contains(event.target) &&
         showPaymentModal
@@ -49,7 +37,7 @@ const DashboardHeader = ({
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [showPaymentModal, isDesktop]);
+  }, [showPaymentModal]);
 
   // Fetch the notice period for cancellations
   const {
@@ -89,7 +77,8 @@ const DashboardHeader = ({
         );
       } else {
         toast.error(
-          error?.data?.message || "Failed to get booking link. Please try again."
+          error?.data?.message ||
+            "Failed to get booking link. Please try again."
         );
       }
     } finally {
@@ -128,31 +117,33 @@ const DashboardHeader = ({
 
   return (
     <div className="bg-white border-l-4 border-lightPink rounded-xl shadow-md mb-8 overflow-hidden">
-      <div className="p-6 flex flex-col sm:flex-row sm:justify-between sm:items-center">
-        <div className="mb-4 sm:mb-0">
+      <div className="p-4 sm:p-6 flex flex-col sm:flex-row sm:justify-between sm:items-center">
+        <div className="mb-3 sm:mb-0">
           {userData && (
-            <h1 className="orelega-one text-3xl text-lightPink mb-2">
+            <h1 className="orelega-one text-2xl sm:text-3xl text-lightPink mb-1">
               Welcome, {userData.name}
             </h1>
           )}
-          <p className="text-textColor text-xl mt-1">
+
+          <p className="text-textColor text-base sm:text-lg mt-1">
             Here's your upcoming schedule
           </p>
-          <p className="text-textColor mt-1">
-            Online payment is optional; you can also pay in cash or via a bank
-            transfer during your session
-          </p>
+
+          {/* Removed online payment text completely (per your request) */}
+
           {showNoticePeriod && (
-            <p className="text-textColor">
+            <p className="text-textColor text-sm sm:text-base mt-1">
               Note: Cancellations must be made at least <NoticePeriodText />{" "}
               days before your appointment for a full refund.
             </p>
           )}
+
+          {/* Payment instructions – made smaller & less dominant */}
           <button
             onClick={() => setShowPaymentModal(true)}
-            className="mt-2 flex items-center text-lightPink hover:text-darkPink transition duration-300"
+            className="mt-1 inline-flex items-center text-sm text-lightPink hover:text-darkPink transition duration-300 font-normal"
           >
-            <BsCreditCard2Back className="mr-1" />
+            <BsCreditCard2Back className="mr-1 text-base" />
             <span>View Payment Instructions</span>
           </button>
         </div>
@@ -161,7 +152,7 @@ const DashboardHeader = ({
           <button
             disabled={isLoading || maxBookingsReached}
             onClick={handleBookingClick}
-            className={`flex items-center space-x-2 bg-lightPink text-white font-semibold px-5 py-3 rounded-lg shadow transition duration-300 ${
+            className={`flex items-center space-x-2 bg-lightPink text-white font-semibold px-5 py-2.5 rounded-lg shadow transition duration-300 ${
               isLoading || maxBookingsReached
                 ? "opacity-50 cursor-not-allowed"
                 : ""
@@ -174,7 +165,7 @@ const DashboardHeader = ({
             ) : (
               <BiCalendar className="text-xl" />
             )}
-            <span>
+            <span className="text-sm sm:text-base">
               {isLoading
                 ? "Loading..."
                 : maxBookingsReached
@@ -187,66 +178,89 @@ const DashboardHeader = ({
 
       {/* Payment Instructions Modal */}
       {showPaymentModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
           <div
             ref={modalRef}
-            className="bg-white rounded-xl shadow-lg max-w-md w-full p-6 relative max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full animate-fadeIn"
           >
-            <button
-              onClick={() => setShowPaymentModal(false)}
-              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
-              aria-label="Close payment instructions"
-            >
-              <BiX className="text-2xl" />
-            </button>
-
-            <h2 className="orelega-one text-2xl text-lightPink mb-4">
-              Payment Instructions
-            </h2>
-
-            <p className="text-textColor mb-4">
-              You can pay for your sessions using the following bank accounts or
-              mobile payment methods:
-            </p>
-
-            {bankDetailsSuccess && bankDetails ? (
-              <div className="space-y-4">
-                {bankDetails.map((option, index) => (
-                  <div
-                    key={index}
-                    className="border border-gray-200 rounded-lg p-4"
-                  >
-                    <h3 className="font-semibold text-darkPink text-lg">
-                      {option.bankAccount}
-                    </h3>
-                    <p className="text-gray-700 mt-1">
-                      Account Title: {option.accountTitle}
-                    </p>
-                    <div className="flex items-center mt-1">
-                      <p className="text-gray-700">
-                        Account Number: {option.accountNo}
-                      </p>
-                      <button
-                        onClick={() => copyToClipboard(option.accountNo)}
-                        className="ml-2 text-lightPink hover:text-darkPink transition-colors"
-                        title="Copy account number"
-                      >
-                        <BiCopy />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center space-x-3">
+                <div className="bg-[#DF9E7A]/10 p-2.5 rounded-lg">
+                  <BsCreditCard2Back className="text-[#DF9E7A] text-xl" />
+                </div>
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Payment Instructions
+                </h2>
               </div>
-            ) : (
-              <p className="text-gray-500 italic">
-                Loading payment information...
-              </p>
-            )}
+              <button
+                onClick={() => setShowPaymentModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <BiX className="text-2xl" />
+              </button>
+            </div>
 
-            <p className="mt-4 text-gray-600 text-sm">
-              After making your payment, please keep your receipt for
-              verification purposes.
-            </p>
+            {/* Content */}
+            <div className="p-6 space-y-5">
+              <div className="bg-gradient-to-br from-[#DF9E7A]/10 to-[#E27A82]/10 rounded-lg p-5 border border-[#DF9E7A]/20">
+                <p className="text-sm text-gray-700 leading-relaxed">
+                  You can pay for your sessions using the following bank
+                  accounts or mobile payment methods:
+                </p>
+              </div>
+
+              {bankDetailsSuccess && bankDetails ? (
+                <div className="space-y-3">
+                  {bankDetails.map((option, index) => (
+                    <div
+                      key={index}
+                      className="border border-gray-200 rounded-lg p-4"
+                    >
+                      <h3 className="font-semibold text-[#E27A82] text-base">
+                        {option.bankAccount}
+                      </h3>
+                      <p className="text-gray-700 text-sm mt-1">
+                        Account Title: {option.accountTitle}
+                      </p>
+                      <div className="flex items-center mt-1">
+                        <p className="text-gray-700 text-sm">
+                          Account Number: {option.accountNo}
+                        </p>
+                        <button
+                          onClick={() => copyToClipboard(option.accountNo)}
+                          className="ml-2 text-[#DF9E7A] hover:text-[#C88761] transition-colors"
+                          title="Copy account number"
+                        >
+                          <BiCopy className="text-lg" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500 italic text-sm">
+                  Loading payment information...
+                </p>
+              )}
+
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <p className="text-sm text-gray-700">
+                  After making your payment, please keep your receipt for
+                  verification purposes.
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 bg-gray-50 border-t border-gray-200 rounded-b-2xl">
+              <button
+                onClick={() => setShowPaymentModal(false)}
+                className="w-full py-3 px-4 bg-[#DF9E7A] hover:bg-[#C88761] text-white font-semibold rounded-lg transition-colors"
+              >
+                Got it
+              </button>
+            </div>
           </div>
         </div>
       )}

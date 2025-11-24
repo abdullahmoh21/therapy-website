@@ -21,6 +21,7 @@ import { Badge } from "primereact/badge";
 import { toast } from "react-toastify";
 import "./calendar-custom.css"; // We'll create this file for custom calendar styling
 import PaymentInfoPopup from "../MyBookings/PaymentInfoPopup"; // Import the payment info popup
+import HelpButton from "../../../../components/HelpButton";
 
 const Billing = () => {
   const [bookingsData, setBookingsData] = useState([]);
@@ -395,6 +396,9 @@ const Billing = () => {
 
   return (
     <div className="max-w-7xl mx-auto">
+      {/* Help Button */}
+      <HelpButton />
+
       {/* Payment Info Popup */}
       <PaymentInfoPopup
         show={showPaymentInfoPopup}

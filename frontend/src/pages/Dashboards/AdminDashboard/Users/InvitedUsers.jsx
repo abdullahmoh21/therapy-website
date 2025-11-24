@@ -24,7 +24,7 @@ import {
   useGetInvitedUsersQuery,
   useDeleteInvitationMutation,
   useResendInvitationMutation,
-} from "../../../../features/admin/adminApiSlice";
+} from "../../../../features/admin";
 
 // Toast notification helper functions
 const showSuccessToast = (message) => {

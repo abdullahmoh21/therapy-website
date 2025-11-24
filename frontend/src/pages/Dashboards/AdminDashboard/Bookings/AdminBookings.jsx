@@ -17,7 +17,7 @@ import {
   useGetAdminBookingsQuery,
   useDeleteAdminBookingMutation,
   useCancelAdminBookingMutation,
-} from "../../../../features/admin/adminApiSlice";
+} from "../../../../features/admin";
 
 // Pagination: bookings/page
 const BOOKINGS_PER_PAGE = 10;
