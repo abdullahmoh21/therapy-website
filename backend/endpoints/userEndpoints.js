@@ -47,6 +47,11 @@ router
   .route("/")
   .get(redisCaching(), userController.getMyData)
   .patch(expressJoiValidation.body(updateMyUser), userController.updateMyUser);
+
+router
+  .route("/recurring")
+  .get(redisCaching(), userController.getRecurringBooking);
+
 //formats any joi error into JSON for the client
 router.use((err, req, res, next) => {
   if (err?.error?.isJoi) {

@@ -150,7 +150,7 @@ const inviteUser = asyncHandler(async (req, res) => {
       Invitee.findOne({
         email,
         isUsed: false,
-        expiresAt: { $gt: Date.now() },
+        expiresAt: { $gt: new Date() },
       })
         .lean()
         .exec(),
@@ -196,10 +196,8 @@ const inviteUser = asyncHandler(async (req, res) => {
 
     // Send invitation email
     try {
-      await sendEmail("sendInvitation", {
-        recipient: email,
-        name: name,
-        link: invitationUrl,
+      await sendEmail("UserInvitationEmail", {
+        inviteeId: invitation._id.toString(),
       });
       logger.info(`Invitation email sent successfully to: ${email}`);
       await invalidateByEvent("invitation-created");
@@ -262,15 +260,15 @@ const inviteUser = asyncHandler(async (req, res) => {
 
 //@desc resend invitation to user using invite ID
 //@param valid admin jwt token and invite ID
-//@route POST /admin/invite/:inviteId/resend
+//@route POST /admin/invitations/:invitationId/resend
 //@access Private(admin)
 const resendInvitation = asyncHandler(async (req, res) => {
   try {
-    const { inviteId } = req.params;
+    const { invitationId } = req.params;
     const adminId = safeObjectId(req.user.id);
 
     // Find existing invitee by ID
-    const invitee = await Invitee.findById(inviteId).exec();
+    const invitee = await Invitee.findById(invitationId).exec();
 
     if (!invitee) {
       return res
@@ -291,6 +289,7 @@ const resendInvitation = asyncHandler(async (req, res) => {
     invitee.expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     invitee.invitedBy = adminId;
     await invitee.save();
+    await invalidateByEvent("invitation-created");
 
     // Generate invitation URL
     const invitationUrl = `${
@@ -299,10 +298,8 @@ const resendInvitation = asyncHandler(async (req, res) => {
 
     try {
       // Send invitation email
-      await sendEmail("sendInvitation", {
-        recipient: invitee.email,
-        name: invitee.name,
-        link: invitationUrl,
+      await sendEmail("UserInvitationEmail", {
+        inviteeId: invitee._id.toString(),
       });
 
       // Success response

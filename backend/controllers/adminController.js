@@ -36,8 +36,7 @@ module.exports = {
 
   // Metrics controller functions
   getGeneralMetrics: metricsController.getGeneralMetrics,
-  getMonthlyMetrics: metricsController.getMonthlyMetrics,
-  getYearlyMetrics: metricsController.getYearlyMetrics,
+  getDashboardMetrics: metricsController.getDashboardMetrics,
 
   // System controller functions
   getSystemHealth: systemController.getSystemHealth,

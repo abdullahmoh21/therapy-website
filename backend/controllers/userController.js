@@ -69,36 +69,31 @@ const resendEvLink = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: "Email already verified" });
   }
   logger.debug(`attempting to send ev link for: ${user.email}`);
-  let link;
+  let verificationToken;
   // Check if token exists and not expired, else generate new token
   if (
     user.emailVerified.encryptedToken &&
     user.emailVerified.expiresIn > Date.now()
   ) {
-    link = `${process.env.FRONTEND_URL}/verifyEmail?token=${decrypt(
-      user.emailVerified.encryptedToken
-    )}`;
+    verificationToken = decrypt(user.emailVerified.encryptedToken);
     user.emailVerified.expiresIn = Date.now() + 3600000; // reset expiry
     await user.save();
+    await invalidateByEvent("user-updated", { userId: user._id });
   } else {
-    const newToken = crypto.randomBytes(20).toString("hex");
-    user.emailVerified.encryptedToken = encrypt(newToken);
+    verificationToken = crypto.randomBytes(20).toString("hex");
+    user.emailVerified.encryptedToken = encrypt(verificationToken);
     user.emailVerified.expiresIn = Date.now() + 3600000; // 1 hour
     await user.save();
-    link = `${process.env.FRONTEND_URL}/verifyEmail?token=${newToken}`;
+    await invalidateByEvent("user-updated", { userId: user._id });
   }
-  logger.debug(`link: ${link}`);
-
-  // Prepare email job data
-  const emailJobData = {
-    name: user.name,
-    recipient: user.email,
-    link: link,
-  };
+  logger.debug(`verification token generated for: ${user.email}`);
 
   // Add job to email queue
   try {
-    await sendEmail("verifyEmail", emailJobData);
+    await sendEmail("UserAccountVerificationEmail", {
+      userId: user._id.toString(),
+      verificationToken,
+    });
   } catch (err) {
     logger.error(`Error sending email verification link`);
     return res.sendStatus(500);
@@ -145,6 +140,9 @@ const verifyEmail = asyncHandler(async (req, res) => {
   user.emailVerified.state = true;
   await user.save();
 
+  // Invalidate cache after email verification
+  await invalidateByEvent("user-updated", { userId: user._id });
+
   res.status(200).json({ message: "Email Verified!" });
 });
 
@@ -174,21 +172,17 @@ const forgotPassword = asyncHandler(async (req, res) => {
     user.resetPasswordEncryptedToken = encrypt(resetToken);
     user.resetPasswordExp = Date.now() + 3600000; // 1 hour
     user = await user.save();
+    await invalidateByEvent("user-updated", { userId: user._id });
     logger.info(
       `Reset token generated for ${user.email}: ${resetToken} /n encrypted: ${user.resetPasswordEncryptedToken}`
     );
   }
 
-  const link = `${process.env.FRONTEND_URL}/resetPassword?token=${resetToken}`;
-
-  let emailJobData = {
-    name: user.name,
-    recipient: user.email,
-    link: link,
-  };
-
   try {
-    await sendEmail("resetPassword", emailJobData);
+    await sendEmail("UserPasswordResetEmail", {
+      userId: user._id.toString(),
+      resetToken,
+    });
   } catch (err) {
     logger.error("Error sending forgot password email");
     return res.sendStatus(500);
@@ -229,21 +223,28 @@ const resetPassword = asyncHandler(async (req, res) => {
   user.resetPasswordEncryptedToken = undefined;
   user.resetPasswordExp = undefined;
   await user.save();
+  await invalidateByEvent("user-updated", { userId: user._id });
   logger.info(`Password reset successfully for user: ${user.email}`);
 
   res.status(200).json({ message: "Password reset successfully!" });
 });
 
 //@desc get users own data
-//@route GET /users/me
+//@route GET /user
 //@access Private
 const getMyData = asyncHandler(async (req, res) => {
-  const userId = req.user.id; //from verifyJWT
+  const userId = req.user.id; // from verifyJWT
+
+  // Optimization: Use findById (uses _id index) and only select needed fields
   const user = await User.findById(userId)
-    .select("_id email phone role DOB name")
-    .lean()
+    .select("_id email phone role DOB name accountType") // Added accountType since it's often needed
+    .lean() // Convert to plain JS object (faster)
     .exec();
-  if (!user) return res.status(204).json({ message: "No users found" });
+
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
   res.json(user);
 });
 
@@ -269,13 +270,13 @@ const updateMyUser = asyncHandler(async (req, res) => {
 
   // Check if phone number is being updated
   if (updates.phone) {
-    // Check if phone number already exists for another user
-    const existingUser = await User.findOne({
+    // Optimization: Use countDocuments instead of findOne (faster when you just need existence check)
+    const phoneExists = await User.exists({
       phone: updates.phone,
-      _id: { $ne: userId }, // Exclude current user
+      _id: { $ne: userId },
     });
 
-    if (existingUser) {
+    if (phoneExists) {
       logger.debug(`Duplicate phone number detected: ${updates.phone}`);
       return res.status(409).json({
         message:
@@ -284,20 +285,89 @@ const updateMyUser = asyncHandler(async (req, res) => {
     }
   }
 
-  const updatedUser = await User.findOneAndUpdate({ _id: userId }, updates, {
+  const updatedUser = await User.findByIdAndUpdate(userId, updates, {
     new: true,
     runValidators: true,
-  })
-    .select("_id email phone role DOB name")
-    .lean();
+    lean: true, // Return plain object instead of Mongoose document
+  }).select("_id email phone role DOB name accountType");
 
   if (!updatedUser) {
     return res.status(404).json({ message: "User not found" });
   }
+
   logger.debug(`User Updated! Invalidating User cache for userId: ${userId}`);
-  const result = await invalidateByEvent("user-profile-updated", { userId });
-  logger.debug(`Cache invalidation result: ${result ? "Success" : "Failed"}`);
-  return res.status(201).json(updatedUser);
+  await invalidateByEvent("user-profile-updated", { userId });
+
+  return res.status(200).json(updatedUser); // Use 200 instead of 201 for updates
+});
+
+//@desc Get user's recurring booking info and next upcoming recurring session
+//@route GET /user/recurring
+//@access Private
+const getRecurringBooking = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+
+  // Fetch user's recurring info (lightweight query)
+  const user = await User.findById(userId)
+    .select(
+      "recurring.state recurring.interval recurring.day recurring.time recurring.location"
+    )
+    .lean()
+    .exec();
+
+  // If user doesn't have recurring enabled, return empty object early
+  if (!user || !user.recurring?.state) {
+    return res.json({});
+  }
+
+  // Optimization: Use aggregation pipeline to fetch booking + payment in one query
+  const result = await Booking.aggregate([
+    {
+      $match: {
+        userId: user._id,
+        source: "system",
+        "recurring.state": true,
+        status: "Active",
+        eventEndTime: { $gt: new Date() },
+      },
+    },
+    { $sort: { eventStartTime: 1 } },
+    { $limit: 1 }, // Only get the first one
+    {
+      $lookup: {
+        from: "payments",
+        localField: "_id",
+        foreignField: "bookingId",
+        as: "payment",
+      },
+    },
+    { $unwind: { path: "$payment", preserveNullAndEmptyArrays: true } },
+    {
+      $project: {
+        bookingId: 1,
+        eventStartTime: 1,
+        eventEndTime: 1,
+        location: 1,
+        source: 1, // Include source field so frontend can identify booking type
+        amount: "$payment.amount",
+        currency: "$payment.currency",
+        transactionStatus: "$payment.transactionStatus",
+      },
+    },
+  ]);
+
+  const nextRecurringBooking = result.length > 0 ? result[0] : null;
+
+  // Return recurring schedule info + next booking
+  res.json({
+    recurringSchedule: {
+      interval: user.recurring.interval,
+      day: user.recurring.day,
+      time: user.recurring.time,
+      location: user.recurring.location,
+    },
+    nextRecurringBooking,
+  });
 });
 
 module.exports = {
@@ -307,5 +377,6 @@ module.exports = {
   resendEvLink,
   forgotPassword,
   resetPassword,
+  getRecurringBooking,
   encrypt, // Export encrypt for testing
 };

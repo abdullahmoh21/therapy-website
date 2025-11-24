@@ -4,6 +4,7 @@ const logger = require("../../logs/logger");
 const Booking = require("../../models/Booking");
 const Payment = require("../../models/Payment");
 const Config = require("../../models/Config");
+const Job = require("../../models/Job");
 const { invalidateByEvent } = require("../../middleware/redisCaching");
 const { emailSchema } = require("../../utils/validation/ValidationSchemas");
 const {
@@ -102,23 +103,40 @@ const deleteUser = asyncHandler(async (req, res) => {
   }
 
   try {
-    const [bookings, payments, user] = await Promise.all([
+    // Check if user has recurring sessions before deletion
+    const user = await User.findById(userId);
+    const hasRecurring = user?.recurring?.state === true;
+
+    const [bookings, payments, deletedUser, cancelledJobs] = await Promise.all([
       Booking.deleteMany({ userId }),
       Payment.deleteMany({ userId }),
       User.deleteOne({ _id: userId }),
+      // Cancel any pending refreshRecurringBuffer jobs for this user
+      hasRecurring
+        ? Job.updateMany(
+            {
+              jobName: "refreshRecurringBuffer",
+              "jobData.userId": userId.toString(),
+              status: { $in: ["pending", "promoted"] },
+            },
+            { $set: { status: "cancelled" } }
+          )
+        : Promise.resolve({ modifiedCount: 0 }),
     ]);
 
     logger.debug(
-      `User deletion count: ${user.deletedCount}\nBooking deleted count: ${bookings.deletedCount}\nPayment deleted count: ${payments.deletedCount}`
+      `User deletion count: ${deletedUser.deletedCount}\nBooking deleted count: ${bookings.deletedCount}\nPayment deleted count: ${payments.deletedCount}\nCancelled jobs: ${cancelledJobs.modifiedCount}`
     );
 
     await invalidateByEvent("user-deleted", { userId });
+    await invalidateByEvent("booking-deleted", { userId });
+    await invalidateByEvent("payment-deleted", { userId });
     await invalidateByEvent("admin-data-changed");
 
     // Return proper success response with message
     res.status(200).json({
       message: "User deleted successfully",
-      deletedCount: user.deletedCount,
+      deletedCount: deletedUser.deletedCount,
     });
   } catch (error) {
     logger.error(`Error deleting user: ${error}`);
@@ -580,7 +598,9 @@ const recurUser = asyncHandler(async (req, res, next) => {
 
         // Queue Google Calendar sync (which now includes Google Meet for online meetings)
         try {
-          await addJob("syncCalendar", { bookingId: bookingId.toString() });
+          await addJob("GoogleCalendarEventSync", {
+            bookingId: bookingId.toString(),
+          });
           logger.info(`Queued Google Calendar sync for booking ${bookingId}`);
         } catch (error) {
           logger.error(
@@ -593,6 +613,43 @@ const recurUser = asyncHandler(async (req, res, next) => {
       logger.info(
         `Google Calendar not connected, skipping sync job queuing for ${createdBookingIds.length} bookings.`
       );
+    }
+
+    // Calculate when the next buffer refresh should happen
+    // Schedule it for when buffer has ~6 weeks left
+    const lastBooking = insertedBookings[insertedBookings.length - 1];
+    if (lastBooking) {
+      const lastBookingDate = new Date(lastBooking.eventStartTime);
+      const REFRESH_THRESHOLD_WEEKS = 6;
+      const nextRefreshDate = new Date(lastBookingDate);
+      nextRefreshDate.setDate(
+        nextRefreshDate.getDate() - REFRESH_THRESHOLD_WEEKS * 7
+      );
+
+      // Update user with next refresh date
+      await User.findByIdAndUpdate(userId, {
+        $set: {
+          "recurring.nextBufferRefresh": nextRefreshDate,
+        },
+      });
+
+      // Schedule the buffer refresh job
+      try {
+        await addJob(
+          "refreshRecurringBuffer",
+          { userId: userId.toString() },
+          { runAt: nextRefreshDate }
+        );
+
+        logger.info(
+          `Scheduled buffer refresh for user ${userId} at ${nextRefreshDate.toISOString()}`
+        );
+      } catch (error) {
+        logger.error(
+          `Failed to schedule buffer refresh job for user ${userId}: ${error.message}`
+        );
+        // Non-critical - buffer can be refreshed manually if needed
+      }
     }
 
     // Invalidate cache after successful recurring setup
@@ -626,6 +683,7 @@ const recurUser = asyncHandler(async (req, res, next) => {
             "recurring.time": undefined,
             "recurring.location": undefined,
             "recurring.recurringSeriesId": undefined,
+            "recurring.nextBufferRefresh": undefined,
           },
         });
         logger.debug(`Successfully reverted user ${userId} recurring status`);
@@ -779,7 +837,7 @@ const stopRecurring = asyncHandler(async (req, res, next) => {
       );
 
       try {
-        await addJob("deleteCalendarEvent", {
+        await addJob("GoogleCalendarEventDeletion", {
           bookingId: booking._id.toString(),
           googleEventId: booking.googleEventId,
         });
@@ -819,6 +877,7 @@ const stopRecurring = asyncHandler(async (req, res, next) => {
         "recurring.time": undefined,
         "recurring.location": undefined,
         "recurring.recurringSeriesId": undefined,
+        "recurring.nextBufferRefresh": undefined,
       },
     });
     logger.info(`Updated user ${userId} recurring status to false`);

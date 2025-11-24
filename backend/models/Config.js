@@ -23,7 +23,8 @@ const REQUIRED_CONFIG_KEYS = [
     key: "maxBookings",
     value: "3",
     displayName: "Maximum Bookings",
-    description: "Maximum number of active booking allowed at a time.",
+    description:
+      "Maximum number of active booking allowed at a time. Please note that this is excluding any recurring sessions.",
   },
   {
     key: "noticePeriod",
@@ -94,6 +95,14 @@ const REQUIRED_CONFIG_KEYS = [
       "Email address of the connected Google account. This is automatically set when connecting to Google Calendar.",
     viewable: false, // Hidden from admin interface
   },
+  {
+    key: "googleTokenInvalidated",
+    value: "false",
+    displayName: "Google Token Invalidation Status",
+    description:
+      "Flag indicating whether the Google OAuth tokens have been invalidated (due to invalid_grant or auth errors). This is automatically managed by the system.",
+    viewable: false, // Hidden from admin interface
+  },
 ];
 
 // Load local cache from binary file
@@ -153,6 +162,7 @@ const CONFIG_DEFAULTS = {
   googleAccessToken: null,
   googleTokenExpiry: null,
   googleUserEmail: null,
+  googleTokenInvalidated: "false",
 };
 
 // Track error logged state to prevent log spam
@@ -177,6 +187,7 @@ const configSchema = new mongoose.Schema(
             "googleAccessToken",
             "googleTokenExpiry",
             "googleUserEmail",
+            "googleTokenInvalidated",
           ];
 
           // If it's a Google token key, allow null values
@@ -197,6 +208,10 @@ const configSchema = new mongoose.Schema(
           "googleTokenExpiry",
           "googleUserEmail",
         ];
+        // Set default to "false" for googleTokenInvalidated
+        if (this.key === "googleTokenInvalidated") {
+          return "false";
+        }
         if (googleTokenKeys.includes(this.key)) {
           return null;
         }

@@ -27,4 +27,8 @@ router
   .route("/:bookingId")
   .get(validateObjectId, redisCaching(), bookingController.getBooking);
 
+router
+  .route("/:bookingId/cancel")
+  .put(validateObjectId, bookingController.cancelMyBooking);
+
 module.exports = router;
