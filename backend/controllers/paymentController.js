@@ -85,7 +85,9 @@ const handleSafepayWebhook = asyncHandler(async (req, res) => {
   //send email to user on refund
   if (payment.transactionStatus === "Refunded") {
     try {
-      await sendEmail("refundConfirmation", { payment });
+      await sendEmail("PaymentRefundConfirmation", {
+        paymentId: payment._id.toString(),
+      });
     } catch (error) {
       logger.error("Error sending refund confirmation email.");
       return res.sendStatus(500);
@@ -158,6 +160,7 @@ const createPayment = asyncHandler(async (req, res) => {
     payment.tracker = token;
     payment.linkGeneratedDate = new Date();
     await payment.save();
+    await invalidateByEvent("payment-updated", { userId: payment.userId });
 
     return res.status(200).json({ url });
   } catch (error) {

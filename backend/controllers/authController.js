@@ -226,8 +226,8 @@ const refresh = asyncHandler(async (req, res) => {
 //@route POST /auth/register
 //@access Public
 const register = async (req, res) => {
-  let userResult;
-  let invitationMarked = false;
+  let createdUser = null;
+  let markedInvitation = null;
 
   try {
     const { email, password, name, DOB, phone, token } = req.body;
@@ -253,23 +253,30 @@ const register = async (req, res) => {
       });
     }
 
-    // Check for duplicates first
-    const duplicate = await checkForDuplicates(email, phone);
+    // Normalize inputs consistently
+    const normalizedEmail = email.toLowerCase().trim();
+    const normalizedToken = token.trim();
+
+    // Step 1: Check for duplicates first (before any mutations)
+    const duplicate = await checkForDuplicates(normalizedEmail, phone);
     if (duplicate) {
       logger.warn(
-        `Registration attempt for existing user - email: ${email}, phone: ${phone}`
+        `Registration attempt for existing user - email: ${normalizedEmail}, phone: ${phone}`
       );
       return res.status(409).json({
         message: `An account with this ${
-          duplicate.email === email ? "email" : "phone number"
+          duplicate.email === normalizedEmail ? "email" : "phone number"
         } already exists.`,
         code: "DUPLICATE_USER",
       });
     }
 
-    const invitation = await checkInvitation(email, token);
+    // Step 2: Check invitation validity (before any mutations)
+    const invitation = await checkInvitation(normalizedEmail, normalizedToken);
     if (!invitation) {
-      logger.warn(`Registration failed: Invalid invitation for ${email}`);
+      logger.warn(
+        `Registration failed: Invalid invitation for ${normalizedEmail}`
+      );
       return res.status(400).json({
         message:
           "Invalid or expired invitation. Please contact an administrator.",
@@ -277,63 +284,74 @@ const register = async (req, res) => {
       });
     }
 
+    // Step 3: Mark invitation as used FIRST (atomic operation)
+    markedInvitation = await markInvitationAsUsed(
+      normalizedEmail,
+      normalizedToken
+    );
+    if (!markedInvitation) {
+      logger.warn(`Failed to mark invitation as used for ${normalizedEmail}`);
+      return res.status(400).json({
+        message: "Invitation may have already been used or expired.",
+        code: "INVITATION_ALREADY_USED",
+      });
+    }
+
+    // Step 4: Create user (if this fails, we need to rollback invitation)
     const accountType = invitation.accountType;
     const verificationToken = crypto.randomBytes(20).toString("hex");
 
-    userResult = await createUser({
-      email,
-      password,
-      name,
-      DOB,
-      phone,
-      verificationToken,
-      accountType,
-    });
-
-    if (userResult) {
-      const link = `${process.env.FRONTEND_URL}/verifyEmail?token=${verificationToken}`;
-
-      let emailSent = false;
-      try {
-        await sendEmail("verifyEmail", {
-          recipient: email,
-          name,
-          link,
-        });
-        emailSent = true;
-        logger.info(`Verification email sent to ${email} during registration`);
-      } catch (emailError) {
-        logger.error(
-          `Error sending verification email to '${email}' during registration: ${emailError.message}`
-        );
-      }
-
-      try {
-        const markedInvitation = await markInvitationAsUsed(email, token);
-        invitationMarked = !!markedInvitation;
-      } catch (markError) {
-        logger.error(
-          `Error marking invitation for '${email}' as used: ${markError.message}`
-        );
-      }
-
-      try {
-        await invalidateByEvent("user-registered", { email });
-      } catch (cacheError) {
-        logger.error(
-          `Error invalidating cache for '${email}': ${cacheError.message}`
-        );
-      }
-
-      return res.status(201).json({
-        message: emailSent
-          ? "User created successfully. Check your email for verification link"
-          : "User created successfully, but there was an issue sending the verification email.",
-        code: "REGISTRATION_SUCCESS",
+    try {
+      createdUser = await createUser({
+        email: normalizedEmail,
+        password,
+        name,
+        DOB,
+        phone,
+        verificationToken,
+        accountType,
       });
-    } else {
-      throw new Error("User creation failed");
+    } catch (userCreationError) {
+      // Rollback invitation marking
+      await rollbackInvitationMarking(markedInvitation._id);
+      throw userCreationError;
     }
+
+    // Step 5: Send verification email (non-critical, don't rollback if this fails)
+    let emailSent = false;
+    try {
+      await sendEmail("UserAccountVerificationEmail", {
+        userId: createdUser._id.toString(),
+        verificationToken,
+      });
+      emailSent = true;
+      logger.info(
+        `Verification email sent to ${normalizedEmail} during registration`
+      );
+    } catch (emailError) {
+      logger.error(
+        `Error sending verification email to '${normalizedEmail}' during registration: ${emailError.message}`
+      );
+    }
+
+    // Step 6: Cache invalidation (non-critical)
+    try {
+      await invalidateByEvent("user-registered", {
+        userId: createdUser._id,
+        email: normalizedEmail,
+      });
+    } catch (cacheError) {
+      logger.error(
+        `Error invalidating cache for '${normalizedEmail}': ${cacheError.message}`
+      );
+    }
+
+    return res.status(201).json({
+      message: emailSent
+        ? "User created successfully. Check your email for verification link"
+        : "User created successfully, but there was an issue sending the verification email.",
+      code: "REGISTRATION_SUCCESS",
+    });
   } catch (error) {
     logger.error(
       `Registration error for email ${req.body?.email || "unknown"}: ${
@@ -346,12 +364,33 @@ const register = async (req, res) => {
       }
     );
 
-    // Rollback user creation if it was successful but other steps failed
-    if (userResult && !invitationMarked) {
+    // Rollback logic without transactions
+    if (createdUser && markedInvitation) {
+      // Both operations succeeded but something else failed - rollback both
       try {
-        await rollbackUserCreation(userResult.email);
+        await Promise.all([
+          rollbackUserCreation(createdUser.email),
+          rollbackInvitationMarking(markedInvitation._id),
+        ]);
+        logger.info(
+          `Successfully rolled back user and invitation for ${createdUser.email}`
+        );
       } catch (rollbackError) {
-        logger.error(`Error during rollback: ${rollbackError.message}`);
+        logger.error(
+          `Critical: Failed to rollback registration for ${createdUser.email}: ${rollbackError.message}`
+        );
+      }
+    } else if (markedInvitation && !createdUser) {
+      // Only invitation was marked but user creation failed - rollback invitation
+      try {
+        await rollbackInvitationMarking(markedInvitation._id);
+        logger.info(
+          `Successfully rolled back invitation marking for ${req.body?.email}`
+        );
+      } catch (rollbackError) {
+        logger.error(
+          `Critical: Failed to rollback invitation marking: ${rollbackError.message}`
+        );
       }
     }
 
@@ -359,8 +398,8 @@ const register = async (req, res) => {
     if (error.code === 11000) {
       logger.error(`Duplicate key error during registration: ${error.message}`);
       return res.status(409).json({
-        message: "An invitation for this email already exists.",
-        code: "DUPLICATE_INVITATION",
+        message: "An account with this email or phone number already exists.",
+        code: "DUPLICATE_USER",
       });
     }
 
@@ -437,6 +476,21 @@ const rollbackUserCreation = async (email) => {
   }
 };
 
+const rollbackInvitationMarking = async (invitationId) => {
+  try {
+    await Invitee.findByIdAndUpdate(invitationId, {
+      isUsed: false,
+      usedAt: null,
+    });
+    logger.info(`Rolled back invitation marking for ID: ${invitationId}`);
+  } catch (rollbackError) {
+    logger.error(
+      `Error rolling back invitation marking: ${rollbackError.message}`
+    );
+    throw rollbackError;
+  }
+};
+
 const checkInvitation = async (email, token) => {
   try {
     // Normalize email to lowercase to ensure consistent comparison
@@ -446,7 +500,7 @@ const checkInvitation = async (email, token) => {
       email: normalizedEmail,
       token: token.trim(),
       isUsed: false,
-      expiresAt: { $gt: Date.now() },
+      expiresAt: { $gt: new Date() },
     });
 
     if (!invitation) {
@@ -460,7 +514,7 @@ const checkInvitation = async (email, token) => {
           logger.warn(
             `Invitation for ${normalizedEmail} has already been used at ${existingInvitation.usedAt}`
           );
-        } else if (existingInvitation.expiresAt <= Date.now()) {
+        } else if (existingInvitation.expiresAt <= new Date()) {
           logger.warn(
             `Invitation for ${normalizedEmail} has expired at ${existingInvitation.expiresAt}`
           );
@@ -547,4 +601,5 @@ module.exports = {
   createUser,
   markInvitationAsUsed,
   rollbackUserCreation,
+  rollbackInvitationMarking,
 };

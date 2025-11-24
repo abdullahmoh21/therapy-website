@@ -259,7 +259,9 @@ const createBooking = asyncHandler(async (req, res) => {
     await Promise.all([booking.save(), payment.save()]);
 
     // Queue sync job for Google Calendar
-    await addJob("syncCalendar", { bookingId: booking._id.toString() });
+    await addJob("GoogleCalendarEventSync", {
+      bookingId: booking._id.toString(),
+    });
     logger.info(`Queued Google Calendar sync for booking ${booking._id}`);
 
     // Invalidate cache
@@ -358,7 +360,7 @@ const cancelBooking = asyncHandler(async (req, res) => {
     // This job will handle both Google Calendar deletion and user notification
     if (booking.googleEventId) {
       try {
-        await addJob("cancelGoogleCalendarEvent", {
+        await addJob("GoogleCalendarEventCancellation", {
           bookingId: booking._id.toString(),
           notifyUser: notifyUser,
           reason: reason,
@@ -379,34 +381,20 @@ const cancelBooking = asyncHandler(async (req, res) => {
       // No Google Calendar event, but still send notification if requested
       if (notifyUser) {
         try {
-          const user = await User.findById(booking.userId);
-          if (user) {
-            await sendEmail("adminInitiatedCancellation", {
-              recipient: user.email,
-              name: user.name,
-              bookingId: booking.bookingId || booking._id.toString(),
-              eventDate: booking.eventStartTime.toLocaleDateString("en-US", {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-                timeZone: booking.eventTimezone || "Asia/Karachi",
-              }),
-              eventTime: booking.eventStartTime.toLocaleTimeString("en-US", {
-                hour: "2-digit",
-                minute: "2-digit",
-                timeZone: booking.eventTimezone || "Asia/Karachi",
-              }),
-              reason: reason,
-              cancellationDate: new Date().toLocaleDateString("en-US", {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              }),
-            });
-            logger.info(
-              `Queued cancellation notification email to user ${user._id}`
-            );
-          }
+          await sendEmail("BookingCancellationNotifications", {
+            bookingId: booking._id.toString(),
+            userId: booking.userId.toString(),
+            cancelledBy: "admin",
+            reason: reason,
+            eventStartTime: booking.eventStartTime,
+            cancellationDate: new Date(),
+            paymentId: booking.paymentId ? booking.paymentId.toString() : null,
+            bookingIdNumber: booking.bookingId,
+            notifyAdmin: false, // Admin already knows since they initiated it
+          });
+          logger.info(
+            `Sent cancellation notification to user for booking ${booking._id}`
+          );
         } catch (emailError) {
           logger.error(
             `Failed to send cancellation email: ${emailError.message}`
@@ -758,6 +746,11 @@ const updateBooking = asyncHandler(async (req, res) => {
     // Save the updated booking
     await booking.save();
 
+    // Invalidate cache after booking update
+    await invalidateByEvent("booking-updated", {
+      userId: booking.userId,
+    });
+
     res.status(200).json({
       message: "Booking updated successfully",
       booking,
@@ -794,7 +787,7 @@ const deleteBooking = asyncHandler(async (req, res) => {
     if (isGoogleSynced) {
       // Queue the deletion job to handle Google Calendar deletion and database cleanup
       try {
-        await addJob("deleteCalendarEvent", {
+        await addJob("GoogleCalendarEventDeletion", {
           bookingId: bookingId.toString(),
           googleEventId: booking.googleEventId,
         });
@@ -824,6 +817,11 @@ const deleteBooking = asyncHandler(async (req, res) => {
 
       // Delete the booking
       await Booking.findByIdAndDelete(bookingId);
+
+      // Invalidate cache after booking deletion
+      await invalidateByEvent("booking-deleted", {
+        userId: booking.userId,
+      });
 
       logger.info(`Admin deleted booking: ${bookingId}`);
 

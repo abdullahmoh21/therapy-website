@@ -107,40 +107,99 @@ const getGeneralMetrics = asyncHandler(async (req, res) => {
   res.status(200).json(generalStats);
 });
 
-//@desc gets monthly statistics
+/**
+ * Helper to resolve a period string into { from, to } dates.
+ * Supported: last_7d, last_30d, last_90d, this_month, last_month, all_time
+ */
+function resolvePeriod(period) {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  switch (period) {
+    case "last_7d": {
+      const from = new Date(today);
+      from.setDate(from.getDate() - 7);
+      return { from, to: today };
+    }
+    case "last_30d": {
+      const from = new Date(today);
+      from.setDate(from.getDate() - 30);
+      return { from, to: today };
+    }
+    case "last_90d": {
+      const from = new Date(today);
+      from.setDate(from.getDate() - 90);
+      return { from, to: today };
+    }
+    case "this_month": {
+      const from = new Date(today.getFullYear(), today.getMonth(), 1);
+      return { from, to: today };
+    }
+    case "last_month": {
+      const from = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      const to = new Date(today.getFullYear(), today.getMonth(), 1);
+      return { from, to };
+    }
+    case "all_time":
+    default: {
+      const from = new Date(0); // epoch
+      return { from, to: today };
+    }
+  }
+}
+
+//@desc gets dashboard-style metrics (time-filtered + snapshots)
 //@param valid admin jwt token
-//@route Get /admin/statistics/month
+//@route Get /admin/statistics/dashboard
 //@access Private(admin)
-const getMonthlyMetrics = asyncHandler(async (req, res) => {
-  const currentTimestamp = new Date();
-  const lastMonth = new Date();
-  lastMonth.setDate(1);
-  lastMonth.setMonth(lastMonth.getMonth() - 1);
+const getDashboardMetrics = asyncHandler(async (req, res) => {
+  const period = req.query.period || "last_30d";
+  const { from, to } = resolvePeriod(period);
+
+  const now = new Date();
+
+  const sixtyDaysAgo = new Date(now);
+  sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+
+  const sevenDaysAhead = new Date(now);
+  sevenDaysAhead.setDate(sevenDaysAhead.getDate() + 7);
 
   const [
-    // Profit metrics - updated to handle multiple currencies
-    totalProfitLastMonth,
+    // time-filtered metrics
+    sessionsCompleted,
+    newUsers,
+    cancellations,
+    profitForPeriod,
+    inquiriesInPeriod,
 
-    // User metrics
-    newUsersLastMonth,
-
-    // Booking metrics
-    completedBookingsLastMonth,
-    canceledBookingsLastMonth,
-
-    // Meeting type breakdown
-    onlineMeetingsCompletedLastMonth,
-    inPersonMeetingsCompletedLastMonth,
-
-    // Inquiry metrics
-    totalInquiriesLastMonth,
-    inquiriesByTypeLastMonth,
+    // snapshot metrics
+    upcomingSessionsNext7d,
+    unpaidSessionsAgg,
+    activeClientsAgg,
+    recurringClientsCount,
   ] = await Promise.all([
-    // Profit for last month (convert USD to PKR using stored exchange rates)
+    // Completed sessions in selected period
+    Booking.countDocuments({
+      status: "Completed",
+      eventStartTime: { $gte: from.getTime(), $lt: to.getTime() },
+    }),
+
+    // New users in selected period
+    User.countDocuments({
+      createdAt: { $gte: from, $lt: to },
+    }),
+
+    // Cancellations in selected period
+    Booking.countDocuments({
+      status: "Cancelled",
+      createdAt: { $gte: from, $lt: to },
+    }),
+
+    // Profit in selected period (convert USD to PKR using stored exchange rates)
     Payment.aggregate([
       {
         $match: {
-          createdAt: { $gte: lastMonth },
+          createdAt: { $gte: from, $lt: to },
           transactionStatus: "Completed",
         },
       },
@@ -158,282 +217,122 @@ const getMonthlyMetrics = asyncHandler(async (req, res) => {
       { $group: { _id: null, total: { $sum: "$netAmountInPKR" } } },
     ]),
 
-    // New users in last month
-    User.countDocuments({ createdAt: { $gte: lastMonth } }),
-
-    // Completed bookings in last month
-    Booking.countDocuments({
-      status: "Completed",
-      eventStartTime: { $lte: currentTimestamp, $gte: lastMonth.getTime() },
-    }),
-    // Canceled bookings in last month
-    Booking.countDocuments({
-      status: "Cancelled",
-      createdAt: { $gte: lastMonth },
+    // Inquiries in selected period (no status field, so just total)
+    Inquiry.countDocuments({
+      createdAt: { $gte: from, $lt: to },
     }),
 
-    // Online meetings - completed in last month
+    // Upcoming sessions next 7 days
     Booking.countDocuments({
-      "location.type": "online",
-      status: "Completed",
-      eventStartTime: { $lte: currentTimestamp, $gte: lastMonth.getTime() },
-    }),
-    // In-person meetings - completed in last month
-    Booking.countDocuments({
-      "location.type": "in-person",
-      status: "Completed",
-      eventStartTime: { $lte: currentTimestamp, $gte: lastMonth.getTime() },
-    }),
-
-    // Inquiries in last month
-    Inquiry.countDocuments({ createdAt: { $gte: lastMonth } }),
-    // Inquiry types in last month
-    Inquiry.aggregate([
-      { $match: { createdAt: { $gte: lastMonth } } },
-      { $group: { _id: "$type", count: { $sum: 1 } } },
-    ]),
-  ]);
-
-  // Calculate total bookings for last month
-  const totalBookingsLastMonth = completedBookingsLastMonth;
-
-  // Format inquiry types - limit to top 3
-  const inquiryTypeDistributionLastMonth = {};
-  inquiriesByTypeLastMonth
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 3)
-    .forEach((type) => {
-      inquiryTypeDistributionLastMonth[type._id] = type.count;
-    });
-
-  // Calculate total meetings by type
-  const onlineMeetingsLastMonth = onlineMeetingsCompletedLastMonth;
-  const inPersonMeetingsLastMonth = inPersonMeetingsCompletedLastMonth;
-
-  // Build the response object
-  const monthlyStats = {
-    period: {
-      startDate: lastMonth,
-      label: `${lastMonth.toLocaleString("default", {
-        month: "long",
-      })} ${lastMonth.getFullYear()}`,
-    },
-    profit: totalProfitLastMonth[0]?.total || 0,
-    users: {
-      new: newUsersLastMonth,
-    },
-    bookings: {
-      completed: completedBookingsLastMonth,
-      canceled: canceledBookingsLastMonth,
-      total: totalBookingsLastMonth,
-      meetingTypes: {
-        online: onlineMeetingsLastMonth,
-        inPerson: inPersonMeetingsLastMonth,
+      status: "Active",
+      eventStartTime: {
+        $gte: now.getTime(),
+        $lt: sevenDaysAhead.getTime(),
       },
-    },
-    inquiries: {
-      total: totalInquiriesLastMonth,
-      typeDistribution: inquiryTypeDistributionLastMonth,
-    },
-  };
+    }),
 
-  res.status(200).json(monthlyStats);
-});
-
-//@desc gets yearly statistics
-//@param valid admin jwt token
-//@route Get /admin/statistics/year
-//@access Private(admin)
-const getYearlyMetrics = asyncHandler(async (req, res) => {
-  const currentTimestamp = new Date();
-  const lastYear = new Date();
-  lastYear.setMonth(0);
-  lastYear.setDate(1);
-  lastYear.setFullYear(lastYear.getFullYear() - 1);
-
-  const [
-    // Profit metrics - updated to handle multiple currencies
-    totalProfitLastYear,
-
-    // User metrics
-    newUsersLastYear,
-
-    // Booking metrics
-    completedBookingsCount,
-    canceledBookingsLastYear,
-
-    // Meeting type breakdown
-    onlineMeetingsCompleted,
-    inPersonMeetingsCompleted,
-
-    // Inquiry metrics
-    totalInquiriesLastYear,
-    inquiriesByTypeLastYear,
-
-    // Monthly profit breakdown for the year - updated
-    monthlyProfitBreakdown,
-  ] = await Promise.all([
-    // Profit for last year (convert USD to PKR using stored exchange rates)
-    Payment.aggregate([
+    // Unpaid sessions snapshot:
+    // Completed bookings whose payment is missing or not "Completed"
+    Booking.aggregate([
       {
         $match: {
-          createdAt: { $gte: lastYear },
-          transactionStatus: "Completed",
+          status: "Completed",
         },
       },
       {
-        $project: {
-          netAmountInPKR: {
-            $cond: {
-              if: { $eq: ["$currency", "USD"] },
-              then: { $multiply: ["$netAmountReceived", "$exchangeRate"] },
-              else: "$netAmountReceived",
-            },
-          },
+        $lookup: {
+          from: "payments",
+          localField: "paymentId",
+          foreignField: "_id",
+          as: "payment",
         },
       },
-      { $group: { _id: null, total: { $sum: "$netAmountInPKR" } } },
-    ]),
-
-    // New users in last year
-    User.countDocuments({ createdAt: { $gte: lastYear } }),
-
-    // Completed bookings
-    Booking.countDocuments({
-      status: "Completed",
-      eventStartTime: { $lte: currentTimestamp, $gte: lastYear.getTime() }, // Filter for last year
-    }),
-    // Canceled bookings in last year
-    Booking.countDocuments({
-      status: "Cancelled",
-      createdAt: { $gte: lastYear },
-    }),
-
-    // Online meetings - completed
-    Booking.countDocuments({
-      "location.type": "online",
-      status: "Completed",
-      eventStartTime: { $lte: currentTimestamp, $gte: lastYear.getTime() }, // Filter for last year
-    }),
-    // In-person meetings - completed
-    Booking.countDocuments({
-      "location.type": "in-person",
-      status: "Completed",
-      eventStartTime: { $lte: currentTimestamp, $gte: lastYear.getTime() }, // Filter for last year
-    }),
-
-    // Inquiries in last year
-    Inquiry.countDocuments({ createdAt: { $gte: lastYear } }),
-    // Inquiry types in last year
-    Inquiry.aggregate([
-      { $match: { createdAt: { $gte: lastYear } } },
-      { $group: { _id: "$type", count: { $sum: 1 } } },
-    ]),
-
-    // Monthly profit breakdown for the year - updated
-    Payment.aggregate([
+      {
+        $unwind: {
+          path: "$payment",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
       {
         $match: {
-          createdAt: { $gte: lastYear },
-          transactionStatus: "Completed",
+          $or: [
+            { payment: { $exists: false } },
+            { "payment.transactionStatus": { $ne: "Completed" } },
+          ],
         },
       },
       {
-        $project: {
-          createdAt: 1,
-          netAmountInPKR: {
-            $cond: {
-              if: { $eq: ["$currency", "USD"] },
-              then: { $multiply: ["$netAmountReceived", "$exchangeRate"] },
-              else: "$netAmountReceived",
-            },
+        $count: "count",
+      },
+    ]),
+
+    // Active clients last 60 days: distinct userIds with a completed session
+    Booking.aggregate([
+      {
+        $match: {
+          status: "Completed",
+          eventStartTime: {
+            $gte: sixtyDaysAgo.getTime(),
+            $lt: now.getTime(),
           },
         },
       },
       {
         $group: {
-          _id: {
-            year: { $year: "$createdAt" },
-            month: { $month: "$createdAt" },
-          },
-          profit: { $sum: "$netAmountInPKR" },
+          _id: "$userId",
         },
       },
       {
-        $sort: { "_id.year": 1, "_id.month": 1 },
+        $group: {
+          _id: null,
+          count: { $sum: 1 },
+        },
       },
     ]),
+
+    // Recurring clients: users whose recurring.state is active
+    User.countDocuments({
+      "recurring.state": true,
+    }),
   ]);
 
-  // Calculate total bookings for last year
-  const totalBookingsLastYear = completedBookingsCount;
+  const estimatedRevenue = profitForPeriod[0]?.total || 0;
 
-  // Format inquiry types - limit to top 3
-  const inquiryTypeDistributionLastYear = {};
-  inquiriesByTypeLastYear
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 3)
-    .forEach((type) => {
-      inquiryTypeDistributionLastYear[type._id] = type.count;
-    });
+  const unpaidSessions =
+    unpaidSessionsAgg && unpaidSessionsAgg[0]?.count
+      ? unpaidSessionsAgg[0].count
+      : 0;
 
-  // Calculate total meetings by type
-  const onlineMeetingsLastYear = onlineMeetingsCompleted;
-  const inPersonMeetingsLastYear = inPersonMeetingsCompleted;
+  const activeClientsLast60d =
+    activeClientsAgg && activeClientsAgg[0]?.count
+      ? activeClientsAgg[0].count
+      : 0;
 
-  // Format monthly profit breakdown
-  const monthlyProfit = {};
-  const profitData = [];
-  const labels = [];
-
-  monthlyProfitBreakdown.forEach((item) => {
-    const monthName = new Date(
-      item._id.year,
-      item._id.month - 1,
-      1
-    ).toLocaleString("default", { month: "short" });
-
-    monthlyProfit[monthName] = item.profit;
-    labels.push(monthName);
-    profitData.push(item.profit);
-  });
-
-  // Build the response object
-  const yearlyStats = {
+  const response = {
     period: {
-      startDate: lastYear,
-      endDate: new Date(),
-      label: `${lastYear.getFullYear()} - ${new Date().getFullYear()}`,
+      key: period,
+      from,
+      to,
     },
-    profit: totalProfitLastYear[0]?.total || 0,
-    profitChart: {
-      labels,
-      data: profitData,
+    timeFiltered: {
+      sessionsCompleted,
+      newUsers,
+      cancellations,
+      estimatedRevenue,
+      inquiries: inquiriesInPeriod,
     },
-    users: {
-      new: newUsersLastYear,
+    snapshot: {
+      upcomingSessionsNext7d,
+      unpaidSessions,
+      activeClientsLast60d,
+      recurringClientsCount,
     },
-    bookings: {
-      completed: completedBookingsCount,
-      canceled: canceledBookingsLastYear,
-      total: totalBookingsLastYear,
-      meetingTypes: {
-        online: onlineMeetingsLastYear,
-        inPerson: inPersonMeetingsLastYear,
-      },
-    },
-    inquiries: {
-      total: totalInquiriesLastYear,
-      typeDistribution: inquiryTypeDistributionLastYear,
-    },
-    monthlyProfit,
   };
 
-  res.status(200).json(yearlyStats);
+  res.status(200).json(response);
 });
 
 module.exports = {
   getGeneralMetrics,
-  getMonthlyMetrics,
-  getYearlyMetrics,
+  getDashboardMetrics,
 };

@@ -8,6 +8,7 @@ const userSchema = new Schema(
       required: true,
       unique: true,
       trim: true,
+      lowercase: true, // Ensure email is always stored in lowercase
     },
     emailVerified: {
       state: {
@@ -55,8 +56,8 @@ const userSchema = new Schema(
         enum: ["weekly", "biweekly", "monthly"],
       },
       day: {
-        type: String,
-        enum: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+        type: Number,
+        enum: [0, 1, 2, 3, 4, 5, 6], // 0 = Sunday, 6 = Saturday
       },
       time: {
         type: String,
@@ -79,6 +80,9 @@ const userSchema = new Schema(
       },
       recurringSeriesId: {
         type: mongoose.Schema.Types.ObjectId,
+      },
+      nextBufferRefresh: {
+        type: Date,
       },
     },
     lastLoginAt: {
@@ -105,5 +109,13 @@ const userSchema = new Schema(
     timestamps: true,
   }
 );
+
+// Add a pre-save hook to normalize email
+userSchema.pre("save", function (next) {
+  if (this.isModified("email")) {
+    this.email = this.email.toLowerCase().trim();
+  }
+  next();
+});
 
 module.exports = mongoose.model("User", userSchema);

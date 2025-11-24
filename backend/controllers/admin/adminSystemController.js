@@ -4,8 +4,10 @@ const logger = require("../../logs/logger");
 const mongoose = require("mongoose");
 const os = require("os");
 const {
-  redisClient,
-  checkRedisAvailability,
+  redisCacheClient,
+  redisQueueClient,
+  checkRedisCacheAvailability,
+  checkRedisQueueAvailability,
 } = require("../../utils/redisClient");
 
 //@desc Get system health and configuration
@@ -17,19 +19,19 @@ const getSystemHealth = asyncHandler(async (req, res) => {
     // Basic Server Status (implicitly true if endpoint responds)
     const serverStatus = "Running";
 
-    // Redis Status - Enhanced with more details
-    let redisStatus = "Disconnected";
-    let redisInfo = {};
+    // Redis Cache Status - Enhanced with more details
+    let redisCacheStatus = "Disconnected";
+    let redisCacheInfo = {};
 
-    // Check if Redis client exists and has a status property
-    if (redisClient) {
-      redisStatus = redisClient.status || "Unknown";
+    // Check if Redis cache client exists and has a status property
+    if (redisCacheClient) {
+      redisCacheStatus = redisCacheClient.status || "Unknown";
 
-      // Try to get more detailed Redis info if connected
-      if (redisStatus === "ready") {
+      // Try to get more detailed Redis cache info if connected
+      if (redisCacheStatus === "ready") {
         try {
           // Get Redis info command results
-          const info = await redisClient.info();
+          const info = await redisCacheClient.info();
           const infoSections = info.split("#");
 
           // Parse memory section
@@ -44,31 +46,89 @@ const getSystemHealth = asyncHandler(async (req, res) => {
               if (line.includes(":")) {
                 const [key, value] = line.split(":");
                 if (key && value) {
-                  redisInfo[key.trim()] = value.trim();
+                  redisCacheInfo[key.trim()] = value.trim();
                 }
               }
             });
           }
 
           // Add client count
-          const clientList = await redisClient.client("LIST");
+          const clientList = await redisCacheClient.client("LIST");
           const clientCount = clientList
             .split("\n")
             .filter((line) => line.trim()).length;
-          redisInfo.connected_clients = clientCount;
+          redisCacheInfo.connected_clients = clientCount;
 
           // Add key count
-          const dbSize = await redisClient.dbsize();
-          redisInfo.keys = dbSize;
+          const dbSize = await redisCacheClient.dbsize();
+          redisCacheInfo.keys = dbSize;
         } catch (redisError) {
-          logger.error(`Error fetching Redis info: ${redisError.message}`);
-          redisInfo.error = "Could not fetch detailed Redis information";
+          logger.error(
+            `Error fetching Redis cache info: ${redisError.message}`
+          );
+          redisCacheInfo.error = "Could not fetch detailed Redis information";
         }
       }
     } else {
       // Fallback to socket check if client is not available
-      const isAvailable = await checkRedisAvailability();
-      redisStatus = isAvailable ? "Available (Socket)" : "Unavailable";
+      const isAvailable = await checkRedisCacheAvailability();
+      redisCacheStatus = isAvailable ? "Available (Socket)" : "Unavailable";
+    }
+
+    // Redis Queue Status
+    let redisQueueStatus = "Disconnected";
+    let redisQueueInfo = {};
+
+    // Check if Redis queue client exists and has a status property
+    if (redisQueueClient) {
+      redisQueueStatus = redisQueueClient.status || "Unknown";
+
+      // Try to get more detailed Redis queue info if connected
+      if (redisQueueStatus === "ready") {
+        try {
+          // Get Redis info command results
+          const info = await redisQueueClient.info();
+          const infoSections = info.split("#");
+
+          // Parse memory section
+          const memorySection = infoSections.find((section) =>
+            section.includes("used_memory")
+          );
+          if (memorySection) {
+            const memoryLines = memorySection
+              .split("\r\n")
+              .filter((line) => line.trim());
+            memoryLines.forEach((line) => {
+              if (line.includes(":")) {
+                const [key, value] = line.split(":");
+                if (key && value) {
+                  redisQueueInfo[key.trim()] = value.trim();
+                }
+              }
+            });
+          }
+
+          // Add client count
+          const clientList = await redisQueueClient.client("LIST");
+          const clientCount = clientList
+            .split("\n")
+            .filter((line) => line.trim()).length;
+          redisQueueInfo.connected_clients = clientCount;
+
+          // Add key count
+          const dbSize = await redisQueueClient.dbsize();
+          redisQueueInfo.keys = dbSize;
+        } catch (redisError) {
+          logger.error(
+            `Error fetching Redis queue info: ${redisError.message}`
+          );
+          redisQueueInfo.error = "Could not fetch detailed Redis information";
+        }
+      }
+    } else {
+      // Fallback to socket check if client is not available
+      const isAvailable = await checkRedisQueueAvailability();
+      redisQueueStatus = isAvailable ? "Available (Socket)" : "Unavailable";
     }
 
     // Memory Usage
@@ -131,12 +191,19 @@ const getSystemHealth = asyncHandler(async (req, res) => {
         load5: loadAvg[1].toFixed(2),
         load15: loadAvg[2].toFixed(2),
       },
-      redis: {
-        status: redisStatus,
-        info: redisInfo,
+      redisCache: {
+        status: redisCacheStatus,
+        info: redisCacheInfo,
         dockerized:
-          process.env.REDIS_HOST !== "localhost" &&
-          process.env.REDIS_HOST !== undefined,
+          process.env.REDIS_CACHE_HOST !== "localhost" &&
+          process.env.REDIS_CACHE_HOST !== undefined,
+      },
+      redisQueue: {
+        status: redisQueueStatus,
+        info: redisQueueInfo,
+        dockerized:
+          process.env.REDIS_QUEUE_HOST !== "localhost" &&
+          process.env.REDIS_QUEUE_HOST !== undefined,
       },
       memory: {
         rssMB: (memoryUsage.rss / (1024 * 1024)).toFixed(2), // Resident Set Size

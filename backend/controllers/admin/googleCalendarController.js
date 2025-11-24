@@ -173,21 +173,13 @@ const handleCallback = asyncHandler(async (req, res) => {
  */
 const testConnection = asyncHandler(async (req, res) => {
   try {
-    const oauth2Client = await createOAuth2Client();
-    const calendar = google.calendar({ version: "v3", auth: oauth2Client });
-
-    const resp = await calendar.calendarList.list({
-      maxResults: 1,
-      fields: "kind,items(id,summary,primary)",
-    });
+    await testOAuthConnection(); // This now marks tokens as invalidated on failure
 
     logger.info("Google Calendar probe successful");
 
     res.json({
       success: true,
-      message: "Google Calendar probe successful",
-      sampleCalendar: resp.data.items?.[0] || null,
-      totalReturned: resp.data.items?.length || 0,
+      message: "Google Calendar connection test successful",
     });
   } catch (error) {
     logger.error(`Google Calendar probe failed: ${error.message}`);
