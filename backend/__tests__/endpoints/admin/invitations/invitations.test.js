@@ -201,8 +201,8 @@ describe("Admin Invitation Endpoints", () => {
     });
   });
 
-  // ────── POST /admin/invite ──────
-  describe("POST /admin/invite", () => {
+  // ────── POST /admin/invitations ──────
+  describe("POST /admin/invitations", () => {
     it("should create a new invitation successfully", async () => {
       const inviteData = {
         email: "newuser@example.com",
@@ -213,7 +213,9 @@ describe("Admin Invitation Endpoints", () => {
       // Ensure sendEmail resolves successfully
       sendEmail.mockResolvedValueOnce({ success: true });
 
-      const res = await request(app).post("/admin/invite").send(inviteData);
+      const res = await request(app)
+        .post("/admin/invitations")
+        .send(inviteData);
 
       expect(res.statusCode).toBe(201);
       expect(res.body).toHaveProperty(
@@ -227,10 +229,9 @@ describe("Admin Invitation Endpoints", () => {
 
       // Verify email was sent
       expect(sendEmail).toHaveBeenCalledWith(
-        "sendInvitation",
+        "UserInvitationEmail",
         expect.objectContaining({
-          recipient: inviteData.email,
-          name: inviteData.name,
+          inviteeId: expect.any(String),
         })
       );
 
@@ -242,7 +243,7 @@ describe("Admin Invitation Endpoints", () => {
     });
 
     it("should return 400 if email is missing", async () => {
-      const res = await request(app).post("/admin/invite").send({
+      const res = await request(app).post("/admin/invitations").send({
         name: "New User",
         accountType: "domestic",
       });
@@ -252,7 +253,7 @@ describe("Admin Invitation Endpoints", () => {
     });
 
     it("should return 400 if accountType is invalid", async () => {
-      const res = await request(app).post("/admin/invite").send({
+      const res = await request(app).post("/admin/invitations").send({
         email: "newuser@example.com",
         name: "New User",
         accountType: "invalid-type",
@@ -273,7 +274,7 @@ describe("Admin Invitation Endpoints", () => {
         DOB: new Date("1990-01-01"),
       });
 
-      const res = await request(app).post("/admin/invite").send({
+      const res = await request(app).post("/admin/invitations").send({
         email: "existing@example.com",
         name: "New User",
         accountType: "domestic",
@@ -290,7 +291,7 @@ describe("Admin Invitation Endpoints", () => {
         name: "Active User",
       });
 
-      const res = await request(app).post("/admin/invite").send({
+      const res = await request(app).post("/admin/invitations").send({
         email: "active@example.com",
         name: "New Attempt",
         accountType: "domestic",
@@ -317,7 +318,9 @@ describe("Admin Invitation Endpoints", () => {
         accountType: "domestic",
       };
 
-      const res = await request(app).post("/admin/invite").send(inviteData);
+      const res = await request(app)
+        .post("/admin/invitations")
+        .send(inviteData);
 
       expect(res.statusCode).toBe(201);
       expect(res.body).toHaveProperty(
@@ -333,8 +336,8 @@ describe("Admin Invitation Endpoints", () => {
     });
   });
 
-  // ────── POST /admin/invite/:inviteId/resend ──────
-  describe("POST /admin/invite/:inviteId/resend", () => {
+  // ────── POST /admin/invitations/:inviteId/resend ──────
+  describe("POST /admin/invitations/:inviteId/resend", () => {
     it("should resend an invitation successfully", async () => {
       // Create an invitation with a valid invitedBy ObjectId
       const invitation = await createInvitation({
@@ -345,7 +348,7 @@ describe("Admin Invitation Endpoints", () => {
       sendEmail.mockResolvedValueOnce({ success: true });
 
       const res = await request(app).post(
-        `/admin/invite/${invitation._id}/resend`
+        `/admin/invitations/${invitation._id}/resend`
       );
 
       expect(res.statusCode).toBe(200);
@@ -357,10 +360,9 @@ describe("Admin Invitation Endpoints", () => {
 
       // Verify email was sent
       expect(sendEmail).toHaveBeenCalledWith(
-        "sendInvitation",
+        "UserInvitationEmail",
         expect.objectContaining({
-          recipient: invitation.email,
-          name: invitation.name,
+          inviteeId: expect.any(String),
         })
       );
     });
@@ -378,7 +380,7 @@ describe("Admin Invitation Endpoints", () => {
       sendEmail.mockResolvedValueOnce({ success: true });
 
       const res = await request(app).post(
-        `/admin/invite/${expiredInvitation._id}/resend`
+        `/admin/invitations/${expiredInvitation._id}/resend`
       );
       expect(res.statusCode).toBe(200);
 
@@ -395,7 +397,7 @@ describe("Admin Invitation Endpoints", () => {
       const nonExistentId = new mongoose.Types.ObjectId();
 
       const res = await request(app).post(
-        `/admin/invite/${nonExistentId}/resend`
+        `/admin/invitations/${nonExistentId}/resend`
       );
 
       expect(res.statusCode).toBe(404);
@@ -412,7 +414,7 @@ describe("Admin Invitation Endpoints", () => {
       sendEmail.mockRejectedValueOnce(new Error("Email service unavailable"));
 
       const res = await request(app).post(
-        `/admin/invite/${invitation._id}/resend`
+        `/admin/invitations/${invitation._id}/resend`
       );
 
       expect(res.statusCode).toBe(500);

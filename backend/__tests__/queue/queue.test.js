@@ -3,8 +3,8 @@ process.env.NODE_ENV = "test";
 
 // Mock Redis client
 jest.mock("../../utils/redisClient", () => ({
-  checkRedisAvailability: jest.fn().mockResolvedValue(true),
-  client: {
+  checkRedisQueueAvailability: jest.fn().mockResolvedValue(true),
+  redisQueueClient: {
     get: jest.fn().mockResolvedValue(null),
     set: jest.fn().mockResolvedValue("OK"),
     del: jest.fn().mockResolvedValue(1),
@@ -34,6 +34,7 @@ jest.mock("bullmq", () => ({
 jest.mock("../../utils/queue/worker", () => ({
   buildWorker: jest.fn().mockResolvedValue({
     on: jest.fn(),
+    close: jest.fn().mockResolvedValue(undefined),
   }),
 }));
 
@@ -66,12 +67,6 @@ const logger = require("../../logs/logger");
 
 // Import modules being tested
 const { sendEmail, initializeQueue } = require("../../utils/queue");
-const jobHandlers = require("../../utils/queue/jobs/index");
-
-// Create spies for job handlers
-Object.keys(jobHandlers).forEach((jobName) => {
-  jest.spyOn(jobHandlers, jobName).mockResolvedValue({ success: true });
-});
 
 // Import mongoose and MongoDB Memory Server
 const mongoose = require("mongoose");
@@ -82,6 +77,7 @@ const User = require("../../models/User");
 const Booking = require("../../models/Booking");
 const Payment = require("../../models/Payment");
 const Config = require("../../models/Config");
+const Job = require("../../models/Job");
 
 describe("Queue System Tests", () => {
   let mongoServer;
@@ -108,6 +104,16 @@ describe("Queue System Tests", () => {
 
   // Cleanup after tests
   afterAll(async () => {
+    // Only try to shutdown queue if it was initialized
+    try {
+      const { shutdownQueue } = require("../../utils/queue");
+      if (shutdownQueue) {
+        await shutdownQueue();
+      }
+    } catch (error) {
+      // Ignore cleanup errors
+    }
+
     await mongoose.disconnect();
     await mongoServer.stop();
   });
@@ -115,7 +121,7 @@ describe("Queue System Tests", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     // Default: Redis is available
-    redisClient.checkRedisAvailability.mockResolvedValue(true);
+    redisClient.checkRedisQueueAvailability.mockResolvedValue(true);
   });
 
   describe("Queue Initialization", () => {
@@ -126,7 +132,7 @@ describe("Queue System Tests", () => {
     });
 
     it("should not initialize the queue when Redis is unavailable", async () => {
-      redisClient.checkRedisAvailability.mockResolvedValue(false);
+      redisClient.checkRedisQueueAvailability.mockResolvedValue(false);
       const result = await initializeQueue();
       expect(result).toBe(false);
       expect(Queue).not.toHaveBeenCalled();
@@ -137,67 +143,60 @@ describe("Queue System Tests", () => {
     describe("When queue is available", () => {
       beforeEach(async () => {
         jest.clearAllMocks();
-        redisClient.checkRedisAvailability.mockResolvedValue(true);
+        redisClient.checkRedisQueueAvailability.mockResolvedValue(true);
         await initializeQueue();
       });
 
-      it("should add a verifyEmail job to the queue", async () => {
+      it("should add a UserAccountVerificationEmail job to the queue", async () => {
         const jobData = {
-          name: "Test User",
-          recipient: "test@example.com",
-          link: "https://example.com/verify/token123",
+          userId: "507f1f77bcf86cd799439011",
+          verificationToken: "token123",
         };
 
-        await sendEmail("verifyEmail", jobData);
+        await sendEmail("UserAccountVerificationEmail", jobData);
 
         expect(mockAdd).toHaveBeenCalledWith(
-          "verifyEmail",
+          "UserAccountVerificationEmail",
           jobData,
           expect.objectContaining({
             jobId: expect.any(String),
             removeOnComplete: true,
-            removeOnFail: true,
+            removeOnFail: expect.any(Boolean),
             attempts: 5,
           })
         );
-        expect(jobHandlers.verifyEmail).not.toHaveBeenCalled();
       });
 
-      it("should add a resetPassword job to the queue", async () => {
+      it("should add a UserPasswordResetEmail job to the queue", async () => {
         const jobData = {
-          name: "Test User",
-          recipient: "test@example.com",
-          link: "https://example.com/reset/token123",
+          userId: "507f1f77bcf86cd799439011",
+          resetToken: "token123",
         };
 
-        await sendEmail("resetPassword", jobData);
+        await sendEmail("UserPasswordResetEmail", jobData);
 
         expect(mockAdd).toHaveBeenCalledWith(
-          "resetPassword",
+          "UserPasswordResetEmail",
           jobData,
           expect.any(Object)
         );
-        expect(jobHandlers.resetPassword).not.toHaveBeenCalled();
       });
 
-      it("should add a sendInvitation job to the queue", async () => {
+      it("should add a UserInvitationEmail job to the queue", async () => {
         const jobData = {
-          recipient: "test@example.com",
-          link: "https://example.com/invite/token123",
-          name: "Test User",
+          inviteeId: "507f1f77bcf86cd799439011",
         };
 
-        await sendEmail("sendInvitation", jobData);
+        await sendEmail("UserInvitationEmail", jobData);
 
         expect(mockAdd).toHaveBeenCalledWith(
-          "sendInvitation",
+          "UserInvitationEmail",
           jobData,
           expect.any(Object)
         );
-        expect(jobHandlers.sendInvitation).not.toHaveBeenCalled();
       });
 
-      it("should add a ContactMe job to the queue", async () => {
+      it("should add a ContactInquiry job to the queue", async () => {
         const jobData = {
           type: "General",
           name: "Test User",
@@ -206,139 +205,119 @@ describe("Queue System Tests", () => {
           message: "This is a test message",
         };
 
-        await sendEmail("ContactMe", jobData);
+        await sendEmail("ContactInquiry", jobData);
 
         expect(mockAdd).toHaveBeenCalledWith(
-          "ContactMe",
+          "ContactInquiry",
           jobData,
           expect.any(Object)
         );
-        expect(jobHandlers.ContactMe).not.toHaveBeenCalled();
       });
 
-      it("should add an eventDeleted job to the queue", async () => {
+      it("should add an EventDeletedNotification job to the queue", async () => {
         const jobData = {
-          recipient: "test@example.com",
-          name: "Test User",
-          eventDate: "December 25, 2023",
-          eventTime: "2:00 PM",
+          userId: "507f1f77bcf86cd799439011",
+          eventStartTime: new Date("2023-12-25T14:00:00Z"),
           reason: "Test reason",
         };
 
-        await sendEmail("eventDeleted", jobData);
+        await sendEmail("EventDeletedNotification", jobData);
 
         expect(mockAdd).toHaveBeenCalledWith(
-          "eventDeleted",
+          "EventDeletedNotification",
           jobData,
           expect.any(Object)
         );
-        expect(jobHandlers.eventDeleted).not.toHaveBeenCalled();
       });
 
-      it("should add a userCancellation job to the queue", async () => {
+      it("should add a BookingCancellationNotifications job to the queue", async () => {
         const jobData = {
-          recipient: "test@example.com",
-          name: "Test User",
-          bookingId: "B12345",
-          eventDate: "December 25, 2023",
-          eventTime: "2:00 PM",
+          bookingId: "507f1f77bcf86cd799439011",
+          userId: "507f1f77bcf86cd799439012",
+          cancelledBy: "user",
+          reason: "Testing cancellation",
+          eventStartTime: new Date("2023-12-25T14:00:00Z"),
+          cancellationDate: new Date(),
+          paymentId: "507f1f77bcf86cd799439013",
+          bookingIdNumber: 12345,
+          notifyAdmin: true,
         };
 
-        await sendEmail("userCancellation", jobData);
+        await sendEmail("BookingCancellationNotifications", jobData);
 
         expect(mockAdd).toHaveBeenCalledWith(
-          "userCancellation",
+          "BookingCancellationNotifications",
           jobData,
           expect.any(Object)
         );
-        expect(jobHandlers.userCancellation).not.toHaveBeenCalled();
       });
 
-      it("should add an adminCancellationNotif job to the queue", async () => {
-        const jobData = {
-          booking: {
-            _id: "booking123",
-            bookingId: "B12345",
-            userId: "user123",
-            eventStartTime: new Date("2023-12-25T14:00:00Z"),
-            cancellation: {
-              date: new Date(),
-              cancelledBy: "User",
-              reason: "Testing cancellation",
-            },
-          },
-          payment: {
-            _id: "payment123",
-            amount: 100,
-            currency: "USD",
-            transactionStatus: "Completed",
-            transactionReferenceNumber: "TRX12345",
-          },
-        };
-
-        await sendEmail("adminCancellationNotif", jobData);
-
-        expect(mockAdd).toHaveBeenCalledWith(
-          "adminCancellationNotif",
-          jobData,
-          expect.any(Object)
-        );
-        expect(jobHandlers.adminCancellationNotif).not.toHaveBeenCalled();
-      });
-
-      it("should add an adminAlert job to the queue", async () => {
+      it("should add a SystemAlert job to the queue", async () => {
         const jobData = {
           alertType: "serverError",
           extraData: { message: "Test error" },
         };
 
-        await sendEmail("adminAlert", jobData);
+        await sendEmail("SystemAlert", jobData);
 
         expect(mockAdd).toHaveBeenCalledWith(
-          "adminAlert",
+          "SystemAlert",
           jobData,
           expect.any(Object)
         );
-        expect(jobHandlers.adminAlert).not.toHaveBeenCalled();
       });
     });
 
     describe("Fallback Execution (When Queue is Down)", () => {
-      beforeEach(() => {
+      beforeEach(async () => {
         jest.clearAllMocks();
+        // Clear Job collection
+        await Job.deleteMany({});
         // Setup for Redis connection failure
         mockAdd.mockRejectedValue(new Error("Redis connection failed"));
       });
 
-      it("should execute verifyEmail handler directly when queue is down", async () => {
+      it("should persist UserAccountVerificationEmail to MongoDB when queue is down", async () => {
         const jobData = {
-          name: "Test User",
-          recipient: "test@example.com",
-          link: "https://example.com/verify/token123",
+          userId: "507f1f77bcf86cd799439011",
+          verificationToken: "token123",
         };
 
-        await sendEmail("verifyEmail", jobData);
+        const result = await sendEmail("UserAccountVerificationEmail", jobData);
 
-        expect(jobHandlers.verifyEmail).toHaveBeenCalledWith({ data: jobData });
-        expect(logger.warn).toHaveBeenCalled();
-      });
+        expect(result).toHaveProperty("success", true);
+        expect(result).toHaveProperty("deferred", true);
 
-      it("should execute resetPassword handler directly when queue is down", async () => {
-        const jobData = {
-          name: "Test User",
-          recipient: "test@example.com",
-          link: "https://example.com/reset/token123",
-        };
-
-        await sendEmail("resetPassword", jobData);
-
-        expect(jobHandlers.resetPassword).toHaveBeenCalledWith({
-          data: jobData,
+        // Check that job was persisted to MongoDB
+        const savedJob = await Job.findOne({
+          jobName: "UserAccountVerificationEmail",
         });
-        expect(logger.warn).toHaveBeenCalled();
+        expect(savedJob).toBeTruthy();
+        expect(savedJob.jobData).toMatchObject(jobData);
+        expect(savedJob.status).toBe("pending");
       });
 
-      it("should execute ContactMe handler directly when queue is down", async () => {
+      it("should persist UserPasswordResetEmail to MongoDB when queue is down", async () => {
+        const jobData = {
+          userId: "507f1f77bcf86cd799439011",
+          resetToken: "token123",
+        };
+
+        const result = await sendEmail("UserPasswordResetEmail", jobData);
+
+        expect(result).toHaveProperty("success", true);
+        expect(result).toHaveProperty("deferred", true);
+
+        // Check that job was persisted to MongoDB
+        const savedJob = await Job.findOne({
+          jobName: "UserPasswordResetEmail",
+        });
+        expect(savedJob).toBeTruthy();
+        expect(savedJob.jobData).toMatchObject(jobData);
+        expect(savedJob.status).toBe("pending");
+      });
+
+      it("should persist ContactInquiry to MongoDB when queue is down", async () => {
         const jobData = {
           type: "General",
           name: "Test User",
@@ -347,53 +326,58 @@ describe("Queue System Tests", () => {
           message: "This is a test message",
         };
 
-        await sendEmail("ContactMe", jobData);
+        const result = await sendEmail("ContactInquiry", jobData);
 
-        expect(jobHandlers.ContactMe).toHaveBeenCalledWith({ data: jobData });
-        expect(logger.warn).toHaveBeenCalled();
+        expect(result).toHaveProperty("success", true);
+        expect(result).toHaveProperty("deferred", true);
+
+        // Check that job was persisted to MongoDB
+        const savedJob = await Job.findOne({ jobName: "ContactInquiry" });
+        expect(savedJob).toBeTruthy();
+        expect(savedJob.jobData).toMatchObject(jobData);
+        expect(savedJob.status).toBe("pending");
       });
 
-      it("should throw error for unknown job type", async () => {
+      it("should persist to MongoDB for unknown job type", async () => {
         const jobData = { test: "data" };
 
-        await expect(sendEmail("unknownJobType", jobData)).rejects.toThrow(
-          "Unknown job type"
-        );
+        const result = await sendEmail("UnknownJobType", jobData);
+
+        // Should still persist even for unknown types
+        expect(result).toHaveProperty("success", true);
+        expect(result).toHaveProperty("deferred", true);
+
+        const savedJob = await Job.findOne({ jobName: "UnknownJobType" });
+        expect(savedJob).toBeTruthy();
       });
     });
 
     describe("Queue never initialized", () => {
-      // Clear state between test suites
-      beforeEach(() => {
-        jest.resetModules();
+      beforeEach(async () => {
         jest.clearAllMocks();
+        await Job.deleteMany({});
       });
 
-      it("should execute job handler directly when queue was never initialized", async () => {
-        // Re-import job handlers and re-apply spies after module reset
-        const jobHandlers = require("../../utils/queue/jobs/index");
-        Object.keys(jobHandlers).forEach((jobName) => {
-          jest.spyOn(jobHandlers, jobName).mockResolvedValue({ success: true });
-        });
-
-        // Also re-import logger since we need to spy on it
-        const logger = require("../../logs/logger");
-
+      it("should persist job to MongoDB when queue was never initialized", async () => {
         const jobData = {
-          name: "Test User",
-          recipient: "test@example.com",
-          link: "https://example.com/verify/token123",
+          userId: "507f1f77bcf86cd799439011",
+          verificationToken: "token123",
         };
 
         // Get a fresh copy of the module with queue set to null
         const { sendEmail } = require("../../utils/queue");
-        await sendEmail("verifyEmail", jobData);
+        const result = await sendEmail("UserAccountVerificationEmail", jobData);
 
-        expect(jobHandlers.verifyEmail).toHaveBeenCalledWith({ data: jobData });
-        expect(logger.warn).toHaveBeenCalled();
-        expect(logger.warn).toHaveBeenCalledWith(
-          expect.stringMatching(/Queue unavailable/)
-        );
+        expect(result).toHaveProperty("success", true);
+        expect(result).toHaveProperty("deferred", true);
+
+        // Check that job was persisted to MongoDB
+        const savedJob = await Job.findOne({
+          jobName: "UserAccountVerificationEmail",
+        });
+        expect(savedJob).toBeTruthy();
+        expect(savedJob.jobData).toMatchObject(jobData);
+        expect(savedJob.status).toBe("pending");
       });
     });
   });

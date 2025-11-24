@@ -24,7 +24,22 @@ jest.mock("jsonwebtoken", () => {
   }
 
   return {
-    sign: jest.fn().mockReturnValue("mock-jwt-token"),
+    // Mock sign to support both callback and promise patterns (for util.promisify)
+    sign: jest.fn().mockImplementation((payload, secret, options, callback) => {
+      const token = "mock-jwt-token";
+      // If callback is provided (promisify pattern), call it
+      if (typeof callback === "function") {
+        callback(null, token);
+        return;
+      }
+      // If options is a function (callback without options), call it
+      if (typeof options === "function") {
+        options(null, token);
+        return;
+      }
+      // Otherwise return token directly (sync pattern)
+      return token;
+    }),
     verify: jest.fn().mockImplementation((token, secret) => {
       if (token === "invalid-token") {
         throw new Error("Invalid token");

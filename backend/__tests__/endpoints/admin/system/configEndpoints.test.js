@@ -220,7 +220,7 @@ describe("Config Endpoints", () => {
         expect(sessionPrice).toHaveProperty("value", 100);
         expect(sessionPrice).toHaveProperty("description");
         expect(sessionPrice).toHaveProperty("displayName");
-        expect(sessionPrice).toHaveProperty("editable");
+        expect(sessionPrice).toHaveProperty("viewable");
         expect(sessionPrice).toHaveProperty("_id");
       });
 

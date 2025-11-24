@@ -4,12 +4,12 @@
  */
 
 const mongoose = require("mongoose");
-const Job = require("../models/Job");
-const outboxService = require("../utils/queue/outbox");
-const { addJob, sendEmail } = require("../utils/queue/index");
+const Job = require("../../models/Job");
+const outboxService = require("../../utils/queue/outbox");
+const { addJob, sendEmail } = require("../../utils/queue/index");
 
 // Mock logger to reduce noise
-jest.mock("../logs/logger", () => ({
+jest.mock("../../logs/logger", () => ({
   info: jest.fn(),
   error: jest.fn(),
   warn: jest.fn(),
