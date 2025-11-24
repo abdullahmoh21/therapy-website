@@ -55,10 +55,10 @@ describe("POST /users/resendEmailVerification - Resend Email Verification", () =
     expect(res.statusCode).toBe(200);
     expect(res.body.message).toBe("Verification email sent");
     expect(sendEmail).toHaveBeenCalledWith(
-      "verifyEmail",
+      "UserAccountVerificationEmail",
       expect.objectContaining({
-        recipient: "test@example.com",
-        name: "Test User",
+        userId: expect.any(String),
+        verificationToken: expect.any(String),
       })
     );
   });

@@ -25,7 +25,8 @@ describe("System Health Endpoint", () => {
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty("server");
       expect(response.body).toHaveProperty("cpu");
-      expect(response.body).toHaveProperty("redis");
+      expect(response.body).toHaveProperty("redisCache");
+      expect(response.body).toHaveProperty("redisQueue");
       expect(response.body).toHaveProperty("memory");
       expect(response.body).toHaveProperty("database");
 
