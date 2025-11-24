@@ -2,20 +2,32 @@
 const { google } = require("googleapis");
 const Booking = require("../../../models/Booking");
 const User = require("../../../models/User");
+const Config = require("../../../models/Config");
 const logger = require("../../../logs/logger");
 const { utcToZonedTime, format } = require("date-fns-tz");
 const { createOAuth2Client } = require("../../googleOAuth");
 
-const syncCalendar = async (jobData) => {
+/**
+ * Handle Google Calendar synchronization for a booking
+ * Creates or updates a Google Calendar event and schedules client invitation
+ *
+ * @param {Object} jobData - BullMQ job object
+ * @param {string} jobData.data.bookingId - MongoDB ID of the booking to sync
+ */
+const handleGoogleCalendarSync = async (jobData) => {
   const { bookingId } = jobData.data;
-  logger.debug(`syncCalendar job started for booking: ${bookingId}`);
+  logger.debug(
+    `handleGoogleCalendarSync job started for booking: ${bookingId}`
+  );
 
   let booking;
 
   try {
     // Validate input
     if (!bookingId) {
-      logger.error(`syncCalendar job failed: No booking ID provided`);
+      logger.error(
+        `handleGoogleCalendarSync job failed: No booking ID provided`
+      );
       return { success: false, error: "No booking ID provided" };
     }
 
@@ -195,16 +207,25 @@ const syncCalendar = async (jobData) => {
         logger.error(
           `Google Calendar access forbidden for booking ${bookingId}: ${googleError.message}`
         );
-        await updateSyncStatus(booking, "google", "access_denied");
+        await updateSyncStatus(booking, "google", "failed");
         return { success: false, error: "Google Calendar access denied" };
-      } else if (googleError.code === 401) {
+      } else if (
+        googleError.code === 401 ||
+        googleError.message?.includes("invalid_grant")
+      ) {
         logger.error(
           `Google Calendar authentication failed for booking ${bookingId}: ${googleError.message}`
         );
-        await updateSyncStatus(booking, "google", "auth_failed");
+        // Mark tokens as invalidated
+        await Config.setValue("googleTokenInvalidated", "true");
+        logger.warn(
+          "Marked Google OAuth tokens as invalidated due to auth error"
+        );
+        await updateSyncStatus(booking, "google", "failed");
         return {
           success: false,
-          error: "Google Calendar authentication failed",
+          error:
+            "Google Calendar authentication failed - please reconnect your account",
         };
       } else {
         logger.error(
@@ -240,11 +261,11 @@ const syncCalendar = async (jobData) => {
         new Date(booking.eventStartTime).getTime() - Date.now() - LEAD_MS
       );
 
-      // Dynamically import addJob to avoid circular dependency
-      const { addJob } = require("../index");
+      // Import from jobScheduler to avoid circular dependency
+      const { addJob } = require("../jobScheduler");
 
       await addJob(
-        "addClientAttendee",
+        "handleClientCalendarInvitation",
         { bookingId: bookingId.toString() },
         { delay } // this will run ~2 days before the session
       );
@@ -262,7 +283,7 @@ const syncCalendar = async (jobData) => {
     }
 
     logger.debug(
-      `syncCalendar job completed successfully for booking ${bookingId}`
+      `handleGoogleCalendarSync job completed successfully for booking ${bookingId}`
     );
     return { success: true, eventId: response.data.id };
   } catch (error) {
@@ -300,4 +321,4 @@ async function updateSyncStatus(booking, service, status) {
   }
 }
 
-module.exports = syncCalendar;
+module.exports = handleGoogleCalendarSync;

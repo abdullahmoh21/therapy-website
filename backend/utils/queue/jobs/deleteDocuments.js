@@ -4,7 +4,15 @@ const Invitee = require("../../../models/Invitee");
 const Booking = require("../../../models/Booking");
 const Payment = require("../../../models/Payment");
 
-const deleteDocuments = async (job) => {
+/**
+ * Handle database cleanup - bulk delete documents
+ * Used for cleaning up orphaned or expired records
+ *
+ * @param {Object} job - BullMQ job object
+ * @param {string[]} job.data.documentIds - Array of MongoDB IDs to delete
+ * @param {string} job.data.model - Model name ('User', 'Booking', 'Payment', 'Invitee')
+ */
+const handleDatabaseCleanup = async (job) => {
   try {
     const { documentIds, model } = job.data;
 
@@ -24,17 +32,19 @@ const deleteDocuments = async (job) => {
         break;
       default:
         logger.error(`Unknown model: ${model}`);
-        return;
+        throw new Error(`Unknown model: ${model}`);
     }
 
     await modelInstance.deleteMany({ _id: { $in: documentIds } });
     logger.info(
-      `Successfully deleted documents from ${model} with IDs: ${documentIds}`
+      `Successfully deleted ${documentIds.length} documents from ${model}`
     );
   } catch (error) {
-    logger.error(`Error deleting documents from ${job.data.model}: ${error}`);
+    logger.error(
+      `Error deleting documents from ${job.data.model}: ${error.message}`
+    );
     throw error;
   }
 };
 
-module.exports = deleteDocuments;
+module.exports = handleDatabaseCleanup;

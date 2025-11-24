@@ -2,53 +2,62 @@ const { transporter } = require("../../emailTransporter");
 const logger = require("../../../logs/logger");
 const User = require("../../../models/User");
 const Booking = require("../../../models/Booking");
+const Payment = require("../../../models/Payment");
 const Config = require("../../../models/Config");
 
-const sendRefundConfirmation = async (job) => {
+/**
+ * Handle sending payment refund confirmation to user
+ * Fetches all required data and formats dates inside the job
+ *
+ * @param {Object} job - BullMQ job object
+ * @param {string} job.data.paymentId - MongoDB ID of the payment
+ */
+const handlePaymentRefundConfirmation = async (job) => {
   try {
-    const { payment } = job.data;
+    const { paymentId } = job.data;
+
+    if (!paymentId) {
+      throw new Error("Missing paymentId for refund confirmation email");
+    }
+
+    // Fetch all required data in parallel (moved from call site)
+    const payment = await Payment.findById(paymentId).lean().exec();
+
     if (!payment) {
-      throw new Error("Missing required data for refund request email");
+      logger.error(`Payment ${paymentId} not found for refund confirmation`);
+      throw new Error(`Payment not found for refund confirmation`);
     }
 
-    let user, booking, adminEmail;
+    const [user, booking, adminEmail] = await Promise.all([
+      User.findById(payment.userId, "name email").lean().exec(),
+      Booking.findById(payment.bookingId, "bookingId eventStartTime")
+        .lean()
+        .exec(),
+      Config.getValue("adminEmail"),
+    ]);
 
-    try {
-      // Use Promise.all but handle potential failures
-      const results = await Promise.allSettled([
-        User.findOne({ _id: payment.userId }, "name email").lean().exec(),
-        Booking.findOne({ _id: payment.bookingId }).select("").lean().exec(),
-        Config.getValue("adminEmail"),
-      ]);
-
-      user = results[0].status === "fulfilled" ? results[0].value : null;
-      booking = results[1].status === "fulfilled" ? results[1].value : null;
-      adminEmail = results[2].status === "fulfilled" ? results[2].value : null;
-
-      if (!user) {
-        logger.error(`User not found for payment ${payment._id}`);
-        throw new Error(`User not found for payment`);
-      }
-
-      if (!booking) {
-        logger.error(`Booking not found for payment ${payment._id}`);
-        booking = { bookingId: "Unknown" };
-      }
-    } catch (err) {
-      logger.error(
-        `Error fetching data for refund confirmation: ${err.message}`
-      );
-      throw err;
+    if (!user) {
+      logger.error(`User not found for payment ${paymentId}`);
+      throw new Error(`User not found for refund confirmation`);
     }
 
-    const eventDate = new Date(booking.eventStartTime).toLocaleDateString(
-      "en-GB",
-      { day: "2-digit", month: "long", year: "numeric" }
-    );
-    const eventTime = new Date(booking.eventStartTime).toLocaleTimeString(
-      "en-US",
-      { hour: "2-digit", minute: "2-digit", hour12: true }
-    );
+    // Format dates (moved from call site)
+    const eventDate = booking?.eventStartTime
+      ? new Date(booking.eventStartTime).toLocaleDateString("en-GB", {
+          day: "2-digit",
+          month: "long",
+          year: "numeric",
+        })
+      : "N/A";
+
+    const eventTime = booking?.eventStartTime
+      ? new Date(booking.eventStartTime).toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        })
+      : "N/A";
+
     const paymentCompletedDate = payment.paymentCompletedDate
       ? new Date(payment.paymentCompletedDate).toLocaleDateString("en-GB", {
           day: "2-digit",
@@ -68,11 +77,11 @@ const sendRefundConfirmation = async (job) => {
       to: user.email,
       subject: "Refund Confirmation",
       replyTo: adminEmail || "no-reply@fatimanaqvi.com",
-      template: "refundConfirmation",
+      template: "user_payment_refund_confirmation",
       context: {
         name: user.name,
         userEmail: user.email,
-        bookingId: booking.bookingId,
+        bookingId: booking?.bookingId || "Unknown",
         eventDate,
         eventTime,
         paymentAmount: payment.amount,
@@ -86,11 +95,13 @@ const sendRefundConfirmation = async (job) => {
     };
 
     await transporter.sendMail(mailOptions);
-    logger.info(`Refund Confirmation email sent to ${user.email}`);
+    logger.info(`Refund confirmation email sent to ${user.email}`);
   } catch (error) {
-    logger.error(`[EMAIL] Error processing refund request: ${error}`);
+    logger.error(
+      `[EMAIL] Error processing refund confirmation: ${error.message}`
+    );
     throw error;
   }
 };
 
-module.exports = sendRefundConfirmation;
+module.exports = handlePaymentRefundConfirmation;

@@ -3,14 +3,25 @@ const logger = require("../../../logs/logger");
 const Booking = require("../../../models/Booking");
 const { createOAuth2Client } = require("../../googleOAuth");
 
-const deleteCalendarEvent = async (job) => {
+/**
+ * Handle Google Calendar event deletion
+ * Deletes event from Google Calendar and then removes booking from database
+ *
+ * @param {Object} job - BullMQ job object
+ * @param {string} job.data.bookingId - MongoDB ID of the booking
+ */
+const handleGoogleCalendarDeletion = async (job) => {
   try {
-    const { bookingId, googleEventId } = job.data;
-    logger.debug(`deleteCalendarEvent job started for booking: ${bookingId}`);
+    const { bookingId } = job.data;
+    logger.debug(
+      `handleGoogleCalendarDeletion job started for booking: ${bookingId}`
+    );
 
     // Validate input
     if (!bookingId) {
-      logger.error(`deleteCalendarEvent job failed: No booking ID provided`);
+      logger.error(
+        `handleGoogleCalendarDeletion job failed: No booking ID provided`
+      );
       return { success: false, error: "No booking ID provided" };
     }
 
@@ -23,9 +34,11 @@ const deleteCalendarEvent = async (job) => {
       return { success: true, message: "Booking already deleted" };
     }
 
+    const googleEventId = booking.googleEventId;
+
     if (!googleEventId) {
       logger.debug(
-        `No Google Calendar event ID provided for booking ${bookingId}`
+        `No Google Calendar event ID for booking ${bookingId}, deleting from database only`
       );
       const deleteResult = await Booking.deleteOne({ _id: bookingId });
       logger.info(
@@ -81,7 +94,7 @@ const deleteCalendarEvent = async (job) => {
     };
   } catch (error) {
     logger.error(
-      `Error in deleteCalendarEvent job for booking ${job.data.bookingId}: ${error.message}`
+      `Error in handleGoogleCalendarDeletion job for booking ${job.data.bookingId}: ${error.message}`
     );
     logger.debug(`Error details: ${error.stack}`);
     return {
@@ -91,4 +104,4 @@ const deleteCalendarEvent = async (job) => {
   }
 };
 
-module.exports = deleteCalendarEvent;
+module.exports = handleGoogleCalendarDeletion;

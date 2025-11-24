@@ -99,9 +99,19 @@ const getValidAccessToken = async () => {
       await Config.setValue("googleTokenExpiry", credentials.expiry_date);
     }
 
+    // Clear invalidation flag on successful refresh
+    await Config.setValue("googleTokenInvalidated", "false");
+
     return credentials.access_token;
   } catch (error) {
     logger.error(`Failed to get valid access token: ${error.message}`);
+
+    // If it's an auth error, mark tokens as invalidated
+    if (error.code === 401 || error.message.includes("invalid_grant")) {
+      logger.warn("Refresh token is invalid, marking as invalidated");
+      await Config.setValue("googleTokenInvalidated", "true");
+    }
+
     throw error;
   }
 };
@@ -129,6 +139,9 @@ const saveTokens = async (tokens, userEmail = null) => {
       updates.push(Config.setValue("googleUserEmail", userEmail));
     }
 
+    // Clear invalidation flag when new tokens are saved
+    updates.push(Config.setValue("googleTokenInvalidated", "false"));
+
     await Promise.all(updates);
     logger.info("Google OAuth tokens saved to Config model");
 
@@ -149,6 +162,7 @@ const clearTokens = async () => {
       Config.setValue("googleRefreshToken", null),
       Config.setValue("googleTokenExpiry", null),
       Config.setValue("googleUserEmail", null),
+      Config.setValue("googleTokenInvalidated", "false"),
     ]);
 
     logger.info("Google OAuth tokens cleared from Config model");
@@ -183,14 +197,17 @@ const testConnection = async () => {
     // Try to access the calendar list as a connection test
     await calendar.calendarList.list({ maxResults: 1 });
 
+    // If test succeeds, ensure invalidation flag is cleared
+    await Config.setValue("googleTokenInvalidated", "false");
+
     return true;
   } catch (error) {
     logger.error(`Google Calendar connection test failed: ${error.message}`);
 
-    // If it's an auth error, clear the tokens
+    // If it's an auth error, mark tokens as invalidated
     if (error.code === 401 || error.message.includes("invalid_grant")) {
-      logger.warn("Invalid tokens detected, clearing stored tokens");
-      await clearTokens();
+      logger.warn("Invalid tokens detected, marking as invalidated");
+      await Config.setValue("googleTokenInvalidated", "true");
     }
 
     throw error;
@@ -199,6 +216,8 @@ const testConnection = async () => {
 
 /**
  * Get connection status (lightweight - no API calls)
+ * Note: This only checks if tokens exist, not if they're valid.
+ * Use testConnection() to verify the tokens actually work.
  */
 const getConnectionStatus = async () => {
   try {
@@ -206,11 +225,15 @@ const getConnectionStatus = async () => {
     const accessToken = await Config.getValue("googleAccessToken");
     const tokenExpiry = await Config.getValue("googleTokenExpiry");
     const userEmail = await Config.getValue("googleUserEmail");
+    const tokenInvalidated = await Config.getValue("googleTokenInvalidated");
 
-    if (!refreshToken) {
+    if (!refreshToken || tokenInvalidated === "true") {
       return {
         connected: false,
-        message: "No Google Calendar connection found",
+        message:
+          tokenInvalidated === "true"
+            ? "Google Calendar authentication expired - please reconnect"
+            : "No Google Calendar connection found",
         needsAuth: true,
       };
     }

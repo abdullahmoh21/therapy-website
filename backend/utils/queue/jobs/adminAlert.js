@@ -2,12 +2,21 @@ const { transporter } = require("../../emailTransporter");
 const logger = require("../../../logs/logger");
 const Config = require("../../../models/Config");
 
-const sendAdminAlertEmail = async (job) => {
+/**
+ * Handle sending system alerts to admin/dev
+ * Fetches recipient emails from config and uses predefined alert templates
+ *
+ * @param {Object} job - BullMQ job object
+ * @param {string} job.data.alertType - Type of alert (mongoDisconnected, redisDisconnected, etc.)
+ * @param {Object} job.data.extraData - Additional data to include in alert message
+ */
+const handleSystemAlert = async (job) => {
   try {
     const { alertType, extraData = {} } = job.data;
 
     const alertConfig = getAlertConfig(alertType, extraData);
 
+    // Fetch recipient emails based on alert type (moved from call site)
     let recipientEmails = [];
 
     if (alertConfig.recipient === "dev" || alertConfig.recipient === "both") {
@@ -20,9 +29,10 @@ const sendAdminAlertEmail = async (job) => {
       if (adminEmail) recipientEmails.push(adminEmail);
     }
 
+    // Fallback to environment defaults if config values not found
     if (recipientEmails.length === 0) {
       logger.warn(
-        `No recipient emails found for alert: ${alertType}, using defaults`
+        `No recipient emails found in config for alert: ${alertType}, using environment defaults`
       );
       if (alertConfig.recipient === "dev" || alertConfig.recipient === "both") {
         recipientEmails.push(
@@ -43,7 +53,7 @@ const sendAdminAlertEmail = async (job) => {
       from: "alert@fatimanaqvi.com",
       to: recipientEmails.join(", "),
       subject: alertConfig.subject,
-      template: "alert",
+      template: "system_alert",
       context: {
         title: alertConfig.title,
         message: alertConfig.message,
@@ -54,15 +64,19 @@ const sendAdminAlertEmail = async (job) => {
     });
 
     logger.info(
-      `Admin alert sent to ${recipientEmails.join(", ")}: ${alertType}`
+      `System alert sent to ${recipientEmails.join(", ")}: ${alertType}`
     );
     return info;
   } catch (error) {
-    logger.error(`Error sending admin alert email: ${error.message}`);
+    logger.error(`[EMAIL] Error sending system alert: ${error.message}`);
     throw error;
   }
 };
 
+/**
+ * Get alert configuration based on alert type
+ * Determines recipient, subject, and message content
+ */
 function getAlertConfig(alertType, extraData) {
   const configs = {
     mongoDisconnected: {
@@ -131,6 +145,7 @@ function getAlertConfig(alertType, extraData) {
     recipient: "admin",
   };
 
+  // Append extra data to message if provided
   if (extraData && Object.keys(extraData).length > 0) {
     config.message += "\n\nAdditional Information:\n";
     Object.entries(extraData).forEach(([key, value]) => {
@@ -141,4 +156,4 @@ function getAlertConfig(alertType, extraData) {
   return config;
 }
 
-module.exports = sendAdminAlertEmail;
+module.exports = handleSystemAlert;
