@@ -15,7 +15,7 @@ import {
   useHandleGoogleCalendarCallbackMutation,
   useTestGoogleCalendarConnectionMutation,
   useDisconnectGoogleCalendarMutation,
-} from "../../../features/admin/adminApiSlice";
+} from "../../../features/admin";
 
 const GoogleCalendarConnection = () => {
   const [showDisconnectModal, setShowDisconnectModal] = useState(false);
@@ -90,9 +90,13 @@ const GoogleCalendarConnection = () => {
     try {
       const result = await testConnection().unwrap();
       toast.success("Google Calendar connection test successful!");
+      // Refetch status to ensure UI is in sync
+      refetchStatus();
     } catch (error) {
       console.error("Connection test failed:", error);
       toast.error(error.data?.message || "Connection test failed");
+      // Refetch status to update UI with invalidated state
+      refetchStatus();
     }
   };
 

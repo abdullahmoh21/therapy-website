@@ -1,29 +1,21 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useEffect } from "react";
 import { BiErrorCircle } from "react-icons/bi";
 import { useGetNoticePeriodQuery } from "../../../../features/bookings/bookingApiSlice";
 
-const NoCancellationPopup = ({ show, onClose, booking }) => {
-  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 768);
+const NoCancellationPopup = ({ show, onClose, booking, cutoffDays }) => {
   const modalRef = useRef(null);
 
   // Fetch notice period data
   const { data, isLoading, isError } = useGetNoticePeriodQuery();
 
-  // Check for screen size changes
-  useEffect(() => {
-    const handleResize = () => {
-      setIsDesktop(window.innerWidth >= 768);
-    };
+  // Determine the effective cutoff days to display
+  const effectiveCutoffDays =
+    cutoffDays || (data?.noticePeriod ? parseInt(data.noticePeriod, 10) : null);
 
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  // Handle click outside modal to close on desktop
+  // Handle click outside modal to close
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
-        isDesktop &&
         modalRef.current &&
         !modalRef.current.contains(event.target) &&
         show
@@ -34,12 +26,22 @@ const NoCancellationPopup = ({ show, onClose, booking }) => {
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [show, isDesktop, onClose]);
+  }, [show, onClose]);
 
   if (!show || !booking) return null;
 
   // Render appropriate message based on API response status
   const renderCancellationMessage = () => {
+    if (effectiveCutoffDays !== null) {
+      return (
+        <p className="text-textColor leading-relaxed">
+          Cancellations must be made at least {effectiveCutoffDays} day
+          {effectiveCutoffDays !== 1 ? "s" : ""} before your appointment. You're
+          no longer within that window.
+        </p>
+      );
+    }
+
     if (isLoading) {
       return (
         <p className="text-textColor leading-relaxed">
@@ -53,32 +55,20 @@ const NoCancellationPopup = ({ show, onClose, booking }) => {
       );
     }
 
-    if (isError || !data) {
-      return (
-        <p className="text-textColor leading-relaxed">
-          This booking can no longer be canceled, as it's too close to the
-          appointment time based on our cancellation policy.
-        </p>
-      );
-    }
-
+    // Fallback when no data is available
     return (
       <p className="text-textColor leading-relaxed">
-        Cancellations must be made at least {data.noticePeriod} days before your
-        appointment. You're no longer within that window.
+        This booking can no longer be canceled, as it's too close to the
+        appointment time based on our cancellation policy.
       </p>
     );
   };
 
   return (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
       <div
         ref={modalRef}
         className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full relative"
-        onClick={(e) => e.stopPropagation()}
       >
         <button
           className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl"

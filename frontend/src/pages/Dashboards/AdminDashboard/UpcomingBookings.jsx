@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import {
   useGetBookingTimelineQuery,
   useMarkPaymentAsPaidMutation,
-} from "../../../features/admin/adminApiSlice";
+} from "../../../features/admin";
 import {
   BiCalendar,
   BiTime,
@@ -226,7 +226,133 @@ const UpcomingBookings = () => {
   };
 
   if (isLoading) {
-    return <LoadingPage />;
+    return (
+      <div className="min-h-screen bg-white p-4 lg:p-8">
+        <div className="max-w-7xl mx-auto">
+          {/* Header Skeleton */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <div className="h-9 w-64 bg-gray-200 rounded-lg mb-2 animate-pulse"></div>
+                <div className="h-5 w-96 bg-gray-100 rounded-lg animate-pulse"></div>
+              </div>
+              <div className="hidden lg:flex items-center space-x-4">
+                <div className="bg-white p-4 border border-gray-200 rounded-lg w-40">
+                  <div className="h-4 w-24 bg-gray-100 rounded mb-2 animate-pulse"></div>
+                  <div className="h-8 w-16 bg-gray-200 rounded animate-pulse"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Schedule Skeleton - Multiple Date Groups */}
+          <div className="space-y-8">
+            {[1, 2, 3].map((dateGroup) => (
+              <div key={dateGroup} className="relative">
+                {/* Date Header Skeleton - First one is "today" with pink background */}
+                <div
+                  className={`sticky top-4 z-20 mb-6 ${
+                    dateGroup === 1
+                      ? "bg-[#E27A82]"
+                      : "bg-white border border-gray-200"
+                  } p-4 rounded-lg`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div
+                        className={`h-7 w-80 rounded-lg mb-2 animate-pulse ${
+                          dateGroup === 1 ? "bg-white/30" : "bg-gray-200"
+                        }`}
+                      ></div>
+                      <div
+                        className={`h-4 w-40 rounded-lg animate-pulse ${
+                          dateGroup === 1 ? "bg-white/20" : "bg-gray-100"
+                        }`}
+                      ></div>
+                    </div>
+                    <div
+                      className={`w-6 h-6 rounded animate-pulse ${
+                        dateGroup === 1 ? "bg-white/30" : "bg-gray-200"
+                      }`}
+                    ></div>
+                  </div>
+                </div>
+
+                {/* Timeline with Booking Cards Skeleton */}
+                <div className="space-y-4 relative ml-6">
+                  {/* Timeline connector */}
+                  <div className="absolute left-0 top-0 bottom-0 w-px bg-gray-200"></div>
+
+                  {/* Multiple Booking Cards per Date */}
+                  {[1, 2].map((booking) => (
+                    <div
+                      key={booking}
+                      className="relative ml-6 bg-white border border-gray-200 overflow-hidden rounded-lg"
+                    >
+                      {/* Timeline dot skeleton */}
+                      <div className="absolute left-0 top-6 transform -translate-x-[1.875rem] w-3 h-3 bg-gray-200 border-2 border-white rounded-full z-10 animate-pulse"></div>
+
+                      {/* Card Content Skeleton */}
+                      <div className="p-6">
+                        {/* Header Section Skeleton */}
+                        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between mb-4">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-3 mb-3">
+                              <div className="w-10 h-10 bg-gray-200 rounded-full animate-pulse"></div>
+                              <div className="flex-1">
+                                <div className="h-6 w-48 bg-gray-200 rounded-lg mb-2 animate-pulse"></div>
+                                <div className="flex items-center space-x-2">
+                                  <div className="h-4 w-36 bg-gray-100 rounded-lg animate-pulse"></div>
+                                  <div className="h-5 w-16 bg-gray-100 rounded-full animate-pulse"></div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col items-end space-y-2">
+                            {/* Time Badge Skeleton */}
+                            <div className="bg-white px-3 py-1.5 border border-gray-200 rounded-lg w-32">
+                              <div className="h-5 w-24 bg-gray-200 rounded animate-pulse"></div>
+                            </div>
+
+                            {/* Payment Status Badge Skeleton */}
+                            <div className="h-6 w-40 bg-gray-100 rounded-full animate-pulse"></div>
+                          </div>
+                        </div>
+
+                        {/* Details Grid Skeleton */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+                          {[1, 2, 3].map((detail) => (
+                            <div
+                              key={detail}
+                              className="bg-white p-3 border border-gray-200 rounded-lg"
+                            >
+                              <div className="flex items-center space-x-2">
+                                <div className="w-8 h-8 bg-gray-200 rounded-lg animate-pulse"></div>
+                                <div className="flex-1">
+                                  <div className="h-3 w-16 bg-gray-100 rounded mb-1.5 animate-pulse"></div>
+                                  <div className="h-4 w-28 bg-gray-200 rounded animate-pulse"></div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Action Buttons Skeleton */}
+                        <div className="flex flex-wrap gap-3 pt-4 border-t border-gray-200">
+                          <div className="h-10 w-36 bg-gray-200 rounded-lg animate-pulse"></div>
+                          <div className="h-10 w-36 bg-gray-100 rounded-lg animate-pulse"></div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (isError) {

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   useGetAdminBookingDetailQuery,
   useMarkPaymentAsPaidMutation,
-} from "../../../../features/admin/adminApiSlice";
+} from "../../../../features/admin";
 import {
   BiCheck,
   BiX,
@@ -134,7 +134,7 @@ const ExpandedBookings = ({ data: initialData, onDeleteClick }) => {
           Failed to load detailed booking information
         </p>
         <p className="text-xs text-red-500 mt-1">
-          Please try refreshing or contact support if the issue persists.
+          Please try refreshing or contact abdullah if the issue persists.
         </p>
       </div>
     );
@@ -585,7 +585,7 @@ const ExpandedBookings = ({ data: initialData, onDeleteClick }) => {
                       <button
                         onClick={() => setShowMarkPaidModal(true)}
                         disabled={isMarkingAsPaid}
-                        className="inline-flex items-center px-3 py-2 border border-green-300 text-sm font-medium rounded-lg text-green-700 bg-white hover:bg-green-50 hover:border-green-400 hover:shadow-sm disabled:opacity-50 transition-all duration-200"
+                        className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg text-white bg-[#DF9E7A] hover:bg-[#DF9E7A]/90 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                       >
                         <BiMoney className="mr-2 h-4 w-4" />
                         {isMarkingAsPaid

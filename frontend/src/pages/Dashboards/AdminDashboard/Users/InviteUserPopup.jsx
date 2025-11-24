@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { BiX, BiCopy, BiLoaderAlt, BiErrorCircle } from "react-icons/bi";
 import { toast } from "react-toastify";
-import { useInviteUserMutation } from "../../../../features/admin/adminApiSlice";
+import { useInviteUserMutation } from "../../../../features/admin";
 
 const InviteUserPopup = ({ isOpen, onClose, onSuccess }) => {
   console.log("InviteUserPopup being rendered with isOpen:", isOpen);

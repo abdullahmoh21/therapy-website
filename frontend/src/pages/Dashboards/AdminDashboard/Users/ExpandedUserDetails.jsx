@@ -1,6 +1,6 @@
 import React from "react";
 import { BiLoaderAlt, BiCalendarEvent } from "react-icons/bi";
-import { useGetUserDetailsQuery } from "../../../../features/admin/adminApiSlice";
+import { useGetUserDetailsQuery } from "../../../../features/admin";
 
 const ExpandedUserDetails = ({ data, onEditClick }) => {
   // Fetch detailed user data when expanded

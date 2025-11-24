@@ -1,35 +1,36 @@
 import React, { useEffect, useState } from "react";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { useDispatch } from "react-redux";
-import {
-  BiCalendar,
-  BiCheckCircle,
-  BiDollarCircle,
-  BiErrorCircle,
-  BiInfoCircle,
-  BiLoaderAlt,
-  BiMinusCircle,
-  BiTime,
-  BiXCircle,
-  BiVideo,
-  BiMapPin,
-} from "react-icons/bi";
+import { BiRefresh } from "react-icons/bi";
 import {
   useGetMyActiveBookingsQuery,
   bookingsApiSlice,
+  useCancelMyBookingMutation,
+  useGetNoticePeriodQuery,
 } from "../../../../features/bookings/bookingApiSlice";
 import { useGetPaymentLinkMutation } from "../../../../features/payments/paymentApiSlice";
-import { useGetMyUserQuery } from "../../../../features/users/usersApiSlice";
+import {
+  useGetMyUserQuery,
+  useGetRecurringBookingQuery,
+} from "../../../../features/users/usersApiSlice";
 import NoBooking from "./NoBooking";
 import DashboardHeader from "./MyBookingHeader";
+import RecurringScheduleCard from "./RecurringScheduleCard";
+import OneOffBookingCard from "./OneOffBookingCard";
 import { toast } from "react-toastify";
 import CancelConfirmationPopup from "./CancelConfirmationPopup";
 import NoCancellationPopup from "./NoCancellationPopup";
 import PaymentInfoPopup from "./PaymentInfoPopup";
+import ChangeSchedulePopup from "./ChangeSchedulePopup";
+import RecurringInfoPopup from "./RecurringInfoPopup";
+import { formatDateTime, formatAmount } from "../../../../utils/dateTimeUtils";
+import HelpButton from "../../../../components/HelpButton";
 
 const MyBookings = () => {
   const dispatch = useDispatch();
-  const [bookings, setBookings] = useState([]);
+  const [recurringSchedule, setRecurringSchedule] = useState(null);
+  const [nextRecurringBooking, setNextRecurringBooking] = useState(null);
+  const [oneOffBookings, setOneOffBookings] = useState([]);
   const [showCancelPopup, setShowCancelPopup] = useState(false);
   const [showNoCancelPopup, setShowNoCancelPopup] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
@@ -41,7 +42,19 @@ const MyBookings = () => {
   const [maxAllowedBookings, setMaxAllowedBookings] = useState(null);
   const [isGettingBookingLink, setIsGettingBookingLink] = useState(false);
   const [showPaymentInfoPopup, setShowPaymentInfoPopup] = useState(false);
+  const [showChangeSchedulePopup, setShowChangeSchedulePopup] = useState(false);
+  const [showRecurringInfoPopup, setShowRecurringInfoPopup] = useState(false);
+  const [storedCutoffDays, setStoredCutoffDays] = useState(null);
+  const [cancellingBookingId, setCancellingBookingId] = useState(null);
 
+  // Fetch recurring booking info (empty object if not recurring)
+  const {
+    data: recurringData,
+    isLoading: isLoadingRecurring,
+    refetch: refetchRecurring,
+  } = useGetRecurringBookingQuery();
+
+  // Fetch one-off bookings (admin/Calendly only)
   const {
     data: bookingData,
     isLoading: isLoadingBookings,
@@ -55,6 +68,13 @@ const MyBookings = () => {
 
   const [triggerGetPaymentLink, { isLoading: gettingPaymentLink }] =
     useGetPaymentLinkMutation();
+
+  const [cancelMyBooking, { isLoading: isCancelling }] =
+    useCancelMyBookingMutation();
+
+  // Fetch notice period for computing local cutoff
+  const { data: noticePeriodData, isSuccess: noticePeriodSuccess } =
+    useGetNoticePeriodQuery();
 
   // Function to get a new booking link when the button is clicked
   const handleGetBookingLink = async () => {
@@ -73,7 +93,10 @@ const MyBookings = () => {
       // Check if there's an error in the result
       if (result.error) {
         // Check specifically for the 403 booking limit error
-        if (result.error.status === 403 && result.error.data?.maxAllowedBookings) {
+        if (
+          result.error.status === 403 &&
+          result.error.data?.maxAllowedBookings
+        ) {
           setMaxBookingsReached(true);
           setMaxAllowedBookings(result.error.data.maxAllowedBookings);
           toast.error(
@@ -81,7 +104,10 @@ const MyBookings = () => {
           );
         } else {
           // Handle other errors
-          toast.error(result.error.data?.message || "Could not get booking link. Please try again.");
+          toast.error(
+            result.error.data?.message ||
+              "Could not get booking link. Please try again."
+          );
         }
         return null;
       }
@@ -116,21 +142,33 @@ const MyBookings = () => {
         "Booking successfully created! Refreshing your bookings..."
       );
 
-      // Refetch bookings data since a new booking might have been created
+      // Refetch both bookings
       refetchBookings();
+      refetchRecurring(); // In case they booked while having recurring
 
       // Clean the URL without reloading the page
       const cleanUrl = window.location.pathname;
       window.history.replaceState({}, document.title, cleanUrl);
     }
-  }, [refetchBookings]);
+  }, [refetchBookings, refetchRecurring]);
 
+  // Process recurring data
+  useEffect(() => {
+    if (recurringData) {
+      setRecurringSchedule(recurringData.recurringSchedule || null);
+      setNextRecurringBooking(recurringData.nextRecurringBooking || null);
+    }
+  }, [recurringData]);
+
+  // Process one-off bookings data
   useEffect(() => {
     if (bookingData?.ids) {
       const sorted = Object.values(bookingData.entities).sort(
         (a, b) => new Date(a.eventStartTime) - new Date(b.eventStartTime)
       );
-      setBookings(sorted);
+      setOneOffBookings(sorted);
+    } else {
+      setOneOffBookings([]);
     }
   }, [bookingData]);
 
@@ -142,32 +180,19 @@ const MyBookings = () => {
     }
   }, [userDataResult]);
 
-  const formatAmount = (amt) =>
-    typeof amt === "number" ? amt.toLocaleString("en-US") : amt;
-
-  const formatDateTime = (s) => {
-    const d = new Date(s);
-    return {
-      date: d.toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      }),
-      time: d.toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
-      }),
-    };
-  };
-
   const redirectToPayment = async (id) => {
     try {
       setProcessingPaymentId(id);
       const res = await triggerGetPaymentLink({ bookingId: id }).unwrap();
-      if (res.url) window.location.href = res.url;
+      if (res.url) {
+        window.location.href = res.url;
+      } else {
+        toast.error("Payment link not available");
+        setProcessingPaymentId(null);
+      }
     } catch (e) {
-      console.error(e);
+      console.error("Payment error:", e);
+      toast.error(e?.data?.message || "Failed to get payment link");
       setProcessingPaymentId(null);
     }
   };
@@ -177,29 +202,139 @@ const MyBookings = () => {
     return new Date(b.eventStartTime).getTime() - Date.now() > threeDays;
   };
 
-  const handleRefundRequest = (url) => {
-    if (url) {
-      window.location.href = url;
-    } else {
-      setRefundError("No cancellation URL available");
+  // Compute local cutoff for admin/system bookings
+  const isWithinCancellationWindow = (booking) => {
+    // Use stored cutoffDays if available, otherwise use noticePeriod
+    const cutoffDays =
+      storedCutoffDays ||
+      (noticePeriodSuccess
+        ? parseInt(noticePeriodData.noticePeriod, 10)
+        : null);
+
+    if (cutoffDays === null) {
+      // If we don't have cutoff info, let backend decide
+      return true;
+    }
+
+    const cutoffMillis = cutoffDays * 24 * 60 * 60 * 1000;
+    const cutoffDeadline =
+      new Date(booking.eventStartTime).getTime() - cutoffMillis;
+    const currentTime = Date.now();
+
+    return currentTime < cutoffDeadline;
+  };
+
+  const handleCancellation = async (booking, reason) => {
+    if (!booking) return;
+
+    setLoading(true);
+    setRefundError(null);
+    setCancellingBookingId(booking._id);
+
+    try {
+      // Determine cancellation method based on booking source
+      if (booking.source === "calendly") {
+        // Calendly bookings use the cancelURL
+        if (booking.cancelURL) {
+          // Show loading toast before redirect
+          toast.info("Redirecting to Calendly to cancel your booking...", {
+            autoClose: 2000,
+          });
+
+          // Small delay to let user see the toast
+          setTimeout(() => {
+            window.location.href = booking.cancelURL;
+          }, 500);
+        } else {
+          // No cancelURL means outside cancellation window
+          setShowCancelPopup(false);
+          setShowNoCancelPopup(true);
+        }
+      } else if (["admin", "system"].includes(booking.source)) {
+        // Admin/system bookings use the backend API
+        try {
+          await cancelMyBooking({
+            bookingId: booking._id,
+            reason: reason || "User requested cancellation",
+          }).unwrap();
+
+          toast.success("Booking cancelled successfully");
+          setShowCancelPopup(false);
+          setSelectedBooking(null);
+
+          // Refetch bookings
+          refetchBookings();
+          refetchRecurring();
+        } catch (error) {
+          console.error("Cancellation error:", error);
+
+          // Handle 403 error with cutoffDays
+          if (error.status === 403 && error.data?.cutoffDays) {
+            // Store the cutoffDays for future use
+            setStoredCutoffDays(error.data.cutoffDays);
+
+            // Show error toast
+            toast.error(
+              error.data?.message ||
+                `Cancellations must be made at least ${error.data.cutoffDays} days before the session`
+            );
+
+            // Close cancel popup and show "Cancellation Closed" popup
+            setShowCancelPopup(false);
+            setShowNoCancelPopup(true);
+          } else {
+            // Other errors
+            setRefundError(error.data?.message || "Failed to cancel booking");
+            toast.error(error.data?.message || "Failed to cancel booking");
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Unexpected cancellation error:", error);
+      setRefundError("An unexpected error occurred");
+      toast.error("An unexpected error occurred");
+    } finally {
+      setLoading(false);
+      setCancellingBookingId(null);
     }
   };
 
-  const handleCancellation = (url) => {
-    if (url) {
-      window.location.href = url;
+  const handleCancelClick = (booking) => {
+    setSelectedBooking(booking);
+    setRefundError(null);
+
+    if (booking.source === "calendly") {
+      // Calendly booking: check if cancelURL exists
+      if (booking.cancelURL) {
+        setShowCancelPopup(true);
+      } else {
+        setShowNoCancelPopup(true);
+      }
+    } else if (["admin", "system"].includes(booking.source)) {
+      // Admin/system booking: check local cutoff if available
+      if (isWithinCancellationWindow(booking)) {
+        setShowCancelPopup(true);
+      } else {
+        setShowNoCancelPopup(true);
+      }
     } else {
+      // Unknown source - show no cancel popup
       setShowNoCancelPopup(true);
     }
+
+    document.body.style.overflow = "hidden";
   };
 
   const handleCloseCancelPopup = () => {
     setShowCancelPopup(false);
+    setSelectedBooking(null);
+    setRefundError(null);
     document.body.style.overflow = "auto";
   };
 
   const handleCloseNoCancelPopup = () => {
     setShowNoCancelPopup(false);
+    setSelectedBooking(null);
     document.body.style.overflow = "auto";
   };
 
@@ -208,41 +343,37 @@ const MyBookings = () => {
     document.body.style.overflow = "auto";
   };
 
+  const handleCloseChangeSchedulePopup = () => {
+    setShowChangeSchedulePopup(false);
+    document.body.style.overflow = "auto";
+  };
+
+  const handleRecurringInfoClick = () => {
+    setShowRecurringInfoPopup(true);
+    document.body.style.overflow = "hidden";
+  };
+
+  const handleCloseRecurringInfoPopup = () => {
+    setShowRecurringInfoPopup(false);
+    document.body.style.overflow = "auto";
+  };
+
+  const handleChangeScheduleClick = () => {
+    setShowChangeSchedulePopup(true);
+    document.body.style.overflow = "hidden";
+  };
+
   const handlePaymentButtonClick = () => {
     setShowPaymentInfoPopup(true);
     document.body.style.overflow = "hidden";
   };
 
-  const getStatusStyles = (status) => {
-    switch (status) {
-      case "Completed":
-        return {
-          icon: <BiCheckCircle className="text-green-500 text-xl" />,
-          text: "Paid",
-          badgeClass: "bg-green-100 text-green-800",
-        };
-      case "Not Initiated":
-        return {
-          icon: <BiMinusCircle className="text-yellow-500 text-xl" />,
-          text: "Payment Pending",
-          badgeClass: "bg-yellow-100 text-yellow-800",
-        };
-      case "Failed":
-        return {
-          icon: <BiXCircle className="text-red-500 text-xl" />,
-          text: "Payment Failed",
-          badgeClass: "bg-red-100 text-red-800",
-        };
-      default:
-        return {
-          icon: <BiInfoCircle className="text-gray-500 text-xl" />,
-          text: status,
-          badgeClass: "bg-gray-100 text-gray-800",
-        };
-    }
+  const handlePaymentClick = (booking) => {
+    // Show the under construction popup
+    handlePaymentButtonClick();
   };
 
-  if (isLoadingBookings) {
+  if (isLoadingBookings || isLoadingRecurring) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
         <ProgressSpinner
@@ -263,7 +394,7 @@ const MyBookings = () => {
     );
   }
 
-  if (bookingsLoaded && bookings.length === 0) {
+  if (bookingsLoaded && !recurringSchedule && oneOffBookings.length === 0) {
     return (
       <NoBooking
         gettingBookingLink={isGettingBookingLink}
@@ -275,157 +406,187 @@ const MyBookings = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 pt-0 pb-8">
+    <div className="max-w-7xl mx-auto px-4 pt-0 pb-8">
       <DashboardHeader
         userData={userData}
-        showBookButton={true}
+        showBookButton={!recurringSchedule}
         getBookingLink={handleGetBookingLink}
         maxBookingsReached={maxBookingsReached}
         maxAllowedBookings={maxAllowedBookings}
       />
 
-      <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-        {bookings.map((b) => {
-          const isConsultation = b.eventName === "15 Minute Consultation";
-          const { date: sd, time: st } = formatDateTime(b.eventStartTime);
-          const { time: et } = formatDateTime(b.eventEndTime);
-          const duration = Math.round(
-            (new Date(b.eventEndTime) - new Date(b.eventStartTime)) / 60000
-          );
-          const {
-            icon,
-            text: statusText,
-            badgeClass,
-          } = getStatusStyles(b.transactionStatus);
+      {/* Help Button */}
+      <HelpButton />
 
-          const hasCancelUrl = Boolean(b.cancelURL);
+      {/* Recurring Schedule Section */}
+      {recurringSchedule && (
+        <RecurringScheduleCard
+          schedule={recurringSchedule}
+          nextBooking={nextRecurringBooking}
+          formatDateTime={formatDateTime}
+          formatAmount={formatAmount}
+          onCancelClick={handleCancelClick}
+          onChangeScheduleClick={handleChangeScheduleClick}
+          noticePeriodData={noticePeriodData}
+          noticePeriodSuccess={noticePeriodSuccess}
+          storedCutoffDays={storedCutoffDays}
+          cancellingBookingId={cancellingBookingId}
+        />
+      )}
 
-          return (
-            <div
-              key={b._id}
-              className="bg-white rounded-2xl shadow-lg overflow-hidden flex flex-col"
-            >
-              <div className="p-6 flex flex-col flex-grow">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h2 className="text-xl font-semibold">
-                      {isConsultation ? "Consultation" : "Therapy Session"}
-                    </h2>
-                    <span className="text-sm text-gray-500">
-                      ID: {b.bookingId}
-                    </span>
-                  </div>
-                  <span
-                    className={`inline-flex items-center px-3 py-1 text-sm font-medium rounded-full ${badgeClass}`}
+      {/* One-Off Bookings Section */}
+      {recurringSchedule && (
+        <div className="mb-6">
+          <h3 className="text-2xl font-bold text-gray-800 mb-4">
+            Additional Sessions
+          </h3>
+          <p className="text-gray-600 mb-6">
+            These are one-time sessions that supplement your recurring schedule.
+          </p>
+          {oneOffBookings.length > 0 ? (
+            <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+              {oneOffBookings.map((booking) => (
+                <OneOffBookingCard
+                  key={booking._id}
+                  booking={booking}
+                  formatDateTime={formatDateTime}
+                  formatAmount={formatAmount}
+                  onCancelClick={handleCancelClick}
+                  onPaymentClick={handlePaymentClick}
+                  processingPaymentId={processingPaymentId}
+                  cancellingBookingId={cancellingBookingId}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
+              <div className="max-w-md mx-auto">
+                <div className="mb-4">
+                  <svg
+                    className="mx-auto h-12 w-12 text-gray-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    aria-hidden="true"
                   >
-                    {icon}
-                    <span className="ml-2">{statusText}</span>
-                  </span>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
+                  </svg>
                 </div>
-
-                <div className="mt-4 space-y-3 text-gray-700">
-                  <div className="flex items-center">
-                    <BiCalendar className="mr-2 text-[#DF9E7A]" />
-                    <span>{sd}</span>
-                  </div>
-                  <div className="flex items-center">
-                    <BiTime className="mr-2 text-[#DF9E7A]" />
-                    <span>{`${st} – ${et} (${duration} mins)`}</span>
-                  </div>
-                  {b.location?.type === "online" && (
-                    <div className="flex items-center">
-                      <BiVideo className="mr-2 text-[#DF9E7A]" />
-                      <span>Online Meeting</span>
-                    </div>
+                <h4 className="text-lg font-semibold text-gray-900 mb-2">
+                  No Additional Sessions
+                </h4>
+                <p className="text-gray-600 mb-6">
+                  You don't have any one-time sessions scheduled. Need an extra
+                  session this week? You can book a one-off session in addition
+                  to your recurring schedule.
+                </p>
+                <button
+                  onClick={handleGetBookingLink}
+                  disabled={isGettingBookingLink || maxBookingsReached}
+                  className={`inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg shadow-sm text-white transition-all ${
+                    maxBookingsReached
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : "bg-lightPink hover:bg-darkPink focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-lightPink"
+                  }`}
+                >
+                  {isGettingBookingLink ? (
+                    <>
+                      <svg
+                        className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Getting Link...
+                    </>
+                  ) : (
+                    <>
+                      <svg
+                        className="-ml-1 mr-2 h-5 w-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 4v16m8-8H4"
+                        />
+                      </svg>
+                      Book Additional Session
+                    </>
                   )}
-                  {b.location?.type === "in-person" &&
-                    b.location.inPersonLocation && (
-                      <div className="flex items-center">
-                        <BiMapPin className="mr-2 text-[#DF9E7A]" />
-                        <span>{b.location.inPersonLocation}</span>
-                      </div>
-                    )}
-                  {!isConsultation && (
-                    <div className="flex items-center">
-                      <BiDollarCircle className="mr-2 text-green-500" />
-                      <span>
-                        {formatAmount(b.amount)} {b.currency}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="p-6 bg-gray-50 flex flex-wrap gap-2">
-                  {b.transactionStatus === "Not Initiated" && (
-                    <button
-                      onClick={handlePaymentButtonClick}
-                      className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-lg font-medium transition bg-gray-400 text-white hover:bg-gray-500"
-                    >
-                      <BiDollarCircle />
-                      <span>Pay</span>
-                    </button>
-                  )}
-
-                  {hasCancelUrl && (
-                    <button
-                      onClick={() => {
-                        setSelectedBooking(b);
-                        setRefundError(null);
-                        setShowCancelPopup(true);
-                        document.body.style.overflow = "hidden";
-                      }}
-                      className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white font-medium transition"
-                    >
-                      <BiXCircle />
-                      <span>Cancel</span>
-                    </button>
-                  )}
-
-                  {!hasCancelUrl && (
-                    <button
-                      onClick={() => {
-                        setSelectedBooking(b);
-                        setShowNoCancelPopup(true);
-                        document.body.style.overflow = "hidden";
-                      }}
-                      className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-lg bg-red-300 text-white font-medium"
-                    >
-                      <BiXCircle />
-                      <span>Cancel</span>
-                    </button>
-                  )}
-
-                  {b.location?.type === "online" && (
-                    <button
-                      onClick={() =>
-                        window.open(
-                          b.location.join_url,
-                          "_blank",
-                          "noopener,noreferrer"
-                        )
-                      }
-                      className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white font-medium transition"
-                    >
-                      <BiVideo />
-                      <span>Join</span>
-                    </button>
-                  )}
-                </div>
+                </button>
+                {maxBookingsReached && (
+                  <p className="mt-3 text-sm text-red-600">
+                    You've reached the maximum of {maxAllowedBookings} active
+                    bookings
+                  </p>
+                )}
               </div>
             </div>
-          );
-        })}
-      </div>
+          )}
+        </div>
+      )}
+
+      {!recurringSchedule && oneOffBookings.length > 0 && (
+        <div className="mb-6">
+          <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+            {oneOffBookings.map((booking) => (
+              <OneOffBookingCard
+                key={booking._id}
+                booking={booking}
+                formatDateTime={formatDateTime}
+                formatAmount={formatAmount}
+                onCancelClick={handleCancelClick}
+                onPaymentClick={handlePaymentClick}
+                processingPaymentId={processingPaymentId}
+                cancellingBookingId={cancellingBookingId}
+              />
+            ))}
+          </div>
+
+          {/* Recurring Schedule Suggestion */}
+          <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <button
+              onClick={handleRecurringInfoClick}
+              className="flex items-center justify-center space-x-2 text-sm text-[#DF9E7A] hover:text-[#C88761] font-medium transition-colors group w-full"
+            >
+              <BiRefresh className="text-base group-hover:scale-110 transition-transform" />
+              <span>Tired of scheduling your own bookings?</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       <CancelConfirmationPopup
         show={showCancelPopup}
         onClose={handleCloseCancelPopup}
         booking={selectedBooking}
-        loading={loading}
+        loading={loading || isCancelling}
         refundError={refundError}
         formatDateTime={formatDateTime}
         checkRefundEligibility={checkRefundEligibility}
-        handleRefundRequest={handleRefundRequest}
         handleCancellation={handleCancellation}
       />
 
@@ -433,11 +594,22 @@ const MyBookings = () => {
         show={showNoCancelPopup}
         onClose={handleCloseNoCancelPopup}
         booking={selectedBooking}
+        cutoffDays={storedCutoffDays}
       />
 
       <PaymentInfoPopup
         show={showPaymentInfoPopup}
         onClose={handleClosePaymentInfoPopup}
+      />
+
+      <ChangeSchedulePopup
+        show={showChangeSchedulePopup}
+        onClose={handleCloseChangeSchedulePopup}
+      />
+
+      <RecurringInfoPopup
+        show={showRecurringInfoPopup}
+        onClose={handleCloseRecurringInfoPopup}
       />
     </div>
   );

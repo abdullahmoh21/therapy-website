@@ -1,5 +1,5 @@
-import React from "react";
-import { useGetSystemHealthQuery } from "../../../features/admin/adminApiSlice";
+import React, { useState } from "react";
+import { useGetSystemHealthQuery } from "../../../features/admin";
 import {
   FaServer,
   FaDatabase,
@@ -87,7 +87,7 @@ const SystemHealth = () => {
     );
   }
 
-  const { server, redis, memory, database } = healthData || {};
+  const { server, redisCache, redisQueue, memory, database } = healthData || {};
 
   const formatUptime = (seconds) => {
     const d = Math.floor(seconds / (3600 * 24));
@@ -116,7 +116,7 @@ const SystemHealth = () => {
         </a>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {/* Server Status */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           <div className="p-4 bg-gray-50 border-b border-gray-200 flex items-center">
@@ -141,7 +141,7 @@ const SystemHealth = () => {
                 </span>
               </span>
               <span className="font-medium">
-                {formatUptime(server?.uptime || 0)}
+                {formatUptime(server?.uptime || 0)}any
               </span>
             </div>
             <div className="flex justify-between">
@@ -159,21 +159,23 @@ const SystemHealth = () => {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           <div className="p-4 bg-gray-50 border-b border-gray-200 flex items-center">
             <SiRedis className="text-[#DF9E7A] mr-2" />
-            <h2 className="text-lg font-semibold text-gray-800">Redis Cache</h2>
+            <h2 className="text-lg font-semibold text-gray-800">
+              Cache Instance
+            </h2>
           </div>
           <div className="p-5 space-y-3">
             <div className="flex justify-between">
               <span className="text-gray-600">Status:</span>
-              <StatusIndicator status={redis?.status} />
+              <StatusIndicator status={redisCache?.status} />
             </div>
 
-            {redis?.info && Object.keys(redis.info).length > 0 && (
+            {redisCache?.info && Object.keys(redisCache.info).length > 0 && (
               <div className="mt-4 space-y-3 border-t pt-3">
                 <h3 className="text-sm font-semibold text-gray-700">
-                  Redis Details
+                  Cache Details
                 </h3>
 
-                {redis.info.keys !== undefined && (
+                {redisCache.info.keys !== undefined && (
                   <div className="flex justify-between">
                     <span className="text-gray-600 flex items-center">
                       Keys:
@@ -184,20 +186,20 @@ const SystemHealth = () => {
                         <FaInfoCircle size={12} />
                       </span>
                     </span>
-                    <span className="font-medium">{redis.info.keys}</span>
+                    <span className="font-medium">{redisCache.info.keys}</span>
                   </div>
                 )}
 
-                {redis.info.connected_clients !== undefined && (
+                {redisCache.info.connected_clients !== undefined && (
                   <div className="flex justify-between">
                     <span className="text-gray-600">Connected Clients:</span>
                     <span className="font-medium">
-                      {redis.info.connected_clients}
+                      {redisCache.info.connected_clients}
                     </span>
                   </div>
                 )}
 
-                {redis.info.used_memory !== undefined && (
+                {redisCache.info.used_memory !== undefined && (
                   <div className="flex justify-between">
                     <span className="text-gray-600 flex items-center">
                       Memory Used:
@@ -210,14 +212,90 @@ const SystemHealth = () => {
                     </span>
                     <span className="font-medium">
                       {Math.round(
-                        (parseInt(redis.info.used_memory) / 1024 / 1024) * 100
+                        (parseInt(redisCache.info.used_memory) / 1024 / 1024) *
+                          100
                       ) / 100}{" "}
                       MB
                     </span>
                   </div>
                 )}
 
-                {redis.dockerized && (
+                {redisCache.dockerized && (
+                  <div className="mt-2 text-xs text-blue-600 flex items-center">
+                    <FaInfoCircle className="mr-1" /> Running in Docker
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Redis Queue */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+          <div className="p-4 bg-gray-50 border-b border-gray-200 flex items-center">
+            <SiRedis className="text-[#DF9E7A] mr-2" />
+            <h2 className="text-lg font-semibold text-gray-800">
+              Queue Instance
+            </h2>
+          </div>
+          <div className="p-5 space-y-3">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Status:</span>
+              <StatusIndicator status={redisQueue?.status} />
+            </div>
+
+            {redisQueue?.info && Object.keys(redisQueue.info).length > 0 && (
+              <div className="mt-4 space-y-3 border-t pt-3">
+                <h3 className="text-sm font-semibold text-gray-700">
+                  Queue Details
+                </h3>
+
+                {redisQueue.info.keys !== undefined && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 flex items-center">
+                      Keys:
+                      <span
+                        className="ml-1 cursor-help text-gray-400"
+                        title="The number of jobs currently stored in Redis queue."
+                      >
+                        <FaInfoCircle size={12} />
+                      </span>
+                    </span>
+                    <span className="font-medium">{redisQueue.info.keys}</span>
+                  </div>
+                )}
+
+                {redisQueue.info.connected_clients !== undefined && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Connected Clients:</span>
+                    <span className="font-medium">
+                      {redisQueue.info.connected_clients}
+                    </span>
+                  </div>
+                )}
+
+                {redisQueue.info.used_memory !== undefined && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 flex items-center">
+                      Memory Used:
+                      <span
+                        className="ml-1 cursor-help text-gray-400"
+                        title="The amount of RAM currently being used by Redis for queue operations."
+                      >
+                        <FaInfoCircle size={12} />
+                      </span>
+                    </span>
+                    <span className="font-medium">
+                      {Math.round(
+                        (parseInt(redisQueue.info.used_memory) / 1024 / 1024) *
+                          100
+                      ) / 100}{" "}
+                      MB
+                    </span>
+                  </div>
+                )}
+
+                {redisQueue.dockerized && (
                   <div className="mt-2 text-xs text-blue-600 flex items-center">
                     <FaInfoCircle className="mr-1" /> Running in Docker
                   </div>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   useGetAllConfigsQuery,
   useUpdateConfigMutation,
-} from "../../../features/admin/adminApiSlice";
+} from "../../../features/admin";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { InputText } from "primereact/inputtext";
 import { toast } from "react-toastify";
