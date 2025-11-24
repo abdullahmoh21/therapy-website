@@ -1,0 +1,132 @@
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Session Cancellation Notice</title>
+    <style>
+      /* Base */ body { font-family: Arial, sans-serif; background-color:
+      #f9f9f9; margin: 0; padding: 0; color: #333; } .email-container {
+      max-width: 600px; margin: 40px auto; background-color: #ffffff; border:
+      1px solid #eee; border-left: 4px solid #e27a82; border-radius: 8px;
+      padding: 24px; } /* Header / Branding */ .header { text-align: center;
+      margin-bottom: 12px; background-color: #ffffff !important; } .header img {
+      max-height: 110px; display: block; margin: 0 auto 10px; } .fallback-logo {
+      color: #e27a82; font-weight: bold; font-size: 18px; } /* Title */ .title {
+      font-size: 20px; font-weight: bold; color: #e27a82; margin: 6px 0 14px;
+      text-align: center; background-color: #ffffff !important; } /* Body */
+      .email-body { font-size: 16px; line-height: 1.55; } /* Details card */
+      .details-card { margin: 16px 0 8px; border: 1px solid #eee; border-radius:
+      8px; overflow: hidden; } .detail-row { display: flex; gap: 12px; padding:
+      12px 14px; align-items: flex-start; } .detail-row:nth-child(odd) {
+      background: #fafafa; } .detail-label { flex: 0 0 160px; font-weight: 600;
+      color: #444; } .detail-value { flex: 1 1 auto; word-break: break-word; }
+      /* Buttons */ .button-row { display: flex; justify-content: center;
+      margin: 20px 0 4px; } .button-link { display: inline-block;
+      background-color: #e27a82 !important; color: #ffffff !important; padding:
+      12px 20px; border-radius: 8px; text-decoration: none !important;
+      font-size: 16px; font-weight: bold; } .button-link:hover {
+      background-color: #c86a67 !important; color: #ffffff !important; } /* Info
+      boxes */ .info-box { background-color: #fff7df; border-left: 4px solid
+      #ffc107; padding: 12px 14px; margin: 16px 0; border-radius: 6px; } /*
+      Footer */ .footer { font-size: 13px; color: #777; text-align: center;
+      margin-top: 32px; border-top: 1px solid #eee; padding-top: 16px; } /*
+      Mobile tweaks */ @media (max-width: 480px) { .detail-label { flex-basis:
+      120px; } .email-container { margin: 20px auto; padding: 20px; } }
+    </style>
+  </head>
+  <body style="background-color: #ffffff !important; color: #333;">
+    <div class="email-container" style="background-color: #ffffff !important;">
+      <!-- Clickable Logo with Fallback -->
+      <div class="header" style="background-color: #ffffff !important;">
+        <div
+          style="height: 120px; margin-bottom: 8px; text-align: center; background-color: #ffffff !important;"
+        >
+          <a
+            href="{{frontend_url}}"
+            target="_blank"
+            style="display: inline-block; background-color: #ffffff !important;"
+          >
+            <img
+              src="{{frontend_url}}/logo.png"
+              alt="Fatima's Therapy Services"
+              width="110"
+              height="110"
+              style="max-height: 110px; max-width: 110px; display: block; margin: 0 auto; background-color: #ffffff !important;"
+              onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\'color:#E27A82;font-size:18px;font-weight:bold;background-color:#ffffff !important;\'>Fatima&#39;s Therapy Services</div>';"
+            />
+          </a>
+        </div>
+      </div>
+
+      <!-- Title -->
+      <div class="title" style="background-color: #ffffff !important;">
+        Session Cancellation Notice
+      </div>
+
+      <!-- Message Body -->
+      <div class="email-body">
+        <p>Dear {{#if name}}{{name}}{{else}}Client{{/if}},</p>
+
+        <p>Your upcoming therapy session has been cancelled.</p>
+
+        <!-- Details Card -->
+        <div
+          class="details-card"
+          role="group"
+          aria-labelledby="details-heading"
+        >
+          <div class="detail-row">
+            <div class="detail-label">Booking ID</div>
+            <div class="detail-value">{{bookingId}}</div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-label">Session Date</div>
+            <div class="detail-value">{{eventDate}}</div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-label">Session Time</div>
+            <div class="detail-value">{{eventTime}}</div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-label">Cancellation Date</div>
+            <div class="detail-value">{{cancellationDate}}</div>
+          </div>
+          {{#if reason}}
+            <div class="detail-row">
+              <div class="detail-label">Reason</div>
+              <div class="detail-value">{{reason}}</div>
+            </div>
+          {{/if}}
+        </div>
+
+        <div class="info-box">
+          If you’ve already paid for this booking, reply to this email for a
+          refund, or we can move your payment to a future session—whichever is
+          easier.
+        </div>
+
+        <p>
+          Have questions or want to rebook? You can do it online any time.
+        </p>
+
+        <!-- Primary Action -->
+        <div class="button-row">
+          <a
+            href="{{frontend_url}}/signin"
+            target="_blank"
+            class="button-link"
+          >Book Another Session</a>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="footer">
+        Regards,<br />
+        Fatima's Therapy Services<br />
+        &copy;
+        {{currentYear}}
+        All rights reserved.
+      </div>
+    </div>
+  </body>
+</html>
