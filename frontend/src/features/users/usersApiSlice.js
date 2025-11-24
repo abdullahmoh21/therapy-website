@@ -30,6 +30,16 @@ export const usersApiSlice = apiSlice.injectEndpoints({
         } else return [];
       },
     }),
+    getRecurringBooking: builder.query({
+      query: () => "/user/recurring",
+      validateStatus: (response, result) => {
+        if (response.status === undefined) {
+          throw new Error("No response from server");
+        }
+        return response.status === 200 && !result.isError;
+      },
+      providesTags: ["RecurringBooking"],
+    }),
     updateMyUser: builder.mutation({
       query: (initialUserData) => ({
         url: "/user",
@@ -127,6 +137,7 @@ export const usersApiSlice = apiSlice.injectEndpoints({
 
 export const {
   useGetMyUserQuery,
+  useGetRecurringBookingQuery,
   useUpdateMyUserMutation,
   useResendEmailVerificationMutation,
   useVerifyEmailMutation,
