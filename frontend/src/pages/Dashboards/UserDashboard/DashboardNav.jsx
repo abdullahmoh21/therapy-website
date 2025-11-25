@@ -233,7 +233,7 @@ const Dashboard = () => {
                       transition={{ delay: index * 0.1 }}
                     >
                       <button
-                        className={`block w-full py-3 px-4 text-textColor font-medium rounded-lg ${
+                        className={`w-full py-3 px-4 text-textColor font-medium rounded-lg ${
                           activeTab === item.id
                             ? "bg-[#FDF0E9] text-[#c45e3e]"
                             : "text-textColor hover:bg-gray-100"
@@ -258,7 +258,7 @@ const Dashboard = () => {
                         toggleEditProfileModal();
                         toggleMenu();
                       }}
-                      className="block w-full py-3 px-4 text-textColor font-medium rounded-lg bg-white bg-opacity-50 hover:bg-opacity-80 text-center transition-all flex items-center justify-center"
+                      className="w-full py-3 px-4 text-textColor font-medium rounded-lg bg-white bg-opacity-50 hover:bg-opacity-80 text-center transition-all flex items-center justify-center"
                     >
                       <BiUser className="mr-2" />
                       Edit Profile
@@ -275,7 +275,7 @@ const Dashboard = () => {
                   transition={{ delay: 0.4 }}
                 >
                   <button
-                    className="block w-full h-12 text-white font-medium rounded-lg bg-red-500 hover:bg-red-600 text-center transition-colors duration-300 shadow-sm flex items-center justify-center disabled:opacity-50"
+                    className="w-full h-12 text-white font-medium rounded-lg bg-red-500 hover:bg-red-600 text-center transition-colors duration-300 shadow-sm flex items-center justify-center disabled:opacity-50"
                     onClick={handleLogout}
                     disabled={isLoggingOut}
                   >

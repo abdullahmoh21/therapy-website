@@ -31,30 +31,6 @@ const RecurringScheduleCard = ({
 }) => {
   if (!schedule) return null;
 
-  // Compute local cutoff for recurring bookings (same logic as one-off bookings)
-  const isWithinCancellationWindow = (booking) => {
-    if (!booking) return false;
-
-    // Use stored cutoffDays if available, otherwise use noticePeriod
-    const cutoffDays =
-      storedCutoffDays ||
-      (noticePeriodSuccess
-        ? parseInt(noticePeriodData.noticePeriod, 10)
-        : null);
-
-    if (cutoffDays === null) {
-      // If we don't have cutoff info, allow cancellation (backend will decide)
-      return true;
-    }
-
-    const cutoffMillis = cutoffDays * 24 * 60 * 60 * 1000;
-    const cutoffDeadline =
-      new Date(booking.eventStartTime).getTime() - cutoffMillis;
-    const currentTime = Date.now();
-
-    return currentTime < cutoffDeadline;
-  };
-
   const { date: nextDate, time: nextTime } = nextBooking
     ? formatDateTime(nextBooking.eventStartTime)
     : { date: "", time: "" };
@@ -231,35 +207,34 @@ const RecurringScheduleCard = ({
                         </button>
                       )}
 
-                    {/* Cancel Button - Only show if within cancellation window */}
-                    {onCancelClick &&
-                      isWithinCancellationWindow(nextBooking) && (
-                        <button
-                          onClick={() => onCancelClick(nextBooking)}
-                          disabled={isCancelling}
-                          className={`flex-1 flex items-center justify-center space-x-2 px-4 py-2.5 rounded-lg border font-medium transition-colors shadow-sm ${
-                            isCancelling
-                              ? "border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed"
-                              : "border-red-500 bg-white text-red-500 hover:bg-red-50 hover:shadow-md"
-                          }`}
-                        >
-                          {isCancelling ? (
-                            <>
-                              <BiLoaderAlt className="text-lg animate-spin" />
-                              <span className="text-sm sm:text-base">
-                                Cancelling...
-                              </span>
-                            </>
-                          ) : (
-                            <>
-                              <BiXCircle className="text-lg" />
-                              <span className="text-sm sm:text-base">
-                                Cancel Session
-                              </span>
-                            </>
-                          )}
-                        </button>
-                      )}
+                    {/* Cancel Button - Always show, parent handles eligibility */}
+                    {onCancelClick && (
+                      <button
+                        onClick={() => onCancelClick(nextBooking)}
+                        disabled={isCancelling}
+                        className={`flex-1 flex items-center justify-center space-x-2 px-4 py-2.5 rounded-lg border font-medium transition-colors shadow-sm ${
+                          isCancelling
+                            ? "border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed"
+                            : "border-red-500 bg-white text-red-500 hover:bg-red-50 hover:shadow-md"
+                        }`}
+                      >
+                        {isCancelling ? (
+                          <>
+                            <BiLoaderAlt className="text-lg animate-spin" />
+                            <span className="text-sm sm:text-base">
+                              Cancelling...
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <BiXCircle className="text-lg" />
+                            <span className="text-sm sm:text-base">
+                              Cancel Session
+                            </span>
+                          </>
+                        )}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>

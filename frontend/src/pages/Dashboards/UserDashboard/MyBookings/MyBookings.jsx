@@ -268,6 +268,21 @@ const MyBookings = () => {
         } catch (error) {
           console.error("Cancellation error:", error);
 
+          // Handle 409 error for last recurring session warning
+          if (
+            error.status === 409 &&
+            error.data?.warningType === "LAST_RECURRING_SESSION"
+          ) {
+            toast.error(
+              error.data?.message || "Cannot cancel last recurring session",
+              {
+                autoClose: 6000,
+              }
+            );
+            setShowCancelPopup(false);
+            return;
+          }
+
           // Handle 403 error with cutoffDays
           if (error.status === 403 && error.data?.cutoffDays) {
             // Store the cutoffDays for future use
