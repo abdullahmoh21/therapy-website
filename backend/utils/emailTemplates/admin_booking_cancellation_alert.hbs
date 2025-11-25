@@ -94,6 +94,10 @@
           has been cancelled.
         </p>
 
+        {{#if reason}}
+          <p><strong>Reason:</strong> {{reason}}</p>
+        {{/if}}
+
         <div class="section-title">Client &amp; Session Details</div>
         <table class="details-table">
           <tr>
@@ -116,6 +120,10 @@
             <td>Session Time:</td>
             <td>{{eventTime}}</td>
           </tr>
+          <tr>
+            <td>Payment Status:</td>
+            <td>{{paymentStatus}}</td>
+          </tr>
         </table>
 
         <div class="section-title">Cancellation Details</div>
@@ -124,31 +132,6 @@
           {{#if isAdminCancelled}}Admin{{else}}{{cancelledBy}}{{/if}}
         </p>
         <p><strong>Cancellation Date:</strong> {{cancellationDate}}</p>
-        {{#if reason}}
-          <p><strong>Reason:</strong> {{reason}}</p>
-        {{/if}}
-
-        {{#if isPaid}}
-          <div class="section-title">Payment Information</div>
-          <table class="details-table">
-            <tr>
-              <td>Payment Amount:</td>
-              <td>{{paymentAmount}} {{paymentCurrency}}</td>
-            </tr>
-            <tr>
-              <td>Payment Status:</td>
-              <td>{{paymentStatus}}</td>
-            </tr>
-            <tr>
-              <td>Payment Completed:</td>
-              <td>{{paymentCompleted}}</td>
-            </tr>
-            <tr>
-              <td>Transaction Reference:</td>
-              <td>{{transactionReferenceNumber}}</td>
-            </tr>
-          </table>
-        {{/if}}
 
         <div class="section-title">Next Steps</div>
         <p>

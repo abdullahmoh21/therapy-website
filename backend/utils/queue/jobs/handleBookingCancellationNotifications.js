@@ -149,32 +149,16 @@ const handleBookingCancellationNotifications = async (job) => {
     if (notifyAdmin && adminEmail) {
       try {
         const isPaid = payment && payment.transactionStatus === "Completed";
-        const paymentCompletedDate = payment?.paymentCompletedDate
-          ? new Date(payment.paymentCompletedDate).toLocaleDateString("en-GB", {
-              day: "2-digit",
-              month: "long",
-              year: "numeric",
-            })
-          : "N/A";
 
-        const refundLink = `${
-          process.env.SAFEPAY_DASHBOARD_URL ||
-          "https://sandbox.api.getsafepay.com/dashboard/payments"
-        }`;
-
-        const subjectPrefix = isLateCancellation
-          ? "Late Cancellation Notice"
-          : "Cancellation Notification";
-        const subjectSuffix = isLateCancellation
-          ? "No Automatic Refund"
-          : isPaid
-          ? "Eligible for Refund"
-          : "No Payment Required";
+        // Simple subject line when user cancels
+        const adminSubject = isAdminCancelled
+          ? "Booking Cancellation Notice"
+          : `Session Cancelled by ${userName}`;
 
         const adminMailOptions = {
           from: "admin@fatimanaqvi.com",
           to: adminEmail,
-          subject: `${subjectPrefix} - ${subjectSuffix}`,
+          subject: adminSubject,
           template: "admin_booking_cancellation_alert",
           context: {
             name: userName,
@@ -185,17 +169,9 @@ const handleBookingCancellationNotifications = async (job) => {
             cancellationDate: formattedCancellationDate,
             cancelledBy: userCancelledBy,
             reason,
-            paymentAmount: payment?.amount || 0,
-            paymentCurrency: payment?.currency || "N/A",
             paymentStatus: payment?.transactionStatus || "No Payment",
-            paymentCompleted: paymentCompletedDate,
-            transactionReferenceNumber:
-              payment?.transactionReferenceNumber || "N/A",
-            cancelCutoffDays: cutoffDays,
-            refundLink,
             isAdmin: isAdminCancelled,
             isAdminCancelled,
-            isLateCancellation,
             isPaid,
             frontend_url: process.env.FRONTEND_URL,
             currentYear: new Date().getFullYear(),
@@ -204,12 +180,12 @@ const handleBookingCancellationNotifications = async (job) => {
 
         await transporter.sendMail(adminMailOptions);
         logger.info(
-          `Admin cancellation notification sent for booking ${bookingId} (${
-            isLateCancellation ? "late" : "normal"
-          } cancellation, ${isPaid ? "paid" : "unpaid"})`
+          `Admin cancellation notification sent for booking ${bookingId} (cancelled by ${
+            isAdminCancelled ? "admin" : "user"
+          })`
         );
 
-        // Update payment status if eligible for refund (moved from call sites)
+        // Update payment status if eligible for refund (only for paid, on-time cancellations)
         if (isPaid && !isLateCancellation && payment) {
           await Payment.updateOne(
             { _id: payment._id },

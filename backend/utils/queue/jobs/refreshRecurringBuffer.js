@@ -6,7 +6,7 @@ const logger = require("../../../logs/logger");
 const mongoose = require("mongoose");
 const { addMinutes, addWeeks, addMonths, isBefore } = require("date-fns");
 const { utcToZonedTime, zonedTimeToUtc } = require("date-fns-tz");
-const { addJob } = require("../jobScheduler");
+const { addJob, sendEmail } = require("../jobScheduler");
 const { getConnectionStatus } = require("../../googleOAuth");
 const ShortUniqueId = require("short-unique-id");
 const uid = new ShortUniqueId({ length: 5 });
@@ -212,7 +212,7 @@ const handleRecurringBookingBufferRefresh = async (job) => {
       `Buffer refresh completed for user ${userId}: ${createdCount} bookings created, ${skippedCount} skipped`
     );
 
-    // 5. Queue Google Calendar sync jobs if connected
+    // 5. Queue Google Calendar sync jobs if connected AND bookings were created
     if (createdCount > 0) {
       const connectionStatus = await getConnectionStatus();
       if (connectionStatus.connected) {
@@ -240,41 +240,72 @@ const handleRecurringBookingBufferRefresh = async (job) => {
       }
     }
 
-    // 6. Calculate and schedule the NEXT buffer refresh
-    // Find the new last booking
-    const newLastBooking = await Booking.findOne({
-      "recurring.seriesId": recurringSeriesId,
-      status: "Active",
-    })
-      .sort({ eventStartTime: -1 })
-      .lean();
+    // 6. Calculate and schedule the NEXT buffer refresh ONLY IF bookings were created
+    let newLastBooking = null;
+    if (createdCount > 0) {
+      // Find the new last booking
+      newLastBooking = await Booking.findOne({
+        "recurring.seriesId": recurringSeriesId,
+        status: "Active",
+      })
+        .sort({ eventStartTime: -1 })
+        .lean();
 
-    if (newLastBooking) {
-      const nextRefreshDate = calculateNextRefreshDate(
-        new Date(newLastBooking.eventStartTime)
+      if (newLastBooking) {
+        const nextRefreshDate = calculateNextRefreshDate(
+          new Date(newLastBooking.eventStartTime)
+        );
+
+        // Update user with next refresh date
+        await User.findByIdAndUpdate(userId, {
+          $set: {
+            "recurring.nextBufferRefresh": nextRefreshDate,
+          },
+        });
+
+        // Schedule the next refresh job
+        try {
+          await addJob(
+            "handleRecurringBookingBufferRefresh",
+            { userId: userId.toString() },
+            { runAt: nextRefreshDate }
+          );
+
+          logger.info(
+            `Scheduled next buffer refresh for user ${userId} at ${nextRefreshDate.toISOString()}`
+          );
+        } catch (error) {
+          logger.error(
+            `Failed to schedule next buffer refresh for user ${userId}: ${error.message}`
+          );
+        }
+      }
+    } else if (skippedCount > 0) {
+      // All slots conflicted - alert developer
+      logger.error(
+        `Buffer refresh for user ${userId} failed: all ${skippedCount} slots conflicted`
       );
 
-      // Update user with next refresh date
-      await User.findByIdAndUpdate(userId, {
-        $set: {
-          "recurring.nextBufferRefresh": nextRefreshDate,
-        },
-      });
-
-      // Schedule the next refresh job
       try {
-        await addJob(
-          "handleRecurringBookingBufferRefresh",
-          { userId: userId.toString() },
-          { runAt: nextRefreshDate }
-        );
-
+        await sendEmail("SystemAlert", {
+          alertType: "buffer_refresh_failed",
+          userId: userId.toString(),
+          userName: user.name,
+          userEmail: user.email,
+          reason: "all_slots_conflicted",
+          skippedCount,
+          interval,
+          day,
+          time,
+          timestamp: new Date().toISOString(),
+          message: `Buffer refresh failed for ${user.name} (${user.email}). All ${skippedCount} time slots conflicted with existing bookings. Manual intervention required.`,
+        });
         logger.info(
-          `Scheduled next buffer refresh for user ${userId} at ${nextRefreshDate.toISOString()}`
+          `Sent system alert to developer about failed buffer refresh for user ${userId}`
         );
-      } catch (error) {
+      } catch (emailError) {
         logger.error(
-          `Failed to schedule next buffer refresh for user ${userId}: ${error.message}`
+          `Failed to send system alert email: ${emailError.message}`
         );
       }
     }

@@ -86,8 +86,7 @@ const handleGoogleCalendarCancellation = async (jobData) => {
             day: "numeric",
           });
 
-          // Import from jobScheduler to avoid circular dependency
-          const { sendEmail } = require("../jobScheduler");
+          const { sendEmail } = require("../jobScheduler"); // to avoid circular dependency
           await sendEmail("BookingCancellationNotifications", {
             bookingId: booking._id.toString(),
             userId: booking.userId.toString(),
@@ -128,8 +127,7 @@ const handleGoogleCalendarCancellation = async (jobData) => {
           const booking = await Booking.findById(bookingId);
           const user = await User.findById(booking?.userId);
           if (user && booking) {
-            // Import from jobScheduler to avoid circular dependency
-            const { sendEmail } = require("../jobScheduler");
+            const { sendEmail } = require("../jobScheduler"); // to avoid circular dependency
             await sendEmail("BookingCancellationNotifications", {
               bookingId: booking._id.toString(),
               userId: booking.userId.toString(),

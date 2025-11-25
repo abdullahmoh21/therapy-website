@@ -261,9 +261,7 @@ const handleGoogleCalendarSync = async (jobData) => {
         new Date(booking.eventStartTime).getTime() - Date.now() - LEAD_MS
       );
 
-      // Import from jobScheduler to avoid circular dependency
-      const { addJob } = require("../jobScheduler");
-
+      const { addJob } = require("../jobScheduler"); // to avoid circular dependency
       await addJob(
         "handleClientCalendarInvitation",
         { bookingId: bookingId.toString() },
