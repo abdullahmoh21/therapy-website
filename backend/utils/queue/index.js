@@ -1,21 +1,31 @@
 const { Queue } = require("bullmq");
 const logger = require("../../logs/logger");
-const { checkRedisAvailability } = require("../redisClient");
-const { getJobUniqueId } = require("./utils");
+const { checkRedisQueueAvailability } = require("../redisClient");
 const { buildWorker } = require("./worker");
 const jobHandlers = require("./jobs/index");
+const { startJobPromoter, stopJobPromoter } = require("./promoter");
+const { addJob, sendEmail, setQueueInstance } = require("./jobScheduler");
 
 let queue = null;
 let worker = null;
+let promoterStarted = false;
 
 async function initializeQueue() {
-  const redisAvailable = await checkRedisAvailability();
-  if (!redisAvailable) return false;
+  const redisAvailable = await checkRedisQueueAvailability();
+  if (!redisAvailable) {
+    logger.warn(
+      "Redis Queue unavailable - jobs will be persisted to MongoDB only"
+    );
+    return false;
+  }
 
   try {
     const connection = {
-      host: process.env.REDIS_HOST || "localhost",
-      port: process.env.REDIS_PORT || 6379,
+      host:
+        process.env.REDIS_QUEUE_HOST || process.env.REDIS_HOST || "localhost",
+      port:
+        process.env.REDIS_QUEUE_PORT ||
+        (process.env.REDIS_PORT ? parseInt(process.env.REDIS_PORT) + 1 : 6380),
       enableOfflineQueue: false,
       maxRetriesPerRequest: 1,
       connectTimeout: 1000,
@@ -27,13 +37,23 @@ async function initializeQueue() {
       connection,
       defaultJobOptions: {
         removeOnComplete: { age: 3600, count: 1000 },
-        removeOnFail: true,
+        removeOnFail: false, // Keep failed jobs for debugging
         attempts: 5,
       },
     });
 
     worker = await buildWorker("myQueue");
     logger.info("BullMQ queue system initialized successfully");
+
+    // Set the queue instance in jobScheduler so job handlers can use it
+    setQueueInstance(queue);
+
+    // Start the job promoter to move jobs from MongoDB to Redis
+    if (!promoterStarted && queue) {
+      startJobPromoter(queue);
+      promoterStarted = true;
+    }
+
     return true;
   } catch (error) {
     logger.error(`Queue Initialization error: ${error.message}`);
@@ -41,63 +61,9 @@ async function initializeQueue() {
   }
 }
 
-async function addJob(jobName, jobData) {
-  if (!queue) {
-    throw new Error("Queue not initialized");
-  }
-
-  try {
-    const jobId = getJobUniqueId(jobName, jobData);
-    return await queue.add(jobName, jobData, {
-      jobId,
-      removeOnComplete: true,
-      removeOnFail: true,
-      attempts: 5, // This ensures 5 retries for job execution failures
-    });
-  } catch (error) {
-    if (/already exists/i.test(error.message)) {
-      logger.info(`Skipping duplicate job: ${jobName}`);
-      return { success: true, skipped: true, reason: "duplicate" };
-    }
-    if (
-      error.message.includes("ECONNREFUSED") ||
-      error.message.includes("Connection is closed") ||
-      error.message.includes("Connection lost") ||
-      error.message.includes("Redis connection failed") ||
-      error.code === "ECONNREFUSED" ||
-      error.code === "ENOTFOUND"
-    ) {
-      throw new Error(`Redis connection failed: ${error.message}`);
-    }
-    throw error;
-  }
-}
-
-const sendEmail = async (jobName, jobData) => {
-  // If queue is unavailable, execute directly
-  if (!queue) {
-    logger.warn(`Queue unavailable — executing ${jobName} directly`);
-    return fallbackExecute(jobName, jobData);
-  }
-
-  try {
-    return await addJob(jobName, jobData);
-  } catch (error) {
-    if (error.message.includes("Redis connection failed")) {
-      logger.warn(
-        `Queue unavailable (Redis connection failed) — executing ${jobName} directly`
-      );
-      return fallbackExecute(jobName, jobData);
-    }
-
-    // For other errors, still fallback but log differently
-    logger.warn(
-      `Queue add failed — executing ${jobName} inline: ${error.message}`
-    );
-    return fallbackExecute(jobName, jobData);
-  }
-};
-
+/**
+ * Fallback execute - run job handler directly (used when queue unavailable)
+ */
 const fallbackExecute = function (jobName, jobData) {
   const handler = jobHandlers[jobName];
   if (!handler) {
@@ -106,4 +72,26 @@ const fallbackExecute = function (jobName, jobData) {
   return handler({ data: jobData });
 };
 
-module.exports = { initializeQueue, addJob, sendEmail };
+/**
+ * Graceful shutdown
+ */
+async function shutdownQueue() {
+  logger.info("Shutting down queue system...");
+
+  if (promoterStarted) {
+    stopJobPromoter();
+    promoterStarted = false;
+  }
+
+  if (worker) {
+    await worker.close();
+    logger.info("Worker closed");
+  }
+
+  if (queue) {
+    await queue.close();
+    logger.info("Queue closed");
+  }
+}
+
+module.exports = { initializeQueue, addJob, sendEmail, shutdownQueue, queue };

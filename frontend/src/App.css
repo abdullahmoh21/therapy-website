@@ -167,3 +167,101 @@ input.lp-ignore + div[data-lastpass-icon-root] {
 html {
   scroll-behavior: smooth;
 }
+
+/* Modern DataTable Styles */
+.modern-datatable .p-datatable-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.modern-datatable .p-datatable-tbody > tr {
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.modern-datatable .p-datatable-tbody > tr:last-child {
+  border-bottom: none;
+}
+
+.modern-datatable .p-datatable-tbody > tr > td {
+  border: none;
+  padding: 1rem 1.5rem;
+  vertical-align: middle;
+}
+
+.modern-datatable .p-datatable-thead > tr > th {
+  border: none;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  padding: 1rem 1.5rem;
+}
+
+.modern-datatable .p-datatable-tbody > tr:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+/* Row expansion animation */
+.modern-datatable .p-datatable-row-expansion {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-left: 4px solid #3b82f6;
+  animation: expandRow 0.3s ease-out;
+}
+
+@keyframes expandRow {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Custom scrollbar for tables */
+.modern-datatable::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.modern-datatable::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.modern-datatable::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.modern-datatable::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Booking deletion animation */
+.booking-row-deleting {
+  animation: fadeSlideOut 0.3s ease-out forwards;
+}
+
+@keyframes fadeSlideOut {
+  0% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    max-height: 200px;
+  }
+  70% {
+    opacity: 0;
+    transform: translateX(-20px) scale(0.95);
+    max-height: 200px;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-40px) scale(0.9);
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+}

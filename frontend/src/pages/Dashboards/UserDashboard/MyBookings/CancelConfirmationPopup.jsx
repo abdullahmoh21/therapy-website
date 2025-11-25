@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import {
   BiCheckCircle,
   BiErrorCircle,
@@ -15,27 +15,15 @@ const CancelConfirmationPopup = ({
   refundError,
   formatDateTime,
   checkRefundEligibility,
-  handleRefundRequest,
   handleCancellation,
 }) => {
-  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 768);
+  const [cancellationReason, setCancellationReason] = useState("");
   const modalRef = useRef(null);
 
-  // Check for screen size changes
-  useEffect(() => {
-    const handleResize = () => {
-      setIsDesktop(window.innerWidth >= 768);
-    };
-
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  // Handle click outside modal to close on desktop
+  // Handle click outside modal to close
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
-        isDesktop &&
         modalRef.current &&
         !modalRef.current.contains(event.target) &&
         show
@@ -46,16 +34,32 @@ const CancelConfirmationPopup = ({
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [show, isDesktop, onClose]);
+  }, [show, onClose]);
+
+  // Reset reason when popup opens/closes
+  useEffect(() => {
+    if (!show) {
+      setCancellationReason("");
+    }
+  }, [show]);
 
   if (!show || !booking) return null;
 
+  const isAdminOrSystemBooking = ["admin", "system"].includes(booking.source);
+  const requiresReason = isAdminOrSystemBooking;
+
+  const handleProceed = () => {
+    if (requiresReason && !cancellationReason.trim()) {
+      return; // Don't proceed without a reason
+    }
+    handleCancellation(booking, cancellationReason.trim());
+  };
+
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
       <div
         ref={modalRef}
         className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full relative"
-        onClick={(e) => e.stopPropagation()}
       >
         <button
           className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl"
@@ -121,6 +125,32 @@ const CancelConfirmationPopup = ({
           )}
         </div>
 
+        {/* Cancellation Reason Input - only for admin/system bookings */}
+        {requiresReason && (
+          <div className="mb-6">
+            <label
+              htmlFor="cancellationReason"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
+              Reason for cancellation <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              id="cancellationReason"
+              value={cancellationReason}
+              onChange={(e) => setCancellationReason(e.target.value)}
+              placeholder="Please provide a reason for cancelling this session..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-lightPink focus:border-lightPink resize-none"
+              rows="3"
+              disabled={loading}
+            />
+            {!cancellationReason.trim() && (
+              <p className="mt-1 text-sm text-gray-500">
+                A cancellation reason is required
+              </p>
+            )}
+          </div>
+        )}
+
         {loading && (
           <div className="flex items-center justify-center mb-4 text-gray-600">
             <BiLoaderAlt className="animate-spin mr-2" /> Processing...
@@ -142,19 +172,10 @@ const CancelConfirmationPopup = ({
             Keep It
           </button>
           <button
-            onClick={() => {
-              if (
-                booking.transactionStatus === "Completed" &&
-                checkRefundEligibility(booking)
-              ) {
-                handleRefundRequest(booking.cancelURL);
-              } else {
-                handleCancellation(booking.cancelURL);
-              }
-            }}
-            disabled={loading}
+            onClick={handleProceed}
+            disabled={loading || (requiresReason && !cancellationReason.trim())}
             className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-white font-medium transition ${
-              loading
+              loading || (requiresReason && !cancellationReason.trim())
                 ? "bg-red-300 cursor-not-allowed"
                 : "bg-red-500 hover:bg-red-600"
             }`}

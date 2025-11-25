@@ -263,16 +263,18 @@ describe("Admin Get Booking Timeline Endpoint", () => {
         eventEndTime: new Date("2023-01-17T12:59:59Z"),
         eventName: "One Week Booking",
         status: "Active",
+        source: "admin",
         location: { type: "in-person", inPersonLocation: "Office" },
       });
 
       // Create booking beyond one week (should NOT be included)
       const beyondOneWeekBooking = await Booking.create({
         userId: testUser._id,
-        eventStartTime: new Date("2023-01-18T00:00:01Z"), // Just beyond one week
-        eventEndTime: new Date("2023-01-18T01:00:01Z"),
+        eventStartTime: new Date("2023-01-19T12:00:00Z"), // Well beyond one week
+        eventEndTime: new Date("2023-01-19T13:00:00Z"),
         eventName: "Beyond One Week Booking",
         status: "Active",
+        source: "admin",
         location: { type: "online", join_url: "https://zoom.us/j/123456" },
       });
 
@@ -283,6 +285,7 @@ describe("Admin Get Booking Timeline Endpoint", () => {
         eventEndTime: new Date("2023-01-11T16:00:00Z"),
         eventName: "Tomorrow's Booking",
         status: "Active",
+        source: "admin",
         location: { type: "in-person", inPersonLocation: "Office" },
       });
 

@@ -13,8 +13,12 @@ const conditionalRateLimiter = require("./middleware/rateLimiting/generalRateLim
 const checkBlocked = require("./middleware/rateLimiting/checkBlocked");
 const dependencyGuard = require("./middleware/dependencyGuard");
 const { connectDB, isMongoAvailable } = require("./utils/connectDB");
-const { redisClient } = require("./utils/redisClient");
-const { initializeQueue, sendEmail } = require("./utils/queue/index");
+const { redisCacheClient, redisQueueClient } = require("./utils/redisClient");
+const {
+  initializeQueue,
+  sendEmail,
+  shutdownQueue,
+} = require("./utils/queue/index");
 const connectCalendly = require("./utils/connectCalendly");
 const startUpdateBookingStatusCron = require("./utils/cron/UpdateBookingStatus");
 const startClearLogFilesCron = require("./utils/cron/ClearLogFiles");
@@ -42,7 +46,7 @@ async function bootstrap() {
   } catch (err) {
     logger.error("Could not connect to Calendly — aborting startup.");
     if (process.env.NODE_ENV === "production") {
-      await sendEmail("adminAlert", {
+      await sendEmail("SystemAlert", {
         alertType: "calendlyWebhookDown",
       }).catch(() => {});
     }
@@ -50,14 +54,27 @@ async function bootstrap() {
   }
 
   try {
-    await redisClient.connect();
+    await redisCacheClient.connect();
+    logger.info("Redis Cache connected");
+  } catch (err) {
+    logger.warn(`Redis Cache unavailable — caching disabled: ${err.message}`);
+    if (process.env.NODE_ENV === "production") {
+      await sendEmail("SystemAlert", {
+        alertType: "redisCacheDisconnectedInitial",
+      }).catch(() => {});
+    }
+  }
+
+  try {
+    await redisQueueClient.connect();
+    logger.info("Redis Queue connected");
   } catch (err) {
     logger.warn(
-      `Redis unavailable — continuing in degraded mode: ${err.message}`
+      `Redis Queue unavailable — jobs will be MongoDB-only: ${err.message}`
     );
     if (process.env.NODE_ENV === "production") {
-      await sendEmail("adminAlert", {
-        alertType: "redisDisconnectedInitial",
+      await sendEmail("SystemAlert", {
+        alertType: "redisQueueDisconnectedInitial",
       }).catch(() => {});
     }
   }
@@ -80,7 +97,7 @@ async function bootstrap() {
   server.on("error", async (error) => {
     logger.error(`Server error: ${error.message}`);
     if (process.env.NODE_ENV === "production") {
-      await sendEmail("adminAlert", {
+      await sendEmail("SystemAlert", {
         alertType: "serverError",
         extraData: { error: error.message },
       }).catch(() => {});
@@ -126,6 +143,10 @@ app.use("/api/user", require("./endpoints/userEndpoints"));
 app.use("/api/bookings", require("./endpoints/bookingEndpoints"));
 app.use("/api/payments", require("./endpoints/paymentEndpoints"));
 app.use("/api/admin", require("./endpoints/adminEndpoints"));
+app.use(
+  "/api/admin/google-calendar",
+  require("./endpoints/googleCalendarEndpoints")
+);
 app.use("/api/contactMe", require("./endpoints/contactMeEndpoints"));
 app.use("/api/config", require("./endpoints/configEndpoints"));
 
@@ -138,9 +159,22 @@ async function gracefulShutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
   logger.info(`Received ${signal}, shutting down…`);
-  if (redisClient && redisClient.status === "ready") {
-    await redisClient.quit().catch(() => {});
+
+  // Shutdown queue system (stops promoter and closes Redis queue)
+  try {
+    await shutdownQueue();
+  } catch (err) {
+    logger.error(`Error shutting down queue: ${err.message}`);
   }
+
+  // Close Redis connections
+  if (redisCacheClient && redisCacheClient.status === "ready") {
+    await redisCacheClient.quit().catch(() => {});
+  }
+  if (redisQueueClient && redisQueueClient.status === "ready") {
+    await redisQueueClient.quit().catch(() => {});
+  }
+
   if (server) {
     server.close(() => {
       logger.info("Shutdown complete.");

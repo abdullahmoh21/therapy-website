@@ -44,10 +44,10 @@ describe("POST /users/forgotPassword - Forgot Password", () => {
     expect(res.statusCode).toBe(200);
     expect(res.body.message).toBe("Reset password link added to email queue");
     expect(sendEmail).toHaveBeenCalledWith(
-      "resetPassword",
+      "UserPasswordResetEmail",
       expect.objectContaining({
-        recipient: "test@example.com",
-        name: "Test User",
+        userId: expect.any(String),
+        resetToken: expect.any(String),
       })
     );
 

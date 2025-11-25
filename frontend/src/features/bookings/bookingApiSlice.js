@@ -48,15 +48,40 @@ export const bookingsApiSlice = apiSlice.injectEndpoints({
       transformResponse: (response) => {
         try {
           const rawBookings = response.bookings || [];
-          const processedBookings = rawBookings.map((booking) => ({
-            ...booking,
-            payment: booking.payment || {},
-            formattedEventStartTime: formatDateTime(
-              booking.eventStartTime,
-              true
-            ),
-            customerBookingId: booking.bookingId,
-          }));
+          const processedBookings = rawBookings.map((booking) => {
+            // Determine event name based on source
+            let eventName = "Session";
+
+            if (booking.source === "calendly" && booking.calendly?.eventName) {
+              eventName = booking.calendly.eventName;
+            } else if (
+              booking.source === "system" &&
+              booking.recurring?.state
+            ) {
+              // Format recurring booking name
+              const intervals = {
+                weekly: "Weekly",
+                biweekly: "Bi-weekly",
+                monthly: "Monthly",
+              };
+              const intervalLabel =
+                intervals[booking.recurring.interval] || "Recurring";
+              eventName = `${intervalLabel} Session`;
+            } else if (booking.source === "admin") {
+              eventName = "Admin Scheduled Session";
+            }
+
+            return {
+              ...booking,
+              payment: booking.payment || {},
+              formattedEventStartTime: formatDateTime(
+                booking.eventStartTime,
+                true
+              ),
+              customerBookingId: booking.bookingId,
+              eventName, // Add computed event name
+            };
+          });
 
           return {
             bookings: pastBookingsAdapter.setAll(
@@ -109,16 +134,14 @@ export const bookingsApiSlice = apiSlice.injectEndpoints({
         return response.status === 200 && !result.isError;
       },
       transformResponse: (responseData) => {
-        if (responseData) {
+        // Backend now returns simple array of one-off bookings
+        if (responseData && Array.isArray(responseData)) {
           return bookingsAdapter.setAll(initialState, responseData);
-        } else {
-          return initialState;
         }
+        return initialState;
       },
       providesTags: (result, error, arg) => {
-        if (result?.id) {
-          return [{ type: "Booking", id: result.id }];
-        } else return [];
+        return [{ type: "Booking", id: "LIST" }];
       },
     }),
     getNewBookingLink: builder.query({
@@ -168,6 +191,18 @@ export const bookingsApiSlice = apiSlice.injectEndpoints({
       },
       transformResponse: (response) => response.sessionPrice,
     }),
+    cancelMyBooking: builder.mutation({
+      query: ({ bookingId, reason }) => ({
+        url: `/bookings/${bookingId}/cancel`,
+        method: "PUT",
+        body: { reason },
+      }),
+      invalidatesTags: (result, error, { bookingId }) => [
+        { type: "Booking", id: "LIST" },
+        { type: "Booking", id: bookingId },
+        { type: "PastBookings", id: "LIST" },
+      ],
+    }),
   }),
 });
 
@@ -180,4 +215,5 @@ export const {
   useGetCancellationUrlQuery,
   useGetSessionPriceQuery,
   useGetIntlSessionPriceQuery,
+  useCancelMyBookingMutation,
 } = bookingsApiSlice;

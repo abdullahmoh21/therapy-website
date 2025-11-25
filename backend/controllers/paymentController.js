@@ -85,14 +85,22 @@ const handleSafepayWebhook = asyncHandler(async (req, res) => {
   //send email to user on refund
   if (payment.transactionStatus === "Refunded") {
     try {
-      await sendEmail("refundConfirmation", { payment });
+      await sendEmail("PaymentRefundConfirmation", {
+        paymentId: payment._id.toString(),
+      });
     } catch (error) {
       logger.error("Error sending refund confirmation email.");
       return res.sendStatus(500);
     }
   }
 
-  await invalidateByEvent("payment-updated", payment.userId);
+  // Invalidate cache
+  try {
+    await invalidateByEvent("payment-updated", payment.userId);
+  } catch (cacheErr) {
+    logger.error(`Cache invalidation failed: ${cacheErr.message}`);
+    // Don't fail the request - cache will eventually expire
+  }
 
   return res.sendStatus(200);
 });
@@ -158,6 +166,14 @@ const createPayment = asyncHandler(async (req, res) => {
     payment.tracker = token;
     payment.linkGeneratedDate = new Date();
     await payment.save();
+
+    // Invalidate cache
+    try {
+      await invalidateByEvent("payment-updated", { userId: payment.userId });
+    } catch (cacheErr) {
+      logger.error(`Cache invalidation failed: ${cacheErr.message}`);
+      // Don't fail the request - cache will eventually expire
+    }
 
     return res.status(200).json({ url });
   } catch (error) {

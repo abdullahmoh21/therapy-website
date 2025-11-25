@@ -1,18 +1,20 @@
 import React, { useState, useCallback } from "react";
 import {
-  FaExclamationCircle,
-  FaTimes,
-  FaSearch,
-  FaFilter,
-  FaChevronDown,
-  FaChevronUp,
-  FaTrash,
-  FaSpinner,
-  FaUsers,
-  FaSync,
-  FaEnvelope,
-} from "react-icons/fa";
-import { BiPlus } from "react-icons/bi";
+  BiErrorCircle,
+  BiX,
+  BiSearch,
+  BiFilter,
+  BiChevronDown,
+  BiChevronUp,
+  BiTrash,
+  BiPlus,
+  BiSync,
+  BiEnvelope,
+  BiUser,
+  BiShield,
+  BiLoaderAlt,
+} from "react-icons/bi";
+import { HiOutlineMail, HiOutlineUser } from "react-icons/hi";
 import Pagination from "../../../../components/pagination";
 import ConfirmationModal from "../../../../components/confirmationModal";
 import { toast } from "react-toastify";
@@ -22,7 +24,7 @@ import {
   useGetInvitedUsersQuery,
   useDeleteInvitationMutation,
   useResendInvitationMutation,
-} from "../../../../features/admin/adminApiSlice";
+} from "../../../../features/admin";
 
 // Toast notification helper functions
 const showSuccessToast = (message) => {
@@ -230,12 +232,12 @@ const InvitedUsers = ({ onSwitchToUsers, onInviteUser }) => {
       {/* Error handling */}
       {isError && (
         <div
-          className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg shadow-sm mb-4"
+          className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4"
           role="alert"
         >
           <div className="flex items-center">
-            <FaExclamationCircle className="mr-2" />
-            <strong className="font-bold">Error!</strong>
+            <BiErrorCircle className="mr-2" />
+            <strong className="font-medium">Error!</strong>
             <span className="ml-2">
               {error?.data?.message || "Failed to fetch invitations"}
             </span>
@@ -243,234 +245,436 @@ const InvitedUsers = ({ onSwitchToUsers, onInviteUser }) => {
         </div>
       )}
 
-      {/* Controls and Table Container */}
-      <div className="bg-gradient-to-br from-white to-primaryColor/30 rounded-lg shadow-sm p-6 mb-6">
-        {/* Header and Controls */}
-        <div className="flex flex-col space-y-4 mb-6">
-          <h2 className="text-xl font-bold text-headingColor">Invited Users</h2>
-          <p className="text-sm text-textColor">Manage pending invitations</p>
+      {/* Header and Controls */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+        <div className="flex flex-col space-y-6">
+          {/* Header */}
+          <div className="text-center">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+              Invited Users
+            </h2>
+            <p className="text-gray-600">
+              Manage pending invitations and track invitation status
+            </p>
+          </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          {/* Controls */}
+          <div className="space-y-4 lg:space-y-0 lg:flex lg:gap-4 lg:items-center">
             {/* Search Bar */}
-            <div className="relative flex-1 min-w-[200px]">
+            <div className="flex-1 relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FaSearch className="text-textColor" />
+                <BiSearch className="text-gray-400" />
               </div>
               <input
                 type="text"
-                placeholder="Search invitations..."
+                placeholder="Search invitations by name or email..."
                 value={filters.search}
                 onChange={handleSearchChange}
-                className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:border-primaryColor focus:ring-1 focus:ring-primaryColor bg-white text-headingColor"
+                className="w-full pl-10 pr-4 py-3 lg:py-2 border border-gray-200 rounded-lg focus:border-[#DF9E7A] focus:ring-1 focus:ring-[#DF9E7A] transition-all duration-200"
               />
             </div>
 
-            {/* Switch to Users button */}
-            <button
-              onClick={onSwitchToUsers}
-              className="flex items-center px-4 py-2 bg-white text-[#c45e3e] border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-all duration-200"
-            >
-              <FaUsers className="mr-2" /> Active Users
-            </button>
+            {/* Mobile: Filter and Action Buttons in separate row */}
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-center lg:flex-row">
+              {/* Filter Button with improved mobile styling */}
+              <div className="relative w-full sm:w-auto">
+                <button
+                  onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+                  className="w-full sm:w-auto flex items-center justify-center px-4 py-3 lg:py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-all duration-200"
+                >
+                  <BiFilter className="mr-2 text-lg lg:text-base" />
+                  <span className="text-sm lg:text-base">Filters</span>
+                  {showFilterDropdown ? (
+                    <BiChevronUp className="ml-2 text-lg lg:text-base" />
+                  ) : (
+                    <BiChevronDown className="ml-2 text-lg lg:text-base" />
+                  )}
+                </button>
+                {showFilterDropdown && (
+                  <div className="absolute mt-2 right-0 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-10 p-4">
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Filter by Role
+                        </label>
+                        <select
+                          value={filters.role}
+                          onChange={handleRoleChange}
+                          className="w-full rounded-lg border border-gray-200 py-2 px-3 text-gray-700 focus:border-[#DF9E7A] focus:ring-1 focus:ring-[#DF9E7A] transition-all duration-200 text-base appearance-none bg-white"
+                          style={{ fontSize: "16px" }} // Prevents zoom on iOS
+                        >
+                          <option value="">All Roles</option>
+                          <option value="user">User</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                        {/* Custom dropdown arrow */}
+                        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                          <svg
+                            className="w-5 h-5 text-gray-400"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 9l-7 7-7-7"
+                            />
+                          </svg>
+                        </div>
+                      </div>
 
-            {/* Filter Button */}
-            <div className="relative">
-              <button
-                onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-                className="flex items-center px-4 py-2 bg-white text-primaryColor rounded-lg border border-gray-300 hover:bg-gray-50 transition-all duration-200"
-              >
-                <FaFilter className="mr-2" />
-                Filters
-                {showFilterDropdown ? (
-                  <FaChevronUp className="ml-2" />
-                ) : (
-                  <FaChevronDown className="ml-2" />
-                )}
-              </button>
-              {showFilterDropdown && (
-                <div className="absolute mt-2 right-0 w-72 bg-white rounded-lg shadow-lg border border-gray-300 z-10 p-4">
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-textColor mb-1">
-                        Role
-                      </label>
-                      <select
-                        value={filters.role}
-                        onChange={handleRoleChange}
-                        className="w-full rounded-lg border border-gray-300 py-2 px-3 bg-white text-headingColor"
-                      >
-                        <option value="">All Roles</option>
-                        <option value="user">User</option>
-                        <option value="admin">Admin</option>
-                      </select>
+                      {(filters.role !== "" || filters.search !== "") && (
+                        <button
+                          onClick={clearFilters}
+                          className="w-full px-4 py-2 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-all duration-200"
+                        >
+                          Clear all filters
+                        </button>
+                      )}
                     </div>
-
-                    {filters.role !== "" || filters.search !== "" ? (
-                      <button
-                        onClick={clearFilters}
-                        className="w-full mt-2 px-4 py-2 text-sm text-red-600 bg-red-50 hover:bg-red-100 rounded-lg"
-                      >
-                        Clear all filters
-                      </button>
-                    ) : null}
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
 
-            {/* Invite User Button */}
-            <button
-              onClick={handleInviteUser}
-              className="flex items-center px-4 py-2 bg-[#DF9E7A] text-white rounded-lg hover:bg-[#c45e3e] transition-colors"
-            >
-              <BiPlus className="mr-2" /> Invite User
-            </button>
+              {/* Action Buttons */}
+              <div className="flex gap-3 flex-1 sm:flex-initial">
+                {/* Switch to Users button */}
+                <button
+                  onClick={onSwitchToUsers}
+                  className="flex items-center justify-center px-4 py-3 lg:py-2 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-all duration-200 flex-1 sm:flex-initial"
+                >
+                  <HiOutlineUser className="mr-2 text-lg lg:text-base" />
+                  <span className="text-sm lg:text-base">Active Users</span>
+                </button>
+
+                {/* Invite User Button */}
+                <button
+                  onClick={handleInviteUser}
+                  className="flex items-center justify-center px-4 py-3 lg:py-2 bg-[#DF9E7A] text-white rounded-lg hover:bg-[#DF9E7A]/90 transition-all duration-200 flex-1 sm:flex-initial"
+                >
+                  <BiPlus className="mr-2 text-lg lg:text-base" />
+                  <span className="text-sm lg:text-base">Invite User</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* Table Information */}
-        <div className="mb-4">
-          <span className="text-gray-600">
-            Showing{" "}
-            <span className="font-medium">
-              {data?.invitations?.length || 0}
-            </span>{" "}
-            of{" "}
-            <span className="font-medium">{data?.totalInvitations || 0}</span>{" "}
-            invitations
-          </span>
-        </div>
+      {/* Table Information */}
+      <div className="mb-4">
+        <span className="text-gray-600 text-sm">
+          Showing{" "}
+          <span className="font-medium">{data?.invitations?.length || 0}</span>{" "}
+          of <span className="font-medium">{data?.totalInvitations || 0}</span>{" "}
+          invitations
+        </span>
+      </div>
 
-        {/* Invitations Table */}
-        <div className="overflow-hidden rounded-lg border border-gray-300 bg-white">
-          {isLoading ? (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primaryColor mx-auto"></div>
-              <p className="mt-4 text-textColor">Loading invitations...</p>
+      {/* Invitations Table */}
+      <div>
+        {isLoading ? (
+          <div className="text-center py-16 bg-white rounded-lg border border-gray-200">
+            <div className="w-8 h-8 border-2 border-gray-200 border-t-[#DF9E7A] rounded-full animate-spin mx-auto"></div>
+            <p className="mt-4 text-gray-600 font-medium">
+              Loading invitations...
+            </p>
+          </div>
+        ) : data?.invitations && data.invitations.length > 0 ? (
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            {/* Table Header - Hidden on mobile */}
+            <div className="hidden lg:block bg-gray-50 border-b border-gray-200 px-6 py-4">
+              <div className="grid grid-cols-12 gap-4 items-center">
+                <div className="col-span-4">
+                  <span className="text-sm font-medium text-gray-700">
+                    User
+                  </span>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-sm font-medium text-gray-700">
+                    Role
+                  </span>
+                </div>
+                <div className="col-span-3">
+                  <span className="text-sm font-medium text-gray-700">
+                    Invited On
+                  </span>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-sm font-medium text-gray-700">
+                    Status
+                  </span>
+                </div>
+                <div className="col-span-1 text-center">
+                  <span className="text-sm font-medium text-gray-700">
+                    Actions
+                  </span>
+                </div>
+              </div>
             </div>
-          ) : data?.invitations && data.invitations.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-textColor uppercase tracking-wider">
-                      Name
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-textColor uppercase tracking-wider">
-                      Email
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-textColor uppercase tracking-wider">
-                      Role
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-textColor uppercase tracking-wider">
-                      Invited On
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-textColor uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-textColor uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {data.invitations.map((invitation) => {
-                    const expiryStatus = getExpiryStatus(invitation.expiresAt);
-                    return (
-                      <tr
-                        key={invitation._id}
-                        onClick={() => handleRowClick(invitation)}
-                        className="group hover:bg-gray-50 transition-colors duration-200 cursor-pointer"
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-headingColor group-hover:text-primaryColor">
-                            {invitation.name || "-"}
+
+            {/* Table Body */}
+            <div className="divide-y divide-gray-200">
+              {data.invitations.map((invitation) => {
+                const expiryStatus = getExpiryStatus(invitation.expiresAt);
+                return (
+                  <div key={invitation._id}>
+                    {/* Desktop Row */}
+                    <div
+                      onClick={() => handleRowClick(invitation)}
+                      className="hidden lg:grid grid-cols-12 gap-4 items-center px-6 py-4 hover:bg-gray-50 transition-colors duration-200 cursor-pointer"
+                    >
+                      {/* User Info */}
+                      <div className="col-span-4 flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-gray-100 border border-gray-200 rounded-full flex items-center justify-center">
+                          <span className="text-gray-700 font-medium text-sm">
+                            {(invitation.name || invitation.email || "U")
+                              .charAt(0)
+                              .toUpperCase()}
+                          </span>
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {invitation.name || "N/A"}
                           </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-textColor">
+                          <div className="text-sm text-gray-500">
                             {invitation.email}
                           </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        </div>
+                      </div>
+
+                      {/* Role */}
+                      <div className="col-span-2">
+                        <span
+                          className={`px-3 py-1 inline-flex items-center text-sm font-medium rounded-full border ${
+                            invitation.role === "admin"
+                              ? "bg-black text-white border-black"
+                              : "bg-white text-gray-700 border-gray-200"
+                          }`}
+                        >
+                          {invitation.role === "admin" ? (
+                            <BiShield className="mr-1 text-xs" />
+                          ) : (
+                            <HiOutlineUser className="mr-1 text-xs" />
+                          )}
+                          {invitation.role || "user"}
+                        </span>
+                      </div>
+
+                      {/* Invited On */}
+                      <div className="col-span-3">
+                        <div className="text-sm text-gray-900">
+                          {new Date(invitation.createdAt).toLocaleDateString(
+                            "en-US",
+                            {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            }
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {new Date(invitation.createdAt).toLocaleTimeString(
+                            "en-US",
+                            {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Status */}
+                      <div className="col-span-2">
+                        <span
+                          className={`px-3 py-1 text-xs font-medium rounded-full ${
+                            expiryStatus.text.includes("Expired")
+                              ? "bg-red-50 text-red-700 border border-red-200"
+                              : expiryStatus.text.includes("today")
+                              ? "bg-orange-50 text-orange-700 border border-orange-200"
+                              : expiryStatus.text.includes("2 day")
+                              ? "bg-yellow-50 text-yellow-700 border border-yellow-200"
+                              : "bg-green-50 text-green-700 border border-green-200"
+                          }`}
+                        >
+                          {expiryStatus.text}
+                        </span>
+                      </div>
+
+                      {/* Actions */}
+                      <div
+                        className="col-span-1 flex items-center justify-center space-x-2"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          onClick={(e) =>
+                            handleResendConfirmation(invitation._id, e)
+                          }
+                          disabled={isResendLoading}
+                          className="p-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 disabled:opacity-50"
+                          title="Resend invitation"
+                        >
+                          {isResendLoading &&
+                          invitationToResend === invitation._id ? (
+                            <BiLoaderAlt className="animate-spin w-4 h-4" />
+                          ) : (
+                            <BiSync className="w-4 h-4" />
+                          )}
+                        </button>
+                        <button
+                          onClick={(e) =>
+                            handleDeleteConfirmation(invitation._id, e)
+                          }
+                          disabled={isDeleteLoading}
+                          className="p-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 transition-all duration-200 disabled:opacity-50"
+                          title="Delete invitation"
+                        >
+                          {isDeleteLoading &&
+                          invitationToDelete === invitation._id ? (
+                            <BiLoaderAlt className="animate-spin w-4 h-4" />
+                          ) : (
+                            <BiTrash className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Mobile Row */}
+                    <div
+                      onClick={() => handleRowClick(invitation)}
+                      className="lg:hidden px-4 py-4 hover:bg-gray-50 transition-colors duration-200 cursor-pointer"
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center flex-1">
+                          <div className="relative mr-3">
+                            <div className="h-10 w-10 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-700 font-medium text-sm">
+                              {(invitation.name || invitation.email || "U")
+                                .charAt(0)
+                                .toUpperCase()}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="font-medium text-gray-900 text-sm">
+                              {invitation.name || "N/A"}
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              {invitation.email}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {new Date(invitation.createdAt).toLocaleDateString(
+                            "en-US",
+                            {
+                              month: "short",
+                              day: "numeric",
+                            }
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          {/* Role Badge */}
                           <span
-                            className={`px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            className={`px-2 py-1 inline-flex items-center text-xs font-medium rounded-full border ${
                               invitation.role === "admin"
-                                ? "bg-purpleColor/20 text-purpleColor"
-                                : "bg-green-100 text-green-800"
+                                ? "bg-black text-white border-black"
+                                : "bg-white text-gray-700 border-gray-200"
                             }`}
                           >
+                            {invitation.role === "admin" ? (
+                              <BiShield className="mr-1 text-xs" />
+                            ) : (
+                              <HiOutlineUser className="mr-1 text-xs" />
+                            )}
                             {invitation.role || "user"}
                           </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-textColor">
-                            {new Date(
-                              invitation.createdAt
-                            ).toLocaleDateString()}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+
+                          {/* Status Badge */}
                           <span
-                            className={`px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${expiryStatus.class}`}
+                            className={`px-2 py-1 text-xs font-medium rounded-full ${
+                              expiryStatus.text.includes("Expired")
+                                ? "bg-red-50 text-red-700 border border-red-200"
+                                : expiryStatus.text.includes("today")
+                                ? "bg-orange-50 text-orange-700 border border-orange-200"
+                                : expiryStatus.text.includes("2 day")
+                                ? "bg-yellow-50 text-yellow-700 border border-yellow-200"
+                                : "bg-green-50 text-green-700 border border-green-200"
+                            }`}
                           >
                             {expiryStatus.text}
                           </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex items-center space-x-3">
-                            <button
-                              onClick={(e) =>
-                                handleResendConfirmation(invitation._id, e)
-                              }
-                              disabled={isResendLoading}
-                              className="text-blue-500 hover:text-blue-700 disabled:opacity-50"
-                            >
-                              {isResendLoading &&
-                              invitationToResend === invitation._id ? (
-                                <FaSpinner className="animate-spin" />
-                              ) : (
-                                <FaSync title="Resend invitation" />
-                              )}
-                            </button>
-                            <button
-                              onClick={(e) =>
-                                handleDeleteConfirmation(invitation._id, e)
-                              }
-                              disabled={isDeleteLoading}
-                              className="text-red-500 hover:text-red-700 disabled:opacity-50"
-                            >
-                              {isDeleteLoading &&
-                              invitationToDelete === invitation._id ? (
-                                <FaSpinner className="animate-spin" />
-                              ) : (
-                                <FaTrash title="Delete invitation" />
-                              )}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                        </div>
+
+                        {/* Actions */}
+                        <div
+                          className="flex items-center gap-2"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            onClick={(e) =>
+                              handleResendConfirmation(invitation._id, e)
+                            }
+                            disabled={isResendLoading}
+                            className="p-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 disabled:opacity-50"
+                            title="Resend invitation"
+                          >
+                            {isResendLoading &&
+                            invitationToResend === invitation._id ? (
+                              <BiLoaderAlt className="animate-spin w-4 h-4" />
+                            ) : (
+                              <BiSync className="w-4 h-4" />
+                            )}
+                          </button>
+                          <button
+                            onClick={(e) =>
+                              handleDeleteConfirmation(invitation._id, e)
+                            }
+                            disabled={isDeleteLoading}
+                            className="p-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 transition-all duration-200 disabled:opacity-50"
+                            title="Delete invitation"
+                          >
+                            {isDeleteLoading &&
+                            invitationToDelete === invitation._id ? (
+                              <BiLoaderAlt className="animate-spin w-4 h-4" />
+                            ) : (
+                              <BiTrash className="w-4 h-4" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          ) : (
-            <div className="text-center py-12">
-              <p className="text-textColor">
-                No pending invitations match the selected filters.
+          </div>
+        ) : (
+          <div className="text-center py-16 bg-white rounded-lg border border-gray-200">
+            <div className="max-w-md mx-auto">
+              <BiEnvelope className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                No Invitations Found
+              </h3>
+              <p className="text-gray-500 mb-4 text-sm">
+                {filters.role !== "" || filters.search !== ""
+                  ? "No pending invitations match your current filters."
+                  : "No pending invitations at the moment. Start by inviting new users to join your platform!"}
               </p>
               {(filters.role !== "" || filters.search !== "") && (
                 <button
                   onClick={clearFilters}
-                  className="mt-2 text-primaryColor hover:text-primaryColor/80"
+                  className="inline-flex items-center px-4 py-2 bg-[#DF9E7A] text-white rounded-lg hover:bg-[#DF9E7A]/90 transition-all duration-200"
                 >
                   Clear all filters
                 </button>
               )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Pagination - now using server-side pagination data */}
@@ -518,123 +722,128 @@ const InvitedUsers = ({ onSwitchToUsers, onInviteUser }) => {
 
       {/* Expanded View Modal */}
       {showExpandedView && selectedInvitation && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center">
-          <div className="relative mx-auto p-8 border shadow-xl rounded-xl bg-white animate-scale-in w-full max-w-lg">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-headingColor">
-                <span className="bg-gradient-to-r from-primaryColor to-irisBlueColor bg-clip-text text-transparent">
-                  Invitation Details
-                </span>
+        <div className="fixed inset-0 bg-black/50 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+          <div className="relative mx-auto bg-white rounded-lg shadow-lg w-full max-w-lg">
+            <div className="flex justify-between items-center p-6 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Invitation Details
               </h3>
               <button
                 onClick={() => {
                   setShowExpandedView(false);
                   setSelectedInvitation(null);
                 }}
-                className="p-2 rounded-full hover:bg-gray-100 text-textColor transition-colors"
+                className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
               >
-                <FaTimes />
+                <BiX className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-4">
-              {/* Invitation information */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">
-                    Name
-                  </label>
-                  <p className="text-headingColor font-medium">
-                    {selectedInvitation.name || "Not provided"}
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">
-                    Role
-                  </label>
-                  <span
-                    className={`px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      selectedInvitation.role === "admin"
-                        ? "bg-purpleColor/20 text-purpleColor"
-                        : "bg-green-100 text-green-800"
-                    }`}
-                  >
-                    {selectedInvitation.role || "user"}
-                  </span>
-                </div>
-
-                <div className="col-span-2">
-                  <label className="block text-xs font-medium text-gray-500 mb-1">
-                    Email
-                  </label>
-                  <p className="text-headingColor break-all">
-                    {selectedInvitation.email}
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">
-                    Invitation Sent
-                  </label>
-                  <p className="text-headingColor">
-                    {formatDate(selectedInvitation.createdAt)}
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">
-                    Expires
-                  </label>
-                  <p className="text-headingColor">
-                    {formatDate(selectedInvitation.expiresAt)}
-                  </p>
-                </div>
-
-                {selectedInvitation.token && (
-                  <div className="col-span-2">
+            <div className="p-6">
+              <div className="space-y-4">
+                {/* Invitation information */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">
-                      Invitation Token
+                      Name
                     </label>
-                    <p className="text-xs bg-gray-50 p-2 rounded border border-gray-200 font-mono overflow-x-auto whitespace-nowrap">
-                      {selectedInvitation.token}
+                    <p className="text-gray-900 font-medium">
+                      {selectedInvitation.name || "Not provided"}
                     </p>
                   </div>
-                )}
-              </div>
 
-              {/* Action buttons */}
-              <div className="flex justify-end mt-6 space-x-3">
-                <button
-                  onClick={() => {
-                    setShowExpandedView(false);
-                    handleResendConfirmation(selectedInvitation._id);
-                  }}
-                  disabled={isResendLoading}
-                  className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
-                >
-                  {isResendLoading ? (
-                    <FaSpinner className="animate-spin mr-2" />
-                  ) : (
-                    <FaEnvelope className="mr-2" />
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Role
+                    </label>
+                    <span
+                      className={`px-3 py-1 inline-flex items-center text-sm font-medium rounded-full border ${
+                        selectedInvitation.role === "admin"
+                          ? "bg-black text-white border-black"
+                          : "bg-white text-gray-700 border-gray-200"
+                      }`}
+                    >
+                      {selectedInvitation.role === "admin" ? (
+                        <BiShield className="mr-1 text-xs" />
+                      ) : (
+                        <HiOutlineUser className="mr-1 text-xs" />
+                      )}
+                      {selectedInvitation.role || "user"}
+                    </span>
+                  </div>
+
+                  <div className="col-span-2">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Email
+                    </label>
+                    <p className="text-gray-900 break-all">
+                      {selectedInvitation.email}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Invitation Sent
+                    </label>
+                    <p className="text-gray-900">
+                      {formatDate(selectedInvitation.createdAt)}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Expires
+                    </label>
+                    <p className="text-gray-900">
+                      {formatDate(selectedInvitation.expiresAt)}
+                    </p>
+                  </div>
+
+                  {selectedInvitation.token && (
+                    <div className="col-span-2">
+                      <label className="block text-xs font-medium text-gray-500 mb-1">
+                        Invitation Token
+                      </label>
+                      <p className="text-xs bg-gray-50 p-3 rounded-lg border border-gray-200 font-mono overflow-x-auto whitespace-nowrap">
+                        {selectedInvitation.token}
+                      </p>
+                    </div>
                   )}
-                  Resend Invitation
-                </button>
-                <button
-                  onClick={() => {
-                    setShowExpandedView(false);
-                    handleDeleteConfirmation(selectedInvitation._id);
-                  }}
-                  disabled={isDeleteLoading}
-                  className="flex items-center px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50"
-                >
-                  {isDeleteLoading ? (
-                    <FaSpinner className="animate-spin mr-2" />
-                  ) : (
-                    <FaTrash className="mr-2" />
-                  )}
-                  Delete
-                </button>
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex justify-end mt-6 space-x-3 pt-4 border-t border-gray-200">
+                  <button
+                    onClick={() => {
+                      setShowExpandedView(false);
+                      handleResendConfirmation(selectedInvitation._id);
+                    }}
+                    disabled={isResendLoading}
+                    className="flex items-center px-4 py-2 bg-[#DF9E7A] text-white rounded-lg hover:bg-[#DF9E7A]/90 disabled:opacity-50 transition-all duration-200"
+                  >
+                    {isResendLoading ? (
+                      <BiLoaderAlt className="animate-spin mr-2" />
+                    ) : (
+                      <BiEnvelope className="mr-2" />
+                    )}
+                    Resend Invitation
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowExpandedView(false);
+                      handleDeleteConfirmation(selectedInvitation._id);
+                    }}
+                    disabled={isDeleteLoading}
+                    className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-all duration-200"
+                  >
+                    {isDeleteLoading ? (
+                      <BiLoaderAlt className="animate-spin mr-2" />
+                    ) : (
+                      <BiTrash className="mr-2" />
+                    )}
+                    Delete
+                  </button>
+                </div>
               </div>
             </div>
           </div>

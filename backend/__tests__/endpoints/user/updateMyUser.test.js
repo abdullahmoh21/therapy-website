@@ -58,7 +58,7 @@ describe("PATCH /users - Update My User", () => {
 
     const res = await request(app).patch("/users").send(updateData);
 
-    expect(res.statusCode).toBe(201);
+    expect(res.statusCode).toBe(200);
     expect(res.body).toMatchObject({
       name: "Updated Name",
       phone: "+10987654321",
@@ -100,7 +100,7 @@ describe("PATCH /users - Update My User", () => {
 
     const res = await request(app).patch("/users").send(updateData);
 
-    expect(res.statusCode).toBe(201);
+    expect(res.statusCode).toBe(200);
 
     // Verify allowed fields were updated
     expect(res.body.name).toBe("Updated Name");

@@ -5,52 +5,65 @@ import { motion } from "framer-motion";
 
 const Home = () => {
   const [imageLoaded, setImageLoaded] = React.useState(false);
+
+  // Shared classes so the skeleton and the image are always the same size
+  const heroFrameClasses =
+    "rounded-lg border-4 border-lightPink shadow-lg " +
+    // width scales up with screen size
+    "w-[300px] sm:w-[320px] lg:w-[360px] xl:w-[400px] 2xl:w-[440px] " +
+    // height slightly reduced on xl/2xl (fix)
+    "h-[420px] sm:h-[460px] lg:h-[520px] xl:h-[540px] 2xl:h-[560px]";
+
   return (
     <>
-      <section id="home" className="bg-whiteBg py-4 px-4 md:px-0 shadow-md">
+      <section
+        id="home"
+        className="bg-whiteBg py-6 md:py-3 px-4 md:px-0 shadow-md"
+      >
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
           className="container mx-auto text-center"
         >
-          <h1 className="orelega-one text-3xl md:text-5xl text-lightPink leading-tight">
-            Empowering Your Journey to
+          <h1 className="orelega-one text-3xl md:text-5xl xl:text-5xl 2xl:text-6xl text-lightPink leading-tight">
+            Empowering Your Journey
             <br />
-            <span className="text-orangeHeader">Wellness and Healing</span>
+            <span className="text-orangeHeader">To Wellness and Healing</span>
           </h1>
         </motion.div>
       </section>
 
-      <section className="bg-orangeBg lg:h-[700px] h-auto relative overflow-hidden px-4 md:px-0 py-8">
-        <div className="container mx-auto flex flex-col lg:flex-row lg:items-stretch items-center justify-between h-full relative">
+      {/* Orange hero band – slightly shorter on xl/2xl (fix) */}
+      <section
+        className="bg-orangeBg h-auto px-4 md:px-0 py-6 lg:py-6
+                   flex items-center
+                   lg:min-h-[calc(100vh-220px)]
+                   xl:min-h-[calc(100vh-250px)]
+                   2xl:min-h-[calc(100vh-260px)]"
+      >
+        <div className="container mx-auto flex flex-col lg:flex-row items-center justify-center gap-4 lg:gap-8">
           {/* Hero Image */}
           <motion.div
             initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className="lg:w-1/2 w-full flex justify-center items-center mb-8 md:mb-0 lg:h-full"
+            className="lg:w-1/2 w-full flex justify-center items-center"
           >
-            <div className="relative inline-block w-auto lg:h-full lg:flex lg:items-center">
-              <div className="absolute inset-0 bg-lightPink opacity-20 -z-10 rounded-lg"></div>
+            <div className="relative inline-block">
+              <div className="absolute inset-0 bg-lightPink opacity-20 -z-10 rounded-lg" />
 
-              {/* Skeleton Loader */}
               {!imageLoaded && (
                 <div
-                  className="animate-pulse max-h-[450px] lg:max-h-none lg:h-[550px] w-[300px] lg:w-auto 
-                  bg-lightPink rounded-lg shadow-inner border-2 border-lightPink"
-                  style={{
-                    aspectRatio: "2/3",
-                    minWidth: "300px",
-                  }}
+                  className={"animate-pulse bg-lightPink " + heroFrameClasses}
                 />
               )}
 
               <img
                 src={fatima_hero}
                 alt="Fatima Mohsin Picture"
-                className={`max-h-[450px] lg:max-h-none lg:h-full w-auto object-contain object-bottom lg:object-cover border-4 border-lightPink shadow-lg rounded-lg relative z-10 transition-opacity duration-300 ${
-                  imageLoaded ? "opacity-100" : "opacity-0 absolute"
+                className={`${heroFrameClasses} object-cover object-top transition-opacity duration-300 ${
+                  imageLoaded ? "opacity-100" : "opacity-0"
                 }`}
                 onLoad={() => setImageLoaded(true)}
                 onError={() => setImageLoaded(true)}
@@ -63,48 +76,46 @@ const Home = () => {
             initial={{ opacity: 0, x: 30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
-            className="lg:w-1/2 w-full flex items-center text-textOnOrange  h-full"
+            className="lg:w-1/2 w-full flex items-center text-textOnOrange"
           >
             <div
-              className="text-base text-justify
+              className="text-base xl:text-lg 2xl:text-lg text-justify
                 bg-whiteBg backdrop
                 border-4 border-lightPink
-                p-6 lg:p-10 rounded-lg shadow-md
-                w-full h-full lg:min-h-[550px] flex flex-col justify-between"
+                p-6 lg:p-7 xl:p-7 2xl:p-8 rounded-lg shadow-md
+                w-full 
+                lg:min-h-[520px] 
+                xl:min-h-[540px] 
+                2xl:min-h-[560px]
+                flex flex-col"
             >
-              <div>
+              <div className="mb-6">
                 <p className="mb-4">
                   Fatima Mohsin Naqvi is an internationally qualified
-                  psychotherapist with a Master's degree in Counseling for
-                  Mental Health and Wellness from NYU. After graduating, she
-                  worked in New York and California across various settings,
-                  including private practices, hospitals, schools, and mental
-                  health organizations. Her sub-specialty is working with
-                  adolescents and young adults. In California, Fatima received
-                  training in suicide and crisis assessments, coordinating care
-                  with police and mental health professionals to provide
-                  emergency support. She is also trained in operating the 988
-                  suicide hotline.
+                  psychotherapist with a Master’s degree in Counseling for
+                  Mental Health and Wellness from NYU. She has worked across New
+                  York and California in private practices, hospitals, schools,
+                  and mental health organizations, with a focus on supporting
+                  adolescents and young adults. In California, she received
+                  training in suicide and crisis assessment, coordinated care
+                  with police and mental health teams, and is trained to operate
+                  the 988 suicide hotline.
                 </p>
-                <p className="mb-4">
-                  Fatima is passionate about relational work and takes a
-                  person-centered approach in therapy. While she has experience
-                  in CBT and psychodynamic modalities, she collaborates with
-                  each client to find the approach that works best for them.
-                  Over the years, she has developed a practice rooted in the
-                  belief that therapy is most effective when it is collaborative
-                  rather than instructive.
-                </p>
-                <p className="mb-4">
-                  Fatima offers therapy to both domestic and international
-                  clients. If you’re interested in working with her, please
-                  schedule a consultation using the button below.
+
+                <p className="mb-0">
+                  Fatima takes a relational, person-centered approach to
+                  therapy. With experience in CBT and psychodynamic modalities,
+                  she works collaboratively with each client to find the
+                  approach that best supports their needs. She offers therapy to
+                  both domestic and international clients. If you’re interested
+                  in working with her, please schedule a consultation below.
                 </p>
               </div>
-              <div className="flex justify-center pt-4">
+
+              <div className="mt-auto flex justify-center items-center flex-grow">
                 <NavLink
                   to="/consultation"
-                  className="inline-block py-3 px-10 bg-orangeButton text-buttonTextBlack border-2 border-black font-semibold rounded-full hover:bg-lightPink transition-all duration-300 transform hover:scale-105 shadow-md"
+                  className="inline-block py-2.5 px-8 bg-orangeButton text-buttonTextBlack border-2 border-black font-semibold rounded-full hover:bg-lightPink transition-all duration-300 transform hover:scale-105 shadow-md"
                 >
                   Schedule a consultation
                 </NavLink>

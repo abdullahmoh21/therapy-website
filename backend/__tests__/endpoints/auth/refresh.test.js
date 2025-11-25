@@ -44,11 +44,12 @@ describe("Auth Refresh Token Endpoint", () => {
         _id: new mongoose.Types.ObjectId(),
         email: `test-${Date.now()}@example.com`,
         role: "user",
-        refreshTokenHash: "hashed_valid-token",
+        refreshTokenHash: "hashed-value", // Must match crypto mock's digest() return value
       };
 
-      // Setup mock implementation
+      // Setup mock implementation - must support .lean().exec() chaining
       jest.spyOn(User, "findById").mockImplementation(() => ({
+        lean: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue(mockUser),
       }));
 
@@ -97,8 +98,9 @@ describe("Auth Refresh Token Endpoint", () => {
         },
       }));
 
-      // Mock User.findById to return null (user not found)
+      // Mock User.findById to return null (user not found) - must support .lean().exec() chaining
       jest.spyOn(User, "findById").mockImplementation(() => ({
+        lean: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue(null),
       }));
 
@@ -118,8 +120,9 @@ describe("Auth Refresh Token Endpoint", () => {
         refreshTokenHash: "different-hash", // Different from what our token will match
       };
 
-      // Setup mock implementation
+      // Setup mock implementation - must support .lean().exec() chaining
       jest.spyOn(User, "findById").mockImplementation(() => ({
+        lean: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue(mockUser),
       }));
 

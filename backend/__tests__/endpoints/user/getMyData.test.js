@@ -61,7 +61,7 @@ describe("GET /users - Get My Data", () => {
     expect(res.body.password).toBeUndefined();
   });
 
-  it("should return 204 when user is not found", async () => {
+  it("should return 404 when user is not found", async () => {
     // Mock verifyJWT to return non-existent ID
     verifyJWT.mockImplementationOnce((req, res, next) => {
       req.user = { id: createObjectId().toString() };
@@ -70,9 +70,8 @@ describe("GET /users - Get My Data", () => {
 
     const res = await request(app).get("/users");
 
-    expect(res.statusCode).toBe(204);
-    // When status code is 204 (No Content), there is no response body
-    expect(res.body).toEqual({});
+    expect(res.statusCode).toBe(404);
+    expect(res.body).toHaveProperty("message", "User not found");
   });
 
   it("should select only necessary fields from the user", async () => {
@@ -113,13 +112,13 @@ describe("GET /users - Get My Data", () => {
     expect(res.body).toHaveProperty("phone");
     expect(res.body).toHaveProperty("role");
     expect(res.body).toHaveProperty("DOB");
+    expect(res.body).toHaveProperty("accountType"); // Now included in response
 
-    // Should NOT include these fields
+    // Should NOT include these sensitive fields
     expect(res.body).not.toHaveProperty("password");
     expect(res.body).not.toHaveProperty("resetPasswordEncryptedToken");
     expect(res.body).not.toHaveProperty("resetPasswordExp");
     expect(res.body).not.toHaveProperty("emailVerified");
-    expect(res.body).not.toHaveProperty("accountType");
   });
 
   it("should handle unauthenticated requests", async () => {

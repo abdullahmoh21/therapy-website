@@ -88,6 +88,10 @@ const Footer = () => {
         <Link to="/terms-and-conditions" className="underline">
           Terms and Conditions
         </Link>
+        <span className="hidden sm:inline">|</span>
+        <Link to="/privacy" className="underline">
+          Privacy Policy
+        </Link>
       </div>
     </footer>
   );

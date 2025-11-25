@@ -28,6 +28,7 @@ const NotFound = lazy(() => import("../pages/404"));
 const TermsAndConditions = lazy(() =>
   import("../pages/General/TermsAndConditions")
 );
+const PrivacyPolicy = lazy(() => import("../pages/General/PrivacyPolicy"));
 const ConsultationLanding = lazy(() =>
   import("../pages/General/ConsultationLanding")
 );
@@ -48,6 +49,9 @@ const SystemHealth = lazy(() =>
 const SystemConfig = lazy(() =>
   import("../pages/Dashboards/AdminDashboard/SystemConfig")
 );
+const GoogleCalendarCallback = lazy(() =>
+  import("../pages/Dashboards/AdminDashboard/GoogleCalendarCallback")
+);
 const UpcomingBookings = lazy(() =>
   import("../pages/Dashboards/AdminDashboard/UpcomingBookings")
 );
@@ -66,6 +70,7 @@ const Routers = () => {
         <Route path="/resetPassword" element={<ResetPassword />} />
         <Route path="/consultation" element={<ConsultationLanding />} />
         <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route
           path="/dash"
           element={
@@ -90,6 +95,10 @@ const Routers = () => {
           <Route path="system" element={<SystemHealth />} />
           <Route path="config" element={<SystemConfig />} />
           <Route path="upcoming" element={<UpcomingBookings />} />
+          <Route
+            path="google-calendar-callback"
+            element={<GoogleCalendarCallback />}
+          />
         </Route>
 
         <Route path="*" element={<NotFound />} />

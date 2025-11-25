@@ -6,6 +6,7 @@ import {
   BiChevronUp,
   BiTime,
   BiX,
+  BiPlus,
 } from "react-icons/bi";
 
 const BookingFilters = ({
@@ -13,9 +14,10 @@ const BookingFilters = ({
   onSearchChange,
   filters,
   onFilterChange,
-  showPastBookings,
-  togglePastBookings,
+  view,
+  toggleView,
   clearFilters,
+  onCreateBooking,
 }) => {
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
 
@@ -42,6 +44,13 @@ const BookingFilters = ({
     { label: "In-Person", value: "in-person" },
   ];
 
+  const sourceOptions = [
+    { label: "All Sources", value: "" },
+    { label: "Calendly", value: "calendly" },
+    { label: "Recurring", value: "system" },
+    { label: "Admin", value: "admin" },
+  ];
+
   const handleFilterChange = (filterType, value) => {
     onFilterChange(filterType, value);
   };
@@ -51,7 +60,8 @@ const BookingFilters = ({
     filters.datePreset ||
     filters.paymentOverdue ||
     filters.location ||
-    showPastBookings ||
+    filters.source ||
+    view === "past" ||
     searchTerm;
 
   return (
@@ -73,19 +83,31 @@ const BookingFilters = ({
         </div>
 
         <div className="flex flex-wrap gap-3 items-center">
+          {/* Create Booking Button */}
           <button
-            onClick={togglePastBookings}
+            onClick={onCreateBooking}
+            className="flex items-center px-4 py-2 bg-[#DF9E7A] text-white rounded-lg hover:bg-[#DF9E7A]/90 transition-all duration-200"
+            title="Create a new booking"
+          >
+            <BiPlus className="mr-2" />
+            Create Booking
+          </button>
+
+          <button
+            onClick={toggleView}
             className={`flex items-center px-4 py-2 rounded-lg border transition-all duration-200 ${
-              showPastBookings
-                ? "bg-white border-gray-300 text-gray-600"
-                : "bg-[#FDF0E9] border-[#DF9E7A]/20 text-[#c45e3e]"
+              view === "future"
+                ? "bg-[#FDF0E9] border-[#DF9E7A]/20 text-[#c45e3e]"
+                : "bg-white border-gray-300 text-gray-600"
             }`}
             title={
-              showPastBookings ? "Hide past bookings" : "Show past bookings"
+              view === "future"
+                ? "Currently showing future bookings - Click to view past bookings"
+                : "Currently showing past bookings - Click to view future bookings"
             }
           >
             <BiTime className="mr-2" />
-            {showPastBookings ? "Hide Past Booking" : "Show Past Booking"}
+            {view === "future" ? "Future Bookings" : "Past Bookings"}
           </button>
 
           {/* Filter Button */}
@@ -158,6 +180,26 @@ const BookingFilters = ({
                       className="w-full rounded-lg border border-gray-300 py-2 px-3 bg-white text-gray-800"
                     >
                       {locationOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Source Filter */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">
+                      Booking Source
+                    </label>
+                    <select
+                      value={filters.source}
+                      onChange={(e) =>
+                        handleFilterChange("source", e.target.value)
+                      }
+                      className="w-full rounded-lg border border-gray-300 py-2 px-3 bg-white text-gray-800"
+                    >
+                      {sourceOptions.map((opt) => (
                         <option key={opt.value} value={opt.value}>
                           {opt.label}
                         </option>

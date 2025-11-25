@@ -9,6 +9,7 @@ dump.rdb
 eslint.config.mjs
 package-lock.json
 Fatima Website.code-workspace
+.github/copilot-instructions.md
 # Logs
 *.log
 npm-debug.log*

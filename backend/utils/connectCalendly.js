@@ -65,7 +65,7 @@ const connectCalendly = async () => {
     // Send alert on first connection failure
     if (retryCount === 0) {
       try {
-        await sendEmail("adminAlert", {
+        await sendEmail("SystemAlert", {
           alertType: "calendlyDisconnected",
           extraData: { error: error.message || "Unknown error" },
         });

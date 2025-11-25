@@ -15,7 +15,10 @@ describe("Admin Delete Booking Endpoint", () => {
   // Setup mock app
   const app = express();
   app.use(express.json());
-  app.delete("/admin/bookings", adminBookingController.deleteBooking);
+  app.delete(
+    "/admin/bookings/:bookingId",
+    adminBookingController.deleteBooking
+  );
 
   const { connectDB, closeDB, clearCollections } = setupDatabase();
   let mongoServer;
@@ -56,9 +59,7 @@ describe("Admin Delete Booking Endpoint", () => {
         status: "Active",
       });
 
-      const res = await request(app).delete("/admin/bookings").send({
-        bookingId: booking._id,
-      });
+      const res = await request(app).delete(`/admin/bookings/${booking._id}`);
 
       expect(res.statusCode).toBe(200);
       expect(res.body.message).toBe("Booking successfully deleted");
@@ -96,9 +97,7 @@ describe("Admin Delete Booking Endpoint", () => {
         status: "Active",
       });
 
-      const res = await request(app).delete("/admin/bookings").send({
-        bookingId: booking._id,
-      });
+      const res = await request(app).delete(`/admin/bookings/${booking._id}`);
 
       expect(res.statusCode).toBe(200);
       expect(res.body.message).toBe("Booking successfully deleted");
@@ -113,18 +112,15 @@ describe("Admin Delete Booking Endpoint", () => {
     });
 
     it("should return 400 when bookingId is missing", async () => {
-      const res = await request(app).delete("/admin/bookings").send({});
+      const res = await request(app).delete("/admin/bookings/");
 
-      expect(res.statusCode).toBe(400);
-      expect(res.body.message).toBe("Booking ID is required");
+      expect(res.statusCode).toBe(404); // Express returns 404 for missing route param
     });
 
     it("should return 404 when booking is not found", async () => {
       const nonExistentId = new mongoose.Types.ObjectId();
 
-      const res = await request(app).delete("/admin/bookings").send({
-        bookingId: nonExistentId,
-      });
+      const res = await request(app).delete(`/admin/bookings/${nonExistentId}`);
 
       expect(res.statusCode).toBe(404);
       expect(res.body.message).toBe("Booking not found");
@@ -153,9 +149,7 @@ describe("Admin Delete Booking Endpoint", () => {
         throw new Error("Database error");
       });
 
-      const res = await request(app).delete("/admin/bookings").send({
-        bookingId: booking._id,
-      });
+      const res = await request(app).delete(`/admin/bookings/${booking._id}`);
 
       expect(res.statusCode).toBe(500);
       expect(res.body.message).toBe("Failed to delete booking");

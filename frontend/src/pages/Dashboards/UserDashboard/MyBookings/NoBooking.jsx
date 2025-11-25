@@ -1,13 +1,27 @@
-import React from "react";
-import { BiCalendarPlus } from "react-icons/bi";
+import React, { useState } from "react";
+import { BiCalendarPlus, BiRefresh } from "react-icons/bi";
 import DashboardHeader from "./MyBookingHeader";
+import RecurringInfoPopup from "./RecurringInfoPopup";
+import HelpButton from "../../../../components/HelpButton";
 
+/**
+ * NoBooking Component
+ *
+ * This component is only shown to users who:
+ * 1. Do NOT have a recurring schedule set up
+ * 2. Have NO active one-off bookings (admin or Calendly)
+ *
+ * Users with recurring schedules will always see their recurring card
+ * even if there are no upcoming bookings in the buffer.
+ */
 const NoBooking = ({
   gettingBookingLink,
   bookingLink,
   userData,
   getBookingLink,
 }) => {
+  const [showRecurringInfoPopup, setShowRecurringInfoPopup] = useState(false);
+
   const handleBookSession = () => {
     if (bookingLink) {
       window.location.href = bookingLink;
@@ -16,13 +30,26 @@ const NoBooking = ({
     }
   };
 
+  const handleRecurringInfoClick = () => {
+    setShowRecurringInfoPopup(true);
+    document.body.style.overflow = "hidden";
+  };
+
+  const handleCloseRecurringInfoPopup = () => {
+    setShowRecurringInfoPopup(false);
+    document.body.style.overflow = "auto";
+  };
+
   return (
-    <div className="container mx-auto px-4 pt-0 pb-8">
+    <div className="max-w-7xl mx-auto px-4 pt-0 pb-8">
       <DashboardHeader
         userData={userData}
         showBookButton={false}
         getBookingLink={getBookingLink}
       />
+
+      {/* Help Button */}
+      <HelpButton />
 
       <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
         <div className="flex flex-col items-center justify-center text-center p-8 min-h-[300px]">
@@ -73,7 +100,23 @@ const NoBooking = ({
             )}
           </button>
         </div>
+
+        {/* Recurring Schedule Suggestion */}
+        <div className="px-5 py-4 bg-gray-50 border-t border-gray-200">
+          <button
+            onClick={handleRecurringInfoClick}
+            className="flex items-center justify-center space-x-2 text-sm text-[#DF9E7A] hover:text-[#C88761] font-medium transition-colors group w-full"
+          >
+            <BiRefresh className="text-base group-hover:scale-110 transition-transform" />
+            <span>Dont want to schedule your own bookings?</span>
+          </button>
+        </div>
       </div>
+
+      <RecurringInfoPopup
+        show={showRecurringInfoPopup}
+        onClose={handleCloseRecurringInfoPopup}
+      />
     </div>
   );
 };

@@ -3,8 +3,9 @@ const logger = require("../logs/logger");
 const asyncHandler = require("express-async-handler");
 const axios = require("axios");
 const mongoose = require("mongoose");
+const sanitizeHtml = require("sanitize-html");
 const { invalidateByEvent } = require("../middleware/redisCaching");
-const { sendEmail } = require("../utils/queue/index");
+const { sendEmail, addJob } = require("../utils/queue/index");
 const User = require("../models/User");
 const Booking = require("../models/Booking");
 const Payment = require("../models/Payment");
@@ -18,6 +19,26 @@ const jwt = require("jsonwebtoken");
 //@route POST /bookings/calendly
 //@access Public
 const handleCalendlyWebhook = asyncHandler(async (req, res) => {
+  // Verify Calendly webhook signature
+  const signature = req.headers["calendly-webhook-signature"];
+  const webhookSecret = process.env.CALENDLY_WEBHOOK_SECRET;
+
+  if (webhookSecret && signature) {
+    const hash = crypto
+      .createHmac("sha256", webhookSecret)
+      .update(JSON.stringify(req.body))
+      .digest("base64");
+
+    if (signature !== hash) {
+      logger.warn("Invalid Calendly webhook signature detected");
+      return res.status(401).json({ message: "Invalid signature" });
+    }
+    logger.debug("Calendly webhook signature verified successfully");
+  } else if (webhookSecret) {
+    logger.warn("Calendly webhook secret configured but no signature provided");
+    return res.status(401).json({ message: "Missing signature" });
+  }
+
   // Validate request has required fields
   if (!req.body || !req.body.event) {
     logger.warn("Invalid webhook payload: missing event type");
@@ -254,14 +275,20 @@ async function createBooking({
   calendlyEmail,
 }) {
   const [existingBooking, user] = await Promise.all([
-    Booking.findOne({ scheduledEventURI: eventURI }).lean(),
+    Booking.findOne({ "calendly.scheduledEventURI": eventURI }).lean(),
     User.findById(userId).lean(),
   ]);
 
   if (existingBooking) {
+    logger.debug(`Booking already exists for event: ${eventURI}`);
     return;
   }
+
+  // Re-validate user exists (foreign key validation)
   if (!user) {
+    logger.warn(
+      `User ${userId} not found during booking creation - user may have been deleted after JWT validation`
+    );
     try {
       await deleteEvent(eventURI, null, calendlyEmail, null, start_time);
     } catch (err) {
@@ -292,11 +319,14 @@ async function createBooking({
     userId: user._id,
     eventStartTime: start_time,
     eventEndTime: end_time,
-    eventName,
-    scheduledEventURI: eventURI,
-    eventTypeURI,
-    cancelURL: cancel_url,
-    rescheduleURL: reschedule_url,
+    source: "calendly",
+    calendly: {
+      eventName,
+      scheduledEventURI: eventURI,
+      eventTypeURI,
+      cancelURL: cancel_url,
+      rescheduleURL: reschedule_url,
+    },
     amount: sessionPrice,
     location: (() => {
       const loc = {};
@@ -309,7 +339,11 @@ async function createBooking({
         loc.join_url = join_url;
       } else if (locationType === "physical") {
         loc.type = "in-person";
-        loc.inPersonLocation = locationStr;
+        // Sanitize location string from Calendly to prevent XSS
+        loc.inPersonLocation = sanitizeHtml(locationStr, {
+          allowedTags: [],
+          allowedAttributes: {},
+        });
       }
       return loc;
     })(),
@@ -322,26 +356,53 @@ async function createBooking({
     transactionReferenceNumber,
   };
 
-  try {
-    const [booking, payment] = await Promise.all([
-      Booking.create(bookingData),
-      Payment.create(paymentData),
-    ]);
+  let booking, payment;
 
-    // Add null checks to prevent TypeError if booking or payment is undefined
-    if (booking && payment) {
+  try {
+    // Create booking first
+    booking = await Booking.create(bookingData);
+
+    try {
+      // Create payment
+      payment = await Payment.create(paymentData);
+
+      // Link documents
       booking.paymentId = payment._id;
       payment.bookingId = booking._id;
       await Promise.all([booking.save(), payment.save()]);
+
+      // Invalidate cache
+      try {
+        await invalidateByEvent("booking-created", {
+          userId: userId,
+        });
+        await invalidateByEvent("payment-created", {
+          userId: userId,
+        });
+      } catch (cacheErr) {
+        logger.error(`Cache invalidation failed: ${cacheErr.message}`);
+        // Don't fail - cache will expire
+      }
+
+      return { booking, payment };
+    } catch (paymentErr) {
+      // Cleanup booking if payment creation fails
+      logger.error(
+        `Payment creation failed, cleaning up booking ${booking._id}: ${paymentErr.message}`
+      );
+      await Booking.deleteOne({ _id: booking._id });
+      throw paymentErr;
     }
-
-    await invalidateByEvent("booking-created", {
-      userId: userId,
-    });
-
-    return { booking, payment };
   } catch (err) {
     logger.error(`Error creating booking: ${err.message}`);
+
+    // Handle duplicate key error from unique index
+    if (err.code === 11000) {
+      logger.warn(
+        `Booking conflict for Calendly event: time slot already taken`
+      );
+    }
+
     return null;
   }
 }
@@ -352,7 +413,9 @@ async function cancelBooking({
   cancelReason,
   cancellationDate,
 }) {
-  const booking = await Booking.findOne({ scheduledEventURI: eventURI }).exec();
+  const booking = await Booking.findOne({
+    "calendly.scheduledEventURI": eventURI,
+  }).exec();
   if (!booking) {
     return;
   }
@@ -365,184 +428,32 @@ async function cancelBooking({
   booking.cancellation.date = new Date(cancellationDate);
 
   await booking.save();
-  await invalidateByEvent("booking-updated", {
-    userId: booking.userId,
-  });
 
-  // Always send user notification
-  await sendUserCancellationNotification(booking, cancelReason, canceler_type);
-
-  // Always send admin notification
-  await sendAdminCancellationNotification(booking);
-}
-
-async function sendAdminCancellationNotification(booking) {
+  // Invalidate cache
   try {
-    const adminEmail = await Config.getValue("adminEmail");
-    if (!adminEmail) {
-      logger.error(
-        "Admin email not found in config. Cannot send admin cancellation notification."
-      );
-      return;
-    }
-
-    const [user, payment] = await Promise.all([
-      User.findById(booking.userId).lean().exec(),
-      Payment.findById(booking.paymentId).lean().exec(),
-    ]);
-
-    if (!user) {
-      logger.error(
-        `User not found for booking ${booking._id}. Could not send admin cancellation email.`
-      );
-      return;
-    }
-
-    // Check if cancellation is within policy for refund eligibility
-    const currentTime = new Date();
-    const noticePeriod = await Config.getValue("noticePeriod");
-    const cutoffDays = parseInt(noticePeriod, 10) || 3;
-    const cutoffMillis = cutoffDays * 24 * 60 * 60 * 1000;
-    const cutoffDeadline = new Date(
-      booking.eventStartTime.getTime() - cutoffMillis
-    );
-    const isLateCancellation = currentTime >= cutoffDeadline;
-
-    // Determine if payment exists and is completed
-    const hasCompletedPayment =
-      payment && payment.transactionStatus === "Completed";
-
-    // Prepare email data
-    const emailJobData = {
-      booking: booking,
-      payment: payment || null,
-      recipient: adminEmail,
-      updatePaymentStatus: hasCompletedPayment && !isLateCancellation, // Only update status for eligible refunds
-      isLateCancellation: isLateCancellation,
-    };
-
-    await sendEmail("adminCancellationNotif", emailJobData);
-
-    // Update payment status if eligible for refund
-    if (hasCompletedPayment && !isLateCancellation) {
-      await Payment.updateOne(
-        { _id: payment._id },
-        {
-          transactionStatus: "Refund Requested",
-          refundRequestedDate: new Date(),
-        }
-      );
-      logger.info(
-        `Payment status updated to 'Refund Requested' for paymentId: ${payment._id}`
-      );
-    }
-
-    logger.info(
-      `Admin cancellation notification sent for booking ${booking._id} (${
-        isLateCancellation ? "late" : "normal"
-      } cancellation, ${hasCompletedPayment ? "paid" : "unpaid"})`
-    );
-  } catch (error) {
-    logger.error(
-      `Error sending admin cancellation notification for booking ${booking._id}: ${error.message}`
-    );
-  }
-}
-
-async function sendUserCancellationNotification(
-  booking,
-  reason,
-  canceler_type
-) {
-  try {
-    const [user, payment] = await Promise.all([
-      User.findById(booking.userId).lean().exec(),
-      Payment.findById(booking.paymentId).lean().exec(),
-    ]);
-
-    if (!user) {
-      logger.error(
-        `User not found for booking ${booking._id}. Could not send user cancellation email.`
-      );
-      return;
-    }
-
-    const noticePeriod = await Config.getValue("noticePeriod");
-    const cutoffDays = parseInt(noticePeriod, 10) || 3;
-
-    const currentTime = new Date();
-    const cutoffMillis = cutoffDays * 24 * 60 * 60 * 1000;
-    const cutoffDeadline = new Date(
-      booking.eventStartTime.getTime() - cutoffMillis
-    );
-
-    // Format dates and times
-    const eventDate = new Date(booking.eventStartTime).toLocaleDateString(
-      "en-US",
-      {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      }
-    );
-
-    const eventTime = new Date(booking.eventStartTime).toLocaleTimeString(
-      "en-US",
-      {
-        hour: "2-digit",
-        minute: "2-digit",
-      }
-    );
-
-    const formattedCancellationDate = new Date(
-      booking.cancellation.date
-    ).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
+    await invalidateByEvent("booking-updated", {
+      userId: booking.userId,
     });
-
-    const isUnpaid = !payment || payment.transactionStatus !== "Completed";
-    const isRefundEligible = !isUnpaid && currentTime < cutoffDeadline;
-    const isRefundIneligible = !isUnpaid && !isRefundEligible;
-
-    const isAdminCancelled = booking.cancellation.cancelledBy === "Admin";
-    const cancelledByDisplay =
-      booking.cancellation.cancelledBy === "User"
-        ? "You"
-        : booking.cancellation.cancelledBy;
-
-    // Prepare email data and delegate to the queue
-    const emailData = {
-      recipient: user.email,
-      name: user.firstName ? `${user.firstName} ${user.lastName}` : user.name,
-      bookingId: booking.bookingId.toString(),
-      eventDate,
-      eventTime,
-      cancelledBy: booking.cancellation.cancelledBy,
-      cancelledByDisplay,
-      reason,
-      cancellationDate: formattedCancellationDate,
-      isUnpaid,
-      isRefundEligible,
-      isRefundIneligible,
-      isAdminCancelled,
-      cancelCutoffDays: cutoffDays,
-    };
-
-    // Send the email
-    await sendEmail("userCancellation", emailData);
-    logger.info(
-      `User cancellation notification queued for ${user.email} for booking ${booking._id}`
-    );
-  } catch (error) {
-    logger.error(
-      `Error queueing user cancellation notification: ${error.message}`
-    );
+  } catch (cacheErr) {
+    logger.error(`Cache invalidation failed: ${cacheErr.message}`);
+    // Don't fail the request - cache will eventually expire
   }
+
+  // Send cancellation notification (to user and admin)
+  await sendEmail("BookingCancellationNotifications", {
+    bookingId: booking._id.toString(),
+    userId: booking.userId.toString(),
+    cancelledBy: canceler_type === "invitee" ? "user" : "admin",
+    reason: cancelReason,
+    eventStartTime: booking.eventStartTime,
+    cancellationDate: new Date(cancellationDate),
+    paymentId: booking.paymentId ? booking.paymentId.toString() : null,
+    bookingIdNumber: booking.bookingId,
+    notifyAdmin: true,
+  });
 }
+
+// Helper functions removed - cancellation notifications now handled by BookingCancellationNotifications job handler
 
 async function deleteEvent(
   eventURI,
@@ -587,18 +498,16 @@ async function deleteEvent(
     logger.info(`Event deleted: ${eventURI} – ${reasonText}`);
 
     if (isRegisteredUser && userEmail) {
-      await sendEmail("eventDeleted", {
-        recipient: userEmail,
-        name: userName,
-        eventDate: formattedDate,
-        eventTime: formattedTime,
+      await sendEmail("EventDeletedNotification", {
+        userId: user._id.toString(),
+        eventStartTime,
         reason: reasonText,
       });
       logger.info(`Event-deleted email sent to registered user: ${userEmail}`);
     } else if (calendlyEmail) {
-      await sendEmail("unauthorizedBooking", {
+      await sendEmail("UnauthorizedBookingNotification", {
         calendlyEmail,
-        name: inviteeName,
+        inviteeName,
       });
       logger.info(`Unauthorized-booking email sent to: ${calendlyEmail}`);
     } else {
@@ -630,6 +539,7 @@ const getNewBookingLink = asyncHandler(async (req, res) => {
   const bookingCount = await Booking.find({
     userId,
     status: "Active",
+    source: { $ne: "system" },
   })
     .countDocuments()
     .exec();
@@ -653,8 +563,28 @@ const getNewBookingLink = asyncHandler(async (req, res) => {
     { expiresIn: "30m" }
   );
 
-  user.bookingTokenJTI = jti;
-  await user.save();
+  // Atomic update to prevent JWT reuse (race condition protection)
+  const updated = await User.findOneAndUpdate(
+    {
+      _id: userId,
+      // Only update if JTI is different (prevents concurrent token generation)
+      $or: [
+        { bookingTokenJTI: { $exists: false } },
+        { bookingTokenJTI: { $ne: jti } },
+      ],
+    },
+    { $set: { bookingTokenJTI: jti } },
+    { new: true }
+  );
+
+  if (!updated) {
+    logger.warn(
+      `Concurrent booking link generation attempt for user ${userId}`
+    );
+    return res.status(429).json({
+      message: "Please wait before generating a new booking link",
+    });
+  }
 
   const bookingLink = `${
     process.env.CALENDLY_SESSION_URL
@@ -663,67 +593,273 @@ const getNewBookingLink = asyncHandler(async (req, res) => {
   return res.status(200).json({ link: bookingLink });
 });
 
-//@desc returns all bookings of a user
+//@desc returns one-off bookings (admin/Calendly) only - excludes recurring/system bookings
 //@param {Object} req with valid email
 //@route GET /bookings
 //@access Private
 const getActiveBookings = asyncHandler(async (req, res) => {
   const userId = req.user.id;
 
-  // Fetch active bookings and all payments for the user in parallel
-  const [bookings, payments] = await Promise.all([
-    Booking.find({
-      userId,
-      status: "Active",
-      eventEndTime: { $gt: new Date().getTime() },
-    })
-      .sort({ eventStartTime: 1 }) // Sort by eventStartTime ascending (closest first)
-      .select(
-        "bookingId eventStartTime eventEndTime eventName status location cancelURL"
-      )
-      .lean()
-      .exec(),
-    Payment.find({ userId })
-      .select("transactionStatus amount paymentId currency bookingId userId")
-      .lean()
-      .exec(),
+  const [bookingsWithPayments, noticePeriod] = await Promise.all([
+    Booking.aggregate([
+      {
+        $match: {
+          userId: mongoose.Types.ObjectId.createFromHexString(userId),
+          status: "Active",
+          source: { $in: ["admin", "calendly"] },
+          $or: [
+            { "recurring.state": { $exists: false } },
+            { "recurring.state": false },
+            { "recurring.state": null },
+          ],
+          eventEndTime: { $gt: new Date() },
+        },
+      },
+      { $sort: { eventStartTime: 1 } },
+      {
+        $lookup: {
+          from: "payments",
+          localField: "_id",
+          foreignField: "bookingId",
+          as: "payment",
+        },
+      },
+      {
+        $unwind: {
+          path: "$payment",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $project: {
+          bookingId: 1,
+          eventStartTime: 1,
+          eventEndTime: 1,
+          eventName: 1,
+          status: 1,
+          location: 1,
+          "calendly.cancelURL": 1,
+          "calendly.eventName": 1,
+          source: 1,
+          amount: "$payment.amount",
+          currency: "$payment.currency",
+          transactionStatus: "$payment.transactionStatus",
+        },
+      },
+    ]),
+    Config.getValue("noticePeriod"),
   ]);
 
-  if (bookings.length === 0) return res.status(204).end();
+  if (bookingsWithPayments.length === 0) {
+    return res.status(204).end();
+  }
 
-  const noticePeriod = await Config.getValue("noticePeriod");
-
-  // Map payments for quick lookup
-  const paymentMap = new Map(
-    payments.map((payment) => [payment.bookingId.toString(), payment])
-  );
-
-  // Loop once to strip cancelURL and merge payment details
-  const bookingsWithPaymentDetails = bookings.map((booking) => {
-    // strip cancelURL if cancellation window passed
+  // Process bookings (strip cancelURL if needed)
+  const processedBookings = bookingsWithPayments.map((booking) => {
     const diffMs = new Date(booking.eventStartTime).getTime() - Date.now();
     const daysLeft = diffMs / (1000 * 60 * 60 * 24);
-    if (daysLeft < noticePeriod) {
-      delete booking.cancelURL;
+
+    if (daysLeft < noticePeriod && booking.calendly?.cancelURL) {
+      delete booking.calendly.cancelURL;
     }
 
-    // skip payment merge for free consultations
-    if (booking.eventName === "15 Minute Consultation") {
-      return booking;
-    }
-
-    const paymentDetails = paymentMap.get(booking._id.toString());
-    if (paymentDetails) {
-      booking.amount = paymentDetails.amount;
-      booking.currency = paymentDetails.currency;
-      booking.transactionStatus = paymentDetails.transactionStatus;
-      booking.paymentId = paymentDetails._id;
+    // Remove payment fields for free consultations
+    const isFreeConsultation =
+      booking.calendly?.eventName === "15 Minute Consultation";
+    if (isFreeConsultation) {
+      delete booking.amount;
+      delete booking.currency;
+      delete booking.transactionStatus;
     }
 
     return booking;
   });
 
-  res.json(bookingsWithPaymentDetails);
+  res.json(processedBookings);
+});
+
+//@desc Cancel a user's own booking (admin/system source only, not calendly)
+//@param {Object} req with valid userId and bookingId in params
+//@route PUT /bookings/:bookingId/cancel
+//@access Private
+const cancelMyBooking = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+  const { bookingId } = req.params;
+  const { reason } = req.body;
+
+  // Validate bookingId
+  if (!bookingId) {
+    return res.status(400).json({ message: "Booking ID is required" });
+  }
+
+  // Validate reason
+  if (!reason || typeof reason !== "string" || reason.trim().length === 0) {
+    return res.status(400).json({ message: "Cancellation reason is required" });
+  }
+
+  logger.debug(`User ${userId} attempting to cancel booking ${bookingId}`);
+
+  try {
+    // Find the booking and ensure it belongs to the user
+    const booking = await Booking.findOne({
+      _id: bookingId,
+      userId: userId,
+    }).exec();
+
+    if (!booking) {
+      logger.debug(`Booking ${bookingId} not found for user ${userId}`);
+      return res.status(404).json({ message: "Booking not found" });
+    }
+
+    // Check if booking is already cancelled
+    if (booking.status === "Cancelled") {
+      logger.debug(`Booking ${bookingId} is already cancelled`);
+      return res.status(400).json({ message: "Booking is already cancelled" });
+    }
+
+    // Check if this is a Calendly booking (must use Calendly's cancel URL)
+    if (booking.source === "calendly") {
+      logger.debug(
+        `Booking ${bookingId} is a Calendly booking - must use Calendly cancel URL`
+      );
+      return res.status(400).json({
+        message:
+          "Calendly bookings must be cancelled through the Calendly link provided",
+      });
+    }
+
+    // Verify booking source is admin or system
+    if (!["admin", "system"].includes(booking.source)) {
+      logger.debug(
+        `Booking ${bookingId} has invalid source for user cancellation: ${booking.source}`
+      );
+      return res.status(400).json({
+        message: `Cannot cancel ${booking.source} booking`,
+      });
+    }
+
+    // Check if cancellation is within the notice period
+    const noticePeriod = await Config.getValue("noticePeriod");
+    const cutoffDays = parseInt(noticePeriod, 10) || 2;
+    const cutoffMillis = cutoffDays * 24 * 60 * 60 * 1000;
+    const currentTime = new Date();
+    const cutoffDeadline = new Date(
+      booking.eventStartTime.getTime() - cutoffMillis
+    );
+
+    if (currentTime >= cutoffDeadline) {
+      logger.debug(
+        `Booking ${bookingId} is outside cancellation window (${cutoffDays} days)`
+      );
+      return res.status(403).json({
+        message: `Cancellations must be made at least ${cutoffDays} days before the session`,
+        cutoffDays,
+      });
+    }
+
+    // Capture cancellation date before updating
+    const cancellationDate = new Date();
+
+    // Update booking status and add cancellation details
+    booking.status = "Cancelled";
+    booking.cancellation = {
+      reason: reason.trim(),
+      date: cancellationDate,
+      cancelledBy: "User",
+    };
+
+    // Mark Google sync as pending if there's a Google event
+    if (booking.googleEventId) {
+      booking.syncStatus.google = "pending";
+      booking.markModified("syncStatus");
+    }
+
+    await booking.save();
+
+    logger.info(`Booking ${bookingId} cancelled by user ${userId}`);
+
+    // Update associated payment status if not already completed
+    if (booking.paymentId) {
+      try {
+        const payment = await Payment.findById(booking.paymentId);
+        if (payment && payment.transactionStatus !== "Completed") {
+          payment.transactionStatus = "Cancelled";
+          await payment.save();
+          logger.debug(`Payment ${payment._id} marked as Cancelled`);
+        }
+      } catch (paymentErr) {
+        logger.error(`Failed to update payment status: ${paymentErr.message}`);
+        // Don't fail the cancellation if payment update fails
+      }
+    }
+
+    // Queue Google Calendar deletion job if needed
+    if (booking.googleEventId) {
+      try {
+        await addJob("GoogleCalendarEventCancellation", {
+          bookingId: booking._id.toString(),
+          notifyUser: false,
+          reason: reason.trim(),
+        });
+        logger.info(
+          `Queued Google Calendar deletion for booking ${booking._id}`
+        );
+      } catch (error) {
+        logger.error(
+          `Failed to queue Google Calendar deletion: ${error.message}`
+        );
+        // Don't fail the cancellation if queue fails - booking is still cancelled
+      }
+    }
+
+    try {
+      await sendEmail("BookingCancellationNotifications", {
+        bookingId: booking._id.toString(),
+        userId: booking.userId.toString(),
+        cancelledBy: "user",
+        reason: reason.trim(),
+        eventStartTime: booking.eventStartTime,
+        cancellationDate,
+        paymentId: booking.paymentId ? booking.paymentId.toString() : null,
+        bookingIdNumber: booking.bookingId,
+        notifyAdmin: true,
+      });
+      logger.info(
+        `Queued user-initiated cancellation notifications for booking ${booking._id}`
+      );
+    } catch (error) {
+      logger.error(
+        `Failed to queue cancellation notifications: ${error.message}`
+      );
+      // Don't fail the cancellation - booking is still cancelled
+    }
+
+    // Invalidate cache
+    try {
+      await invalidateByEvent("booking-updated", {
+        userId: booking.userId,
+      });
+    } catch (cacheErr) {
+      logger.error(`Cache invalidation failed: ${cacheErr.message}`);
+      // Don't fail the request - cache will eventually expire
+    }
+
+    return res.status(200).json({
+      message: "Booking cancelled successfully",
+      booking: {
+        _id: booking._id,
+        bookingId: booking.bookingId,
+        status: booking.status,
+        cancellation: booking.cancellation,
+      },
+    });
+  } catch (err) {
+    logger.error(`Error cancelling booking: ${err.message}`);
+    return res.status(500).json({
+      message: "Failed to cancel booking",
+      error: err.message,
+    });
+  }
 });
 
 //@desc returns booking documents with payment and booking details with filters and searching
@@ -733,7 +869,7 @@ const getActiveBookings = asyncHandler(async (req, res) => {
 const getAllMyBookings = asyncHandler(async (req, res) => {
   let userId;
   try {
-    userId = new mongoose.Types.ObjectId(req.user.id);
+    userId = mongoose.Types.ObjectId.createFromHexString(req.user.id);
   } catch (err) {
     // In tests, we may not have a valid ObjectId format
     userId = req.user.id;
@@ -747,7 +883,10 @@ const getAllMyBookings = asyncHandler(async (req, res) => {
     paymentStatus,
     startDate,
     endDate,
+    datePreset,
     location,
+    source,
+    status,
   } = req.query;
   const skip = (page - 1) * limit;
 
@@ -762,7 +901,7 @@ const getAllMyBookings = asyncHandler(async (req, res) => {
     }
   }
 
-  // Date filtering using startDate and endDate parameters
+  // Date filtering using startDate and endDate parameters OR datePreset
   if (startDate && endDate) {
     try {
       const parsedStartDate = new Date(startDate);
@@ -779,6 +918,101 @@ const getAllMyBookings = asyncHandler(async (req, res) => {
       logger.error(`Error parsing date parameters: ${e.message}`);
       return res.status(400).json({ message: "Invalid date parameters." });
     }
+  } else if (datePreset) {
+    // Handle datePreset filtering (today, yesterday, thisWeek, lastWeek, thisMonth, lastMonth)
+    const baseNow = new Date();
+    const startToday = new Date(
+      baseNow.getFullYear(),
+      baseNow.getMonth(),
+      baseNow.getDate()
+    );
+    const presets = {
+      today() {
+        const start = new Date(startToday);
+        const end = new Date(startToday);
+        end.setHours(23, 59, 59, 999);
+        return [start, end];
+      },
+      yesterday() {
+        const start = new Date(startToday);
+        start.setDate(start.getDate() - 1);
+        const end = new Date(start);
+        end.setHours(23, 59, 59, 999);
+        return [start, end];
+      },
+      thisWeek() {
+        const start = new Date(startToday);
+        start.setDate(start.getDate() - start.getDay()); // Start of week (Sunday)
+        const end = new Date(start);
+        end.setDate(end.getDate() + 6); // End of week (Saturday)
+        end.setHours(23, 59, 59, 999);
+        return [start, end];
+      },
+      lastWeek() {
+        const start = new Date(startToday);
+        start.setDate(start.getDate() - start.getDay() - 7); // Start of last week
+        const end = new Date(start);
+        end.setDate(end.getDate() + 6); // End of last week
+        end.setHours(23, 59, 59, 999);
+        return [start, end];
+      },
+      thisMonth() {
+        const start = new Date(baseNow.getFullYear(), baseNow.getMonth(), 1);
+        const end = new Date(
+          baseNow.getFullYear(),
+          baseNow.getMonth() + 1,
+          0,
+          23,
+          59,
+          59,
+          999
+        );
+        return [start, end];
+      },
+      lastMonth() {
+        const start = new Date(
+          baseNow.getFullYear(),
+          baseNow.getMonth() - 1,
+          1,
+          0,
+          0,
+          0,
+          0
+        );
+        const end = new Date(
+          baseNow.getFullYear(),
+          baseNow.getMonth(),
+          0,
+          23,
+          59,
+          59,
+          999
+        );
+        return [start, end];
+      },
+    };
+
+    const range = presets[datePreset]?.();
+    if (range) {
+      const [rangeStart, rangeEnd] = range;
+      const now = new Date();
+
+      // For past bookings view, intersect the date range with "before now"
+      query.eventStartTime = {
+        $gte: rangeStart,
+        $lte: rangeEnd < now ? rangeEnd : now,
+      };
+
+      // Override the default $or filter when datePreset is used
+      delete query.$or;
+    }
+  } else {
+    // If no date range is specified, show past bookings and present cancelled bookings
+    const now = new Date();
+    query.$or = [
+      { eventStartTime: { $lt: now } }, // Past bookings
+      { eventStartTime: { $gte: now }, status: "Cancelled" }, // Present/future cancelled bookings
+    ];
   }
 
   // Location filtering
@@ -786,14 +1020,21 @@ const getAllMyBookings = asyncHandler(async (req, res) => {
     query["location.type"] = location;
   }
 
+  // Source filtering (admin, system, calendly)
+  if (source && ["admin", "system", "calendly"].includes(source)) {
+    query.source = source;
+  }
+
+  // Status filtering (only Completed and Cancelled allowed for past bookings)
+  if (status && ["Completed", "Cancelled"].includes(status)) {
+    query.status = status;
+  }
+
   try {
     const aggregatePipeline = [
       {
-        $match: {
-          ...query,
-          eventStartTime: query.eventStartTime || { $lt: new Date() }, // ensures eventStartTime is in the past if not already filtered
-        },
-      }, // Initial match on booking fields
+        $match: query,
+      },
       {
         $lookup: {
           from: "payments",
@@ -806,7 +1047,7 @@ const getAllMyBookings = asyncHandler(async (req, res) => {
                 amount: 1,
                 transactionStatus: 1,
                 currency: 1,
-                transactionReferenceNumber: 1, // Add this field to projection
+                transactionReferenceNumber: 1,
               },
             },
           ],
@@ -864,12 +1105,18 @@ const getAllMyBookings = asyncHandler(async (req, res) => {
                 eventEndTime: 1,
                 bookingId: 1,
                 status: 1,
-                eventName: 1,
+                source: 1,
                 location: 1,
-                notes: 1,
                 cancellation: 1,
                 createdAt: 1,
                 payment: 1,
+                // Recurring booking fields
+                "recurring.state": 1,
+                "recurring.interval": 1,
+                "recurring.day": 1,
+                "recurring.time": 1,
+                // Calendly-specific fields
+                "calendly.eventName": 1,
               },
             },
           ],
@@ -906,8 +1153,8 @@ const getAllMyBookings = asyncHandler(async (req, res) => {
 });
 
 //@desc returns a specific booking
-//@param {Object} req with valid email abd bookingId
-//@route GET /bookings:bookingId
+//@param {Object} req with valid email and bookingId
+//@route GET /bookings/:bookingId
 //@access Private
 const getBooking = asyncHandler(async (req, res) => {
   const { bookingId } = req.params;
@@ -916,21 +1163,41 @@ const getBooking = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: "bookingId is required" });
   }
 
-  const booking = await Booking.findOne({
-    userId: req.user.id,
-    _id: bookingId,
-  })
-    .lean()
-    .select(
-      "_id bookingId eventStartTime eventEndTime eventName status location cancellation"
-    )
-    .exec();
+  // Optimization: Use aggregation to validate ObjectId and fetch in one query
+  let objectId;
+  try {
+    objectId = mongoose.Types.ObjectId.createFromHexString(bookingId);
+  } catch (err) {
+    return res.status(400).json({ message: "Invalid booking ID format" });
+  }
 
-  if (!booking) {
+  const result = await Booking.aggregate([
+    {
+      $match: {
+        _id: objectId,
+        userId: mongoose.Types.ObjectId.createFromHexString(req.user.id),
+      },
+    },
+    {
+      $project: {
+        _id: 1,
+        bookingId: 1,
+        eventStartTime: 1,
+        eventEndTime: 1,
+        eventName: 1,
+        status: 1,
+        location: 1,
+        cancellation: 1,
+      },
+    },
+    { $limit: 1 },
+  ]);
+
+  if (!result || result.length === 0) {
     return res.status(404).json({ message: "No such booking found for user" });
   }
 
-  res.json(booking);
+  res.json(result[0]);
 });
 
 module.exports = {
@@ -939,10 +1206,9 @@ module.exports = {
   getNewBookingLink,
   getBooking,
   getAllMyBookings,
+  cancelMyBooking,
   // for testing
   createBooking,
   cancelBooking,
-  sendAdminCancellationNotification,
-  sendUserCancellationNotification,
   deleteEvent,
 };

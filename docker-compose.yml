@@ -46,11 +46,21 @@ services:
       timeout: 5s
       retries: 5
 
-  redis:
+  redis-cache:
     image: eqalpha/keydb:latest
     command: ["keydb-server", "/etc/keydb/keydb.conf"]
     volumes:
-      - redis-data:/data
+      - redis-cache-data:/data
+      - ./keydb/keydb.conf:/etc/keydb/keydb.conf:ro
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  redis-queue:
+    image: eqalpha/keydb:latest
+    command: ["keydb-server", "/etc/keydb/keydb.conf", "--port", "6380"]
+    volumes:
+      - redis-queue-data:/data
       - ./keydb/keydb.conf:/etc/keydb/keydb.conf:ro
     networks:
       - app-network
@@ -73,4 +83,5 @@ networks:
 
 volumes:
   mongo-data:
-  redis-data:
+  redis-cache-data:
+  redis-queue-data:

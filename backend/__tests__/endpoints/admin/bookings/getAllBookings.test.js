@@ -171,10 +171,10 @@ describe("Admin Get All Bookings Endpoint", () => {
     it("should filter bookings by status", async () => {
       await createTestData();
 
-      // When filtering by status, we need to include showPastBookings=true
+      // When filtering by status, we need to include view=past
       // to get ALL bookings with that status, including past ones
       const res = await request(app).get(
-        "/admin/bookings?status=Completed&showPastBookings=true"
+        "/admin/bookings?status=Completed&view=past"
       );
 
       expect(res.statusCode).toBe(200);
@@ -183,6 +183,43 @@ describe("Admin Get All Bookings Endpoint", () => {
       if (res.body.bookings.length > 0) {
         expect(res.body.bookings[0].status).toBe("Completed");
       }
+    });
+
+    it("should filter bookings by view parameter", async () => {
+      await createTestData();
+
+      const now = new Date();
+
+      // Test future bookings (default view)
+      const futureRes = await request(app).get("/admin/bookings?view=future");
+      expect(futureRes.statusCode).toBe(200);
+
+      // Verify all returned bookings are in the future
+      if (futureRes.body.bookings.length > 0) {
+        futureRes.body.bookings.forEach((booking) => {
+          expect(
+            new Date(booking.eventStartTime).getTime()
+          ).toBeGreaterThanOrEqual(now.getTime());
+        });
+      }
+
+      // Test past bookings
+      const pastRes = await request(app).get("/admin/bookings?view=past");
+      expect(pastRes.statusCode).toBe(200);
+
+      // Verify all returned bookings are in the past
+      if (pastRes.body.bookings.length > 0) {
+        pastRes.body.bookings.forEach((booking) => {
+          expect(new Date(booking.eventStartTime).getTime()).toBeLessThan(
+            now.getTime()
+          );
+        });
+      }
+
+      // Test default behavior (should be future)
+      const defaultRes = await request(app).get("/admin/bookings");
+      expect(defaultRes.statusCode).toBe(200);
+      expect(defaultRes.body.bookings).toEqual(futureRes.body.bookings);
     });
 
     it("should filter bookings by date preset", async () => {
@@ -261,7 +298,7 @@ describe("Admin Get All Bookings Endpoint", () => {
       await createTestData();
 
       const res = await request(app).get(
-        "/admin/bookings?paymentOverdue=true&showPastBookings=true"
+        "/admin/bookings?paymentOverdue=true&view=past"
       );
 
       expect(res.statusCode).toBe(200);
@@ -340,16 +377,18 @@ describe("Admin Get All Bookings Endpoint", () => {
     it("should combine multiple filters correctly", async () => {
       await createTestData();
 
-      // Test online active bookings
+      // Test future online active bookings (since API defaults to future view)
       const res1 = await request(app).get(
         "/admin/bookings?status=Active&location=online"
       );
 
       expect(res1.statusCode).toBe(200);
-      // Verify data in database first
+      // Verify data in database - count future online active bookings only
+      const now = new Date();
       const onlineActiveCount = await Booking.countDocuments({
         status: "Active",
         "location.type": "online",
+        eventStartTime: { $gte: now }, // Only future bookings
       });
       expect(res1.body.bookings.length).toBe(onlineActiveCount);
 
@@ -369,16 +408,16 @@ describe("Admin Get All Bookings Endpoint", () => {
       expect(res1.statusCode).toBe(200);
       expect(res1.body.bookings.length).toBe(0); // Should return empty array for page beyond data
 
-      // Get total count of bookings for this specific test
-      // Include showPastBookings=true to get ALL bookings
-      const res2 = await request(app).get(
-        "/admin/bookings?limit=40&showPastBookings=true"
-      );
+      // Get total count of past bookings for this specific test
+      const res2 = await request(app).get("/admin/bookings?limit=40&view=past");
 
       expect(res2.statusCode).toBe(200);
-      // Get the actual count from the database
-      const totalBookings = await Booking.countDocuments();
-      expect(res2.body.bookings.length).toBe(totalBookings);
+      // Get the actual count of past bookings from the database
+      const now = new Date();
+      const pastBookings = await Booking.countDocuments({
+        eventStartTime: { $lt: now },
+      });
+      expect(res2.body.bookings.length).toBe(pastBookings);
     });
   });
 });
