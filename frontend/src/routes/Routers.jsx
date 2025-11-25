@@ -28,6 +28,7 @@ const NotFound = lazy(() => import("../pages/404"));
 const TermsAndConditions = lazy(() =>
   import("../pages/General/TermsAndConditions")
 );
+const PrivacyPolicy = lazy(() => import("../pages/General/PrivacyPolicy"));
 const ConsultationLanding = lazy(() =>
   import("../pages/General/ConsultationLanding")
 );
@@ -69,6 +70,7 @@ const Routers = () => {
         <Route path="/resetPassword" element={<ResetPassword />} />
         <Route path="/consultation" element={<ConsultationLanding />} />
         <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route
           path="/dash"
           element={
