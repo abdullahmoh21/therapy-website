@@ -54,7 +54,25 @@ inviteeSchema.pre("save", function (next) {
   next();
 });
 
-// Index for quickly looking up active invitations by email and token
+// ===== INDEXES FOR QUERY OPTIMIZATION =====
+
+// 1. Email and token lookup - CRITICAL for invitation validation
+// Used in: authController.register to validate invitation tokens
+inviteeSchema.index({ email: 1, token: 1 });
+
+// 2. Active invitations query
+// Used in: adminInvitationController to filter unused invitations
+inviteeSchema.index({ isUsed: 1, expiresAt: 1 });
+
+// 3. Compound query for invitation validation
+// Used in: registration flow to check valid, unused invitations
 inviteeSchema.index({ email: 1, token: 1, isUsed: 1 });
+
+// 4. Inviter lookup - find all invitations sent by an admin
+// Used in: admin queries to track who invited whom
+inviteeSchema.index({ invitedBy: 1, createdAt: -1 });
+
+// 5. TTL index - auto-delete expired invitations after 30 days
+inviteeSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 2592000 });
 
 module.exports = mongoose.model("Invitee", inviteeSchema);
