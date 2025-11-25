@@ -32,4 +32,4 @@ dist-ssr
 *.sw?
 .eslintrc.cjs
 package-lock.json
-.history/
+.history/therapy_backup.archive
