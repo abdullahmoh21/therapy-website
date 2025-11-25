@@ -6,6 +6,7 @@
 
 const { google } = require("googleapis");
 const { OAuth2 } = google.auth;
+const Config = require("../models/Config");
 
 async function checkGoogleAuth() {
   console.log("=== Google OAuth Credential Check ===");
@@ -15,7 +16,6 @@ async function checkGoogleAuth() {
     console.log("Checking environment variables...");
     const clientId = process.env.GOOGLE_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-    const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
 
     if (!clientId) {
       console.error("❌ GOOGLE_CLIENT_ID is not set");
@@ -27,12 +27,23 @@ async function checkGoogleAuth() {
       return false;
     }
 
+    console.log("✅ All required environment variables are set");
+
+    // Get refresh token from Config model
+    console.log("\nChecking Config model for refresh token...");
+    const refreshToken = await Config.getValue("googleRefreshToken");
+
     if (!refreshToken) {
-      console.error("❌ GOOGLE_REFRESH_TOKEN is not set");
+      console.error("❌ googleRefreshToken is not set in Config model");
+      console.error("\nTo fix this:");
+      console.error("1. Complete the Google OAuth flow in the admin dashboard");
+      console.error(
+        "2. Or manually set the token in MongoDB Config collection"
+      );
       return false;
     }
 
-    console.log("✅ All required environment variables are set");
+    console.log("✅ Refresh token found in Config model");
 
     // Initialize OAuth client
     console.log("\nInitializing OAuth client...");
@@ -74,10 +85,10 @@ async function checkGoogleAuth() {
         console.error("2. The client ID/secret don't match the refresh token");
         console.error("\nTo fix this:");
         console.error(
-          "1. Generate a new refresh token in the Google Cloud Console"
+          "1. Re-authenticate via the admin dashboard Google Calendar settings"
         );
         console.error(
-          "2. Update your GOOGLE_REFRESH_TOKEN environment variable"
+          "2. This will generate and save a new refresh token to the Config model"
         );
       }
 
@@ -99,11 +110,19 @@ if (require.main === module) {
     console.log("dotenv not available, using existing environment variables");
   }
 
-  checkGoogleAuth()
+  // Connect to MongoDB to access Config model
+  const connectDB = require("./connectDB");
+
+  connectDB()
+    .then(() => {
+      console.log("✅ Connected to MongoDB");
+      return checkGoogleAuth();
+    })
     .then((result) => {
       if (!result) {
         process.exit(1);
       }
+      process.exit(0);
     })
     .catch((error) => {
       console.error("Error:", error);

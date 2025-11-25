@@ -54,10 +54,10 @@ const handleGoogleCalendarDeletion = async (job) => {
     const oauth2Client = await createOAuth2Client();
     const calendar = google.calendar({ version: "v3", auth: oauth2Client });
 
-    // Delete the event from Google Calendar (use primary calendar)
+    // Delete the event from Google Calendar
     try {
       await calendar.events.delete({
-        calendarId: "primary",
+        calendarId: process.env.GOOGLE_CALENDAR_ID || "primary",
         eventId: googleEventId,
       });
       logger.info(

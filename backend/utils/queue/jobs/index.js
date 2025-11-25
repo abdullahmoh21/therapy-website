@@ -38,6 +38,7 @@ module.exports = {
   GoogleCalendarEventDeletion: handleGoogleCalendarDeletion,
   GoogleCalendarEventCancellation: handleGoogleCalendarCancellation,
   ClientCalendarInvitation: handleClientCalendarInvitation,
+  handleClientCalendarInvitation: handleClientCalendarInvitation, // Backwards compatibility alias
 
   // Non-email jobs - System tasks
   RecurringBookingBufferRefresh: handleRecurringBookingBufferRefresh,

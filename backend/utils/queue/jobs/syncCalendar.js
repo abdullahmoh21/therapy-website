@@ -263,7 +263,7 @@ const handleGoogleCalendarSync = async (jobData) => {
 
       const { addJob } = require("../jobScheduler"); // to avoid circular dependency
       await addJob(
-        "handleClientCalendarInvitation",
+        "ClientCalendarInvitation",
         { bookingId: bookingId.toString() },
         { delay } // this will run ~2 days before the session
       );
