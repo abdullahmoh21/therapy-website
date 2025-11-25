@@ -139,10 +139,30 @@ describe("PUT /bookings/:bookingId/cancel - Cancel User Booking", () => {
     const endDate = new Date(futureDate);
     endDate.setHours(endDate.getHours() + 1);
 
+    // Create first recurring booking (the one we'll cancel)
     const booking = await Booking.create({
       userId: userId,
       eventStartTime: futureDate,
       eventEndTime: endDate,
+      status: "Active",
+      source: "system",
+      location: { type: "in-person", inPersonLocation: "Office" },
+      recurring: {
+        state: true,
+        interval: "weekly",
+      },
+    });
+
+    // Create a second recurring booking so we're not cancelling the last one
+    const futureDate2 = new Date(futureDate);
+    futureDate2.setDate(futureDate2.getDate() + 7); // 1 week later
+    const endDate2 = new Date(futureDate2);
+    endDate2.setHours(endDate2.getHours() + 1);
+
+    await Booking.create({
+      userId: userId,
+      eventStartTime: futureDate2,
+      eventEndTime: endDate2,
       status: "Active",
       source: "system",
       location: { type: "in-person", inPersonLocation: "Office" },
