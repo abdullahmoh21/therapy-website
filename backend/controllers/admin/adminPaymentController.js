@@ -95,9 +95,15 @@ const markAsPaid = asyncHandler(async (req, res) => {
   // Save the updated payment document
   await payment.save();
 
+  // Invalidate cache
   if (payment.userId) {
-    await invalidateByEvent("payment-updated", { userId: payment.userId });
-    await invalidateByEvent("admin-data-changed");
+    try {
+      await invalidateByEvent("payment-updated", { userId: payment.userId });
+      await invalidateByEvent("admin-data-changed");
+    } catch (cacheErr) {
+      logger.error(`Cache invalidation failed: ${cacheErr.message}`);
+      // Don't fail the request - cache will eventually expire
+    }
   }
 
   logger.info(

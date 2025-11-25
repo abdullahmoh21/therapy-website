@@ -6,6 +6,7 @@ const ShortUniqueId = require("short-unique-id");
 const asyncHandler = require("express-async-handler");
 const { zonedTimeToUtc } = require("date-fns-tz");
 const { addMinutes } = require("date-fns");
+const sanitizeHtml = require("sanitize-html");
 const logger = require("../../logs/logger");
 const { addJob, sendEmail } = require("../../utils/queue/index");
 const { invalidateByEvent } = require("../../middleware/redisCaching");
@@ -39,12 +40,20 @@ const createBooking = asyncHandler(async (req, res) => {
     inPersonLocation,
   } = req.body;
 
+  // Sanitize user input fields to prevent XSS
+  const sanitizedInPersonLocation = inPersonLocation
+    ? sanitizeHtml(inPersonLocation, {
+        allowedTags: [],
+        allowedAttributes: {},
+      })
+    : undefined;
+
   logger.debug(
     `createBooking called with userId: ${userId}, eventDate: ${eventDate}, eventTime: ${eventTime}, sessionLength: ${sessionLengthMinutes}`
   );
   logger.debug(
     `Location type: ${location}, inPersonLocation: ${
-      inPersonLocation || "None"
+      sanitizedInPersonLocation || "None"
     }`
   );
 
@@ -97,7 +106,7 @@ const createBooking = asyncHandler(async (req, res) => {
       .json({ message: "Location must be either 'online' or 'in-person'" });
   }
 
-  if (location === "in-person" && !inPersonLocation) {
+  if (location === "in-person" && !sanitizedInPersonLocation) {
     logger.debug("In-person location missing");
     return res
       .status(400)
@@ -143,6 +152,17 @@ const createBooking = asyncHandler(async (req, res) => {
     return res
       .status(400)
       .json({ message: "Event start time must be before end time" });
+  }
+
+  // Validate maximum duration (240 minutes = 4 hours)
+  const durationMinutes = (endDate - startDate) / 1000 / 60;
+  if (durationMinutes > 240) {
+    logger.debug(
+      `Booking duration exceeds maximum: ${durationMinutes} minutes`
+    );
+    return res.status(400).json({
+      message: "Booking duration cannot exceed 240 minutes (4 hours)",
+    });
   }
 
   // Validate that the booking is in the future
@@ -215,7 +235,7 @@ const createBooking = asyncHandler(async (req, res) => {
   };
 
   if (location === "in-person") {
-    locationObj.inPersonLocation = inPersonLocation;
+    locationObj.inPersonLocation = sanitizedInPersonLocation;
   }
 
   // Generate transaction reference number
@@ -245,38 +265,88 @@ const createBooking = asyncHandler(async (req, res) => {
     transactionReferenceNumber,
   };
 
+  let booking, payment;
+
   try {
-    // Create booking and payment documents
-    const [booking, payment] = await Promise.all([
-      Booking.create(bookingData),
-      Payment.create(paymentData),
-    ]);
+    // Create booking first
+    booking = await Booking.create(bookingData);
+    logger.debug(`Created booking ${booking._id}`);
 
-    // Link the documents
-    booking.paymentId = payment._id;
-    payment.bookingId = booking._id;
+    try {
+      // Create payment
+      payment = await Payment.create(paymentData);
+      logger.debug(`Created payment ${payment._id}`);
 
-    await Promise.all([booking.save(), payment.save()]);
+      // Link the documents
+      booking.paymentId = payment._id;
+      payment.bookingId = booking._id;
 
-    // Queue sync job for Google Calendar
-    await addJob("GoogleCalendarEventSync", {
-      bookingId: booking._id.toString(),
-    });
-    logger.info(`Queued Google Calendar sync for booking ${booking._id}`);
+      await Promise.all([booking.save(), payment.save()]);
+      logger.debug(`Linked booking and payment`);
 
-    // Invalidate cache
-    await invalidateByEvent("booking-created", {
-      userId: user._id,
-    });
+      // Queue sync job for Google Calendar with rollback on failure
+      try {
+        await addJob("GoogleCalendarEventSync", {
+          bookingId: booking._id.toString(),
+        });
+        logger.info(`Queued Google Calendar sync for booking ${booking._id}`);
+      } catch (syncErr) {
+        logger.error(
+          `Google Calendar sync job queueing failed for booking ${booking._id}: ${syncErr.message}`
+        );
+        // Rollback: Delete payment and booking
+        await Promise.all([
+          Payment.deleteOne({ _id: payment._id }),
+          Booking.deleteOne({ _id: booking._id }),
+        ]);
+        logger.warn(
+          `Rolled back booking ${booking._id} and payment ${payment._id} due to sync failure`
+        );
+        return res.status(500).json({
+          message: "Failed to schedule Google Calendar sync",
+          error: "GOOGLE_CALENDAR_SYNC_FAILED",
+          googleCalendarSyncFailed: true,
+        });
+      }
 
-    logger.info(`Admin created new booking: ${booking._id} for user ${userId}`);
-    return res.status(201).json({
-      message: "Booking created successfully",
-      booking,
-      payment,
-    });
+      // Invalidate cache
+      try {
+        await invalidateByEvent("booking-created", {
+          userId: user._id,
+        });
+      } catch (cacheErr) {
+        logger.error(`Cache invalidation failed: ${cacheErr.message}`);
+        // Don't fail the request - cache will eventually expire
+      }
+
+      logger.info(
+        `Admin created new booking: ${booking._id} for user ${userId}`
+      );
+      return res.status(201).json({
+        message: "Booking created successfully",
+        booking,
+        payment,
+      });
+    } catch (paymentErr) {
+      // Cleanup booking if payment creation/linking fails
+      logger.error(
+        `Payment creation failed, cleaning up booking ${booking._id}: ${paymentErr.message}`
+      );
+      await Booking.deleteOne({ _id: booking._id });
+      throw paymentErr;
+    }
   } catch (err) {
     logger.error(`Error creating booking: ${err.message}`);
+
+    // Handle duplicate key error (race condition caught by unique index)
+    if (err.code === 11000) {
+      return res.status(409).json({
+        message:
+          "Time slot conflict: Another booking was created for this time slot",
+        error: "BOOKING_CONFLICT",
+      });
+    }
+
     return res.status(500).json({
       message: "Failed to create booking",
       error: err.message,
@@ -304,10 +374,18 @@ const cancelBooking = asyncHandler(async (req, res) => {
   const { bookingId } = req.params;
   const { reason, notifyUser } = req.body;
 
+  // Sanitize user input
+  const sanitizedReason = reason
+    ? sanitizeHtml(reason, {
+        allowedTags: [],
+        allowedAttributes: {},
+      })
+    : undefined;
+
   if (!bookingId) {
     return res.status(400).json({ message: "Booking ID is required" });
   }
-  if (!reason) {
+  if (!sanitizedReason) {
     return res.status(400).json({ message: "reason is required" });
   }
   if (notifyUser === undefined || notifyUser === null) {
@@ -343,7 +421,7 @@ const cancelBooking = asyncHandler(async (req, res) => {
     // Update booking status and add cancellation details
     booking.status = "Cancelled";
     booking.cancellation = {
-      reason,
+      reason: sanitizedReason,
       date: new Date(),
       cancelledBy: "Admin",
     };
@@ -356,6 +434,21 @@ const cancelBooking = asyncHandler(async (req, res) => {
 
     logger.info(`Booking ${bookingId} cancelled by admin`);
 
+    // Update associated payment status if not already completed
+    if (booking.paymentId) {
+      try {
+        const payment = await Payment.findById(booking.paymentId);
+        if (payment && payment.transactionStatus !== "Completed") {
+          payment.transactionStatus = "Cancelled";
+          await payment.save();
+          logger.debug(`Payment ${payment._id} marked as Cancelled`);
+        }
+      } catch (paymentErr) {
+        logger.error(`Failed to update payment status: ${paymentErr.message}`);
+        // Don't fail the cancellation if payment update fails
+      }
+    }
+
     // Queue Google Calendar deletion job with notification flag
     // This job will handle both Google Calendar deletion and user notification
     if (booking.googleEventId) {
@@ -363,7 +456,7 @@ const cancelBooking = asyncHandler(async (req, res) => {
         await addJob("GoogleCalendarEventCancellation", {
           bookingId: booking._id.toString(),
           notifyUser: notifyUser,
-          reason: reason,
+          reason: sanitizedReason,
         });
         logger.info(
           `Queued Google Calendar deletion for booking ${booking._id} with notifyUser: ${notifyUser}`
@@ -408,9 +501,14 @@ const cancelBooking = asyncHandler(async (req, res) => {
     }
 
     // Invalidate cache
-    await invalidateByEvent("booking-updated", {
-      userId: booking.userId,
-    });
+    try {
+      await invalidateByEvent("booking-updated", {
+        userId: booking.userId,
+      });
+    } catch (cacheErr) {
+      logger.error(`Cache invalidation failed: ${cacheErr.message}`);
+      // Don't fail the request - cache will eventually expire
+    }
 
     return res.status(200).json({
       message: "Booking cancelled successfully",
@@ -735,9 +833,13 @@ const updateBooking = asyncHandler(async (req, res) => {
 
       // If the booking is cancelled, store cancellation details
       if (status === "Cancelled" && !booking.cancellation) {
+        const cancelReason = req.body.reason || "Cancelled by administrator";
         booking.cancellation = {
           cancelledBy: "admin",
-          reason: req.body.reason || "Cancelled by administrator",
+          reason: sanitizeHtml(cancelReason, {
+            allowedTags: [],
+            allowedAttributes: {},
+          }),
           date: new Date(),
         };
       }
@@ -747,9 +849,14 @@ const updateBooking = asyncHandler(async (req, res) => {
     await booking.save();
 
     // Invalidate cache after booking update
-    await invalidateByEvent("booking-updated", {
-      userId: booking.userId,
-    });
+    try {
+      await invalidateByEvent("booking-updated", {
+        userId: booking.userId,
+      });
+    } catch (cacheErr) {
+      logger.error(`Cache invalidation failed: ${cacheErr.message}`);
+      // Don't fail the request - cache will eventually expire
+    }
 
     res.status(200).json({
       message: "Booking updated successfully",
@@ -819,9 +926,14 @@ const deleteBooking = asyncHandler(async (req, res) => {
       await Booking.findByIdAndDelete(bookingId);
 
       // Invalidate cache after booking deletion
-      await invalidateByEvent("booking-deleted", {
-        userId: booking.userId,
-      });
+      try {
+        await invalidateByEvent("booking-deleted", {
+          userId: booking.userId,
+        });
+      } catch (cacheErr) {
+        logger.error(`Cache invalidation failed: ${cacheErr.message}`);
+        // Don't fail the request - cache will eventually expire
+      }
 
       logger.info(`Admin deleted booking: ${bookingId}`);
 
