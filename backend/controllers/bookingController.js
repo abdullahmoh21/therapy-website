@@ -3,6 +3,7 @@ const logger = require("../logs/logger");
 const asyncHandler = require("express-async-handler");
 const axios = require("axios");
 const mongoose = require("mongoose");
+const sanitizeHtml = require("sanitize-html");
 const { invalidateByEvent } = require("../middleware/redisCaching");
 const { sendEmail, addJob } = require("../utils/queue/index");
 const User = require("../models/User");
@@ -18,6 +19,26 @@ const jwt = require("jsonwebtoken");
 //@route POST /bookings/calendly
 //@access Public
 const handleCalendlyWebhook = asyncHandler(async (req, res) => {
+  // Verify Calendly webhook signature
+  const signature = req.headers["calendly-webhook-signature"];
+  const webhookSecret = process.env.CALENDLY_WEBHOOK_SECRET;
+
+  if (webhookSecret && signature) {
+    const hash = crypto
+      .createHmac("sha256", webhookSecret)
+      .update(JSON.stringify(req.body))
+      .digest("base64");
+
+    if (signature !== hash) {
+      logger.warn("Invalid Calendly webhook signature detected");
+      return res.status(401).json({ message: "Invalid signature" });
+    }
+    logger.debug("Calendly webhook signature verified successfully");
+  } else if (webhookSecret) {
+    logger.warn("Calendly webhook secret configured but no signature provided");
+    return res.status(401).json({ message: "Missing signature" });
+  }
+
   // Validate request has required fields
   if (!req.body || !req.body.event) {
     logger.warn("Invalid webhook payload: missing event type");
@@ -259,9 +280,15 @@ async function createBooking({
   ]);
 
   if (existingBooking) {
+    logger.debug(`Booking already exists for event: ${eventURI}`);
     return;
   }
+
+  // Re-validate user exists (foreign key validation)
   if (!user) {
+    logger.warn(
+      `User ${userId} not found during booking creation - user may have been deleted after JWT validation`
+    );
     try {
       await deleteEvent(eventURI, null, calendlyEmail, null, start_time);
     } catch (err) {
@@ -312,7 +339,11 @@ async function createBooking({
         loc.join_url = join_url;
       } else if (locationType === "physical") {
         loc.type = "in-person";
-        loc.inPersonLocation = locationStr;
+        // Sanitize location string from Calendly to prevent XSS
+        loc.inPersonLocation = sanitizeHtml(locationStr, {
+          allowedTags: [],
+          allowedAttributes: {},
+        });
       }
       return loc;
     })(),
@@ -325,31 +356,53 @@ async function createBooking({
     transactionReferenceNumber,
   };
 
-  try {
-    const [booking, payment] = await Promise.all([
-      Booking.create(bookingData),
-      Payment.create(paymentData),
-    ]);
+  let booking, payment;
 
-    // Add null checks to prevent TypeError if booking or payment is undefined
-    if (booking && payment) {
+  try {
+    // Create booking first
+    booking = await Booking.create(bookingData);
+
+    try {
+      // Create payment
+      payment = await Payment.create(paymentData);
+
+      // Link documents
       booking.paymentId = payment._id;
       payment.bookingId = booking._id;
       await Promise.all([booking.save(), payment.save()]);
+
+      // Invalidate cache
+      try {
+        await invalidateByEvent("booking-created", {
+          userId: userId,
+        });
+        await invalidateByEvent("payment-created", {
+          userId: userId,
+        });
+      } catch (cacheErr) {
+        logger.error(`Cache invalidation failed: ${cacheErr.message}`);
+        // Don't fail - cache will expire
+      }
+
+      return { booking, payment };
+    } catch (paymentErr) {
+      // Cleanup booking if payment creation fails
+      logger.error(
+        `Payment creation failed, cleaning up booking ${booking._id}: ${paymentErr.message}`
+      );
+      await Booking.deleteOne({ _id: booking._id });
+      throw paymentErr;
     }
-
-    await invalidateByEvent("booking-created", {
-      userId: userId,
-    });
-
-    // Also invalidate payment cache since we created a payment
-    await invalidateByEvent("payment-created", {
-      userId: userId,
-    });
-
-    return { booking, payment };
   } catch (err) {
     logger.error(`Error creating booking: ${err.message}`);
+
+    // Handle duplicate key error from unique index
+    if (err.code === 11000) {
+      logger.warn(
+        `Booking conflict for Calendly event: time slot already taken`
+      );
+    }
+
     return null;
   }
 }
@@ -375,9 +428,16 @@ async function cancelBooking({
   booking.cancellation.date = new Date(cancellationDate);
 
   await booking.save();
-  await invalidateByEvent("booking-updated", {
-    userId: booking.userId,
-  });
+
+  // Invalidate cache
+  try {
+    await invalidateByEvent("booking-updated", {
+      userId: booking.userId,
+    });
+  } catch (cacheErr) {
+    logger.error(`Cache invalidation failed: ${cacheErr.message}`);
+    // Don't fail the request - cache will eventually expire
+  }
 
   // Send cancellation notification (to user and admin)
   await sendEmail("BookingCancellationNotifications", {
@@ -503,8 +563,28 @@ const getNewBookingLink = asyncHandler(async (req, res) => {
     { expiresIn: "30m" }
   );
 
-  user.bookingTokenJTI = jti;
-  await user.save();
+  // Atomic update to prevent JWT reuse (race condition protection)
+  const updated = await User.findOneAndUpdate(
+    {
+      _id: userId,
+      // Only update if JTI is different (prevents concurrent token generation)
+      $or: [
+        { bookingTokenJTI: { $exists: false } },
+        { bookingTokenJTI: { $ne: jti } },
+      ],
+    },
+    { $set: { bookingTokenJTI: jti } },
+    { new: true }
+  );
+
+  if (!updated) {
+    logger.warn(
+      `Concurrent booking link generation attempt for user ${userId}`
+    );
+    return res.status(429).json({
+      message: "Please wait before generating a new booking link",
+    });
+  }
 
   const bookingLink = `${
     process.env.CALENDLY_SESSION_URL
@@ -698,6 +778,21 @@ const cancelMyBooking = asyncHandler(async (req, res) => {
 
     logger.info(`Booking ${bookingId} cancelled by user ${userId}`);
 
+    // Update associated payment status if not already completed
+    if (booking.paymentId) {
+      try {
+        const payment = await Payment.findById(booking.paymentId);
+        if (payment && payment.transactionStatus !== "Completed") {
+          payment.transactionStatus = "Cancelled";
+          await payment.save();
+          logger.debug(`Payment ${payment._id} marked as Cancelled`);
+        }
+      } catch (paymentErr) {
+        logger.error(`Failed to update payment status: ${paymentErr.message}`);
+        // Don't fail the cancellation if payment update fails
+      }
+    }
+
     // Queue Google Calendar deletion job if needed
     if (booking.googleEventId) {
       try {
@@ -717,7 +812,6 @@ const cancelMyBooking = asyncHandler(async (req, res) => {
       }
     }
 
-    // Queue notification job with minimal data - let the job handler do the heavy lifting
     try {
       await sendEmail("BookingCancellationNotifications", {
         bookingId: booking._id.toString(),
@@ -741,9 +835,14 @@ const cancelMyBooking = asyncHandler(async (req, res) => {
     }
 
     // Invalidate cache
-    await invalidateByEvent("booking-updated", {
-      userId: booking.userId,
-    });
+    try {
+      await invalidateByEvent("booking-updated", {
+        userId: booking.userId,
+      });
+    } catch (cacheErr) {
+      logger.error(`Cache invalidation failed: ${cacheErr.message}`);
+      // Don't fail the request - cache will eventually expire
+    }
 
     return res.status(200).json({
       message: "Booking cancelled successfully",
@@ -784,7 +883,10 @@ const getAllMyBookings = asyncHandler(async (req, res) => {
     paymentStatus,
     startDate,
     endDate,
+    datePreset,
     location,
+    source,
+    status,
   } = req.query;
   const skip = (page - 1) * limit;
 
@@ -799,7 +901,7 @@ const getAllMyBookings = asyncHandler(async (req, res) => {
     }
   }
 
-  // Date filtering using startDate and endDate parameters
+  // Date filtering using startDate and endDate parameters OR datePreset
   if (startDate && endDate) {
     try {
       const parsedStartDate = new Date(startDate);
@@ -816,6 +918,101 @@ const getAllMyBookings = asyncHandler(async (req, res) => {
       logger.error(`Error parsing date parameters: ${e.message}`);
       return res.status(400).json({ message: "Invalid date parameters." });
     }
+  } else if (datePreset) {
+    // Handle datePreset filtering (today, yesterday, thisWeek, lastWeek, thisMonth, lastMonth)
+    const baseNow = new Date();
+    const startToday = new Date(
+      baseNow.getFullYear(),
+      baseNow.getMonth(),
+      baseNow.getDate()
+    );
+    const presets = {
+      today() {
+        const start = new Date(startToday);
+        const end = new Date(startToday);
+        end.setHours(23, 59, 59, 999);
+        return [start, end];
+      },
+      yesterday() {
+        const start = new Date(startToday);
+        start.setDate(start.getDate() - 1);
+        const end = new Date(start);
+        end.setHours(23, 59, 59, 999);
+        return [start, end];
+      },
+      thisWeek() {
+        const start = new Date(startToday);
+        start.setDate(start.getDate() - start.getDay()); // Start of week (Sunday)
+        const end = new Date(start);
+        end.setDate(end.getDate() + 6); // End of week (Saturday)
+        end.setHours(23, 59, 59, 999);
+        return [start, end];
+      },
+      lastWeek() {
+        const start = new Date(startToday);
+        start.setDate(start.getDate() - start.getDay() - 7); // Start of last week
+        const end = new Date(start);
+        end.setDate(end.getDate() + 6); // End of last week
+        end.setHours(23, 59, 59, 999);
+        return [start, end];
+      },
+      thisMonth() {
+        const start = new Date(baseNow.getFullYear(), baseNow.getMonth(), 1);
+        const end = new Date(
+          baseNow.getFullYear(),
+          baseNow.getMonth() + 1,
+          0,
+          23,
+          59,
+          59,
+          999
+        );
+        return [start, end];
+      },
+      lastMonth() {
+        const start = new Date(
+          baseNow.getFullYear(),
+          baseNow.getMonth() - 1,
+          1,
+          0,
+          0,
+          0,
+          0
+        );
+        const end = new Date(
+          baseNow.getFullYear(),
+          baseNow.getMonth(),
+          0,
+          23,
+          59,
+          59,
+          999
+        );
+        return [start, end];
+      },
+    };
+
+    const range = presets[datePreset]?.();
+    if (range) {
+      const [rangeStart, rangeEnd] = range;
+      const now = new Date();
+
+      // For past bookings view, intersect the date range with "before now"
+      query.eventStartTime = {
+        $gte: rangeStart,
+        $lte: rangeEnd < now ? rangeEnd : now,
+      };
+
+      // Override the default $or filter when datePreset is used
+      delete query.$or;
+    }
+  } else {
+    // If no date range is specified, show past bookings and present cancelled bookings
+    const now = new Date();
+    query.$or = [
+      { eventStartTime: { $lt: now } }, // Past bookings
+      { eventStartTime: { $gte: now }, status: "Cancelled" }, // Present/future cancelled bookings
+    ];
   }
 
   // Location filtering
@@ -823,14 +1020,21 @@ const getAllMyBookings = asyncHandler(async (req, res) => {
     query["location.type"] = location;
   }
 
+  // Source filtering (admin, system, calendly)
+  if (source && ["admin", "system", "calendly"].includes(source)) {
+    query.source = source;
+  }
+
+  // Status filtering (only Completed and Cancelled allowed for past bookings)
+  if (status && ["Completed", "Cancelled"].includes(status)) {
+    query.status = status;
+  }
+
   try {
     const aggregatePipeline = [
       {
-        $match: {
-          ...query,
-          eventStartTime: query.eventStartTime || { $lt: new Date() }, // ensures eventStartTime is in the past if not already filtered
-        },
-      }, // Initial match on booking fields
+        $match: query,
+      },
       {
         $lookup: {
           from: "payments",
@@ -843,7 +1047,7 @@ const getAllMyBookings = asyncHandler(async (req, res) => {
                 amount: 1,
                 transactionStatus: 1,
                 currency: 1,
-                transactionReferenceNumber: 1, // Add this field to projection
+                transactionReferenceNumber: 1,
               },
             },
           ],
@@ -901,12 +1105,18 @@ const getAllMyBookings = asyncHandler(async (req, res) => {
                 eventEndTime: 1,
                 bookingId: 1,
                 status: 1,
-                eventName: 1,
+                source: 1,
                 location: 1,
-                notes: 1,
                 cancellation: 1,
                 createdAt: 1,
                 payment: 1,
+                // Recurring booking fields
+                "recurring.state": 1,
+                "recurring.interval": 1,
+                "recurring.day": 1,
+                "recurring.time": 1,
+                // Calendly-specific fields
+                "calendly.eventName": 1,
               },
             },
           ],

@@ -94,7 +94,13 @@ const handleSafepayWebhook = asyncHandler(async (req, res) => {
     }
   }
 
-  await invalidateByEvent("payment-updated", payment.userId);
+  // Invalidate cache
+  try {
+    await invalidateByEvent("payment-updated", payment.userId);
+  } catch (cacheErr) {
+    logger.error(`Cache invalidation failed: ${cacheErr.message}`);
+    // Don't fail the request - cache will eventually expire
+  }
 
   return res.sendStatus(200);
 });
@@ -160,7 +166,14 @@ const createPayment = asyncHandler(async (req, res) => {
     payment.tracker = token;
     payment.linkGeneratedDate = new Date();
     await payment.save();
-    await invalidateByEvent("payment-updated", { userId: payment.userId });
+
+    // Invalidate cache
+    try {
+      await invalidateByEvent("payment-updated", { userId: payment.userId });
+    } catch (cacheErr) {
+      logger.error(`Cache invalidation failed: ${cacheErr.message}`);
+      // Don't fail the request - cache will eventually expire
+    }
 
     return res.status(200).json({ url });
   } catch (error) {

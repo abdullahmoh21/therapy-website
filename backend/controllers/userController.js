@@ -78,13 +78,23 @@ const resendEvLink = asyncHandler(async (req, res) => {
     verificationToken = decrypt(user.emailVerified.encryptedToken);
     user.emailVerified.expiresIn = Date.now() + 3600000; // reset expiry
     await user.save();
-    await invalidateByEvent("user-updated", { userId: user._id });
+
+    try {
+      await invalidateByEvent("user-updated", { userId: user._id });
+    } catch (cacheErr) {
+      logger.error(`Cache invalidation failed: ${cacheErr.message}`);
+    }
   } else {
     verificationToken = crypto.randomBytes(20).toString("hex");
     user.emailVerified.encryptedToken = encrypt(verificationToken);
     user.emailVerified.expiresIn = Date.now() + 3600000; // 1 hour
     await user.save();
-    await invalidateByEvent("user-updated", { userId: user._id });
+
+    try {
+      await invalidateByEvent("user-updated", { userId: user._id });
+    } catch (cacheErr) {
+      logger.error(`Cache invalidation failed: ${cacheErr.message}`);
+    }
   }
   logger.debug(`verification token generated for: ${user.email}`);
 
@@ -141,7 +151,11 @@ const verifyEmail = asyncHandler(async (req, res) => {
   await user.save();
 
   // Invalidate cache after email verification
-  await invalidateByEvent("user-updated", { userId: user._id });
+  try {
+    await invalidateByEvent("user-updated", { userId: user._id });
+  } catch (cacheErr) {
+    logger.error(`Cache invalidation failed: ${cacheErr.message}`);
+  }
 
   res.status(200).json({ message: "Email Verified!" });
 });
@@ -172,7 +186,13 @@ const forgotPassword = asyncHandler(async (req, res) => {
     user.resetPasswordEncryptedToken = encrypt(resetToken);
     user.resetPasswordExp = Date.now() + 3600000; // 1 hour
     user = await user.save();
-    await invalidateByEvent("user-updated", { userId: user._id });
+
+    try {
+      await invalidateByEvent("user-updated", { userId: user._id });
+    } catch (cacheErr) {
+      logger.error(`Cache invalidation failed: ${cacheErr.message}`);
+    }
+
     logger.info(
       `Reset token generated for ${user.email}: ${resetToken} /n encrypted: ${user.resetPasswordEncryptedToken}`
     );
@@ -223,7 +243,12 @@ const resetPassword = asyncHandler(async (req, res) => {
   user.resetPasswordEncryptedToken = undefined;
   user.resetPasswordExp = undefined;
   await user.save();
-  await invalidateByEvent("user-updated", { userId: user._id });
+
+  try {
+    await invalidateByEvent("user-updated", { userId: user._id });
+  } catch (cacheErr) {
+    logger.error(`Cache invalidation failed: ${cacheErr.message}`);
+  }
   logger.info(`Password reset successfully for user: ${user.email}`);
 
   res.status(200).json({ message: "Password reset successfully!" });
@@ -296,7 +321,12 @@ const updateMyUser = asyncHandler(async (req, res) => {
   }
 
   logger.debug(`User Updated! Invalidating User cache for userId: ${userId}`);
-  await invalidateByEvent("user-profile-updated", { userId });
+
+  try {
+    await invalidateByEvent("user-profile-updated", { userId });
+  } catch (cacheErr) {
+    logger.error(`Cache invalidation failed: ${cacheErr.message}`);
+  }
 
   return res.status(200).json(updatedUser); // Use 200 instead of 201 for updates
 });
@@ -321,13 +351,14 @@ const getRecurringBooking = asyncHandler(async (req, res) => {
   }
 
   // Optimization: Use aggregation pipeline to fetch booking + payment in one query
+  // **FIX**: Added status: "Active" filter to exclude cancelled bookings
   const result = await Booking.aggregate([
     {
       $match: {
         userId: user._id,
         source: "system",
         "recurring.state": true,
-        status: "Active",
+        status: "Active", // Only fetch active bookings (not cancelled or completed)
         eventEndTime: { $gt: new Date() },
       },
     },

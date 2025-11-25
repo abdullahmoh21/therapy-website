@@ -1,5 +1,6 @@
 const User = require("../../models/User");
 const asyncHandler = require("express-async-handler");
+const sanitizeHtml = require("sanitize-html");
 const logger = require("../../logs/logger");
 const Booking = require("../../models/Booking");
 const Payment = require("../../models/Payment");
@@ -128,10 +129,16 @@ const deleteUser = asyncHandler(async (req, res) => {
       `User deletion count: ${deletedUser.deletedCount}\nBooking deleted count: ${bookings.deletedCount}\nPayment deleted count: ${payments.deletedCount}\nCancelled jobs: ${cancelledJobs.modifiedCount}`
     );
 
-    await invalidateByEvent("user-deleted", { userId });
-    await invalidateByEvent("booking-deleted", { userId });
-    await invalidateByEvent("payment-deleted", { userId });
-    await invalidateByEvent("admin-data-changed");
+    // Invalidate cache
+    try {
+      await invalidateByEvent("user-deleted", { userId });
+      await invalidateByEvent("booking-deleted", { userId });
+      await invalidateByEvent("payment-deleted", { userId });
+      await invalidateByEvent("admin-data-changed");
+    } catch (cacheErr) {
+      logger.error(`Cache invalidation failed: ${cacheErr.message}`);
+      // Don't fail the request - cache will eventually expire
+    }
 
     // Return proper success response with message
     res.status(200).json({
@@ -226,8 +233,14 @@ const updateUser = asyncHandler(async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    await invalidateByEvent("user-updated", { userId });
-    await invalidateByEvent("admin-data-changed");
+    // Invalidate cache
+    try {
+      await invalidateByEvent("user-updated", { userId });
+      await invalidateByEvent("admin-data-changed");
+    } catch (cacheErr) {
+      logger.error(`Cache invalidation failed: ${cacheErr.message}`);
+      // Don't fail the request - cache will eventually expire
+    }
 
     res.status(200).json({
       message: "User updated successfully",
@@ -319,12 +332,20 @@ const recurUser = asyncHandler(async (req, res, next) => {
     sessionLengthMinutes = 50,
   } = req.body;
 
+  // Sanitize user input fields to prevent XSS
+  const sanitizedInPersonLocation = inPersonLocation
+    ? sanitizeHtml(inPersonLocation, {
+        allowedTags: [],
+        allowedAttributes: {},
+      })
+    : undefined;
+
   logger.debug(
     `recurUser called with userId: ${userId}, interval: ${interval}, day: ${day}, time: ${time}, sessionLength: ${sessionLengthMinutes}`
   );
   logger.debug(
     `Location type: ${location}, inPersonLocation: ${
-      inPersonLocation || "None"
+      sanitizedInPersonLocation || "None"
     }`
   );
 
@@ -372,7 +393,7 @@ const recurUser = asyncHandler(async (req, res, next) => {
   }
 
   // Validate inPersonLocation is provided when location is in-person
-  if (location === "in-person" && !inPersonLocation) {
+  if (location === "in-person" && !sanitizedInPersonLocation) {
     logger.debug(`Missing inPersonLocation for in-person session`);
     return res
       .status(400)
@@ -384,7 +405,8 @@ const recurUser = asyncHandler(async (req, res, next) => {
   // Create location object from parameters
   const locationObject = {
     type: location,
-    inPersonLocation: location === "in-person" ? inPersonLocation : undefined,
+    inPersonLocation:
+      location === "in-person" ? sanitizedInPersonLocation : undefined,
   };
 
   let createdBookingIds = [];
@@ -420,6 +442,31 @@ const recurUser = asyncHandler(async (req, res, next) => {
       return res.status(409).json({
         message: "Another user is already recurring on the same day and time",
         conflictUserId: conflictingUser._id,
+      });
+    }
+
+    // Check if the user themselves has existing one-off bookings that conflict with the first recurring slot
+    const firstSlot = firstOccurrence(day, time);
+    const firstSlotEnd = addMinutes(firstSlot, sessionLengthMinutes);
+
+    const userBookingConflict = await Booking.findOne({
+      userId,
+      status: "Active",
+      source: { $in: ["admin", "calendly"] }, // Only check one-off bookings
+      eventStartTime: { $lt: firstSlotEnd },
+      eventEndTime: { $gt: firstSlot },
+    }).lean();
+
+    if (userBookingConflict) {
+      logger.debug(
+        `User ${userId} has existing one-off booking (${userBookingConflict.bookingId}) that conflicts with first recurring slot`
+      );
+      return res.status(409).json({
+        message:
+          "User has existing booking that conflicts with recurring schedule",
+        conflictingBookingId: userBookingConflict.bookingId,
+        conflictingBookingStart: userBookingConflict.eventStartTime,
+        requiresManualResolution: true, // Flag for frontend to show special warning
       });
     }
 
@@ -653,8 +700,13 @@ const recurUser = asyncHandler(async (req, res, next) => {
     }
 
     // Invalidate cache after successful recurring setup
-    await invalidateByEvent("user-recurring-updated", { userId });
-    await invalidateByEvent("admin-data-changed");
+    try {
+      await invalidateByEvent("user-recurring-updated", { userId });
+      await invalidateByEvent("admin-data-changed");
+    } catch (cacheErr) {
+      logger.error(`Cache invalidation failed: ${cacheErr.message}`);
+      // Don't fail the request - cache will eventually expire
+    }
 
     logger.debug(
       `recurUser operation completed successfully for user ${userId}`
@@ -883,8 +935,13 @@ const stopRecurring = asyncHandler(async (req, res, next) => {
     logger.info(`Updated user ${userId} recurring status to false`);
 
     // 6. Invalidate cache after successful recurring stop
-    await invalidateByEvent("user-recurring-updated", { userId });
-    await invalidateByEvent("admin-data-changed");
+    try {
+      await invalidateByEvent("user-recurring-updated", { userId });
+      await invalidateByEvent("admin-data-changed");
+    } catch (cacheErr) {
+      logger.error(`Cache invalidation failed: ${cacheErr.message}`);
+      // Don't fail the request - cache will eventually expire
+    }
 
     // 7. Return results
     res.json({
