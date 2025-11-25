@@ -65,10 +65,9 @@ const HelpButton = () => {
           <p>There are three ways your sessions can be booked:</p>
           <ul className="list-disc pl-5 space-y-1">
             <li>
-              <strong>Recurring session</strong> – you and your therapist agree
-              on a regular day and time (for example,{" "}
-              <strong>Thursday at 11:00 AM</strong>). A new session is created
-              for you automatically every week at that time.
+              <strong>Recurring session</strong> – we agree on a regular day and
+              time (for example, <strong>Thursday at 11:00 AM</strong>). A new
+              session is created for you automatically every week at that time.
             </li>
             <li>
               <strong>Calendly booking (one-off)</strong> – a single session
