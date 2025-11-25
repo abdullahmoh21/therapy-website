@@ -48,15 +48,40 @@ export const bookingsApiSlice = apiSlice.injectEndpoints({
       transformResponse: (response) => {
         try {
           const rawBookings = response.bookings || [];
-          const processedBookings = rawBookings.map((booking) => ({
-            ...booking,
-            payment: booking.payment || {},
-            formattedEventStartTime: formatDateTime(
-              booking.eventStartTime,
-              true
-            ),
-            customerBookingId: booking.bookingId,
-          }));
+          const processedBookings = rawBookings.map((booking) => {
+            // Determine event name based on source
+            let eventName = "Session";
+
+            if (booking.source === "calendly" && booking.calendly?.eventName) {
+              eventName = booking.calendly.eventName;
+            } else if (
+              booking.source === "system" &&
+              booking.recurring?.state
+            ) {
+              // Format recurring booking name
+              const intervals = {
+                weekly: "Weekly",
+                biweekly: "Bi-weekly",
+                monthly: "Monthly",
+              };
+              const intervalLabel =
+                intervals[booking.recurring.interval] || "Recurring";
+              eventName = `${intervalLabel} Session`;
+            } else if (booking.source === "admin") {
+              eventName = "Admin Scheduled Session";
+            }
+
+            return {
+              ...booking,
+              payment: booking.payment || {},
+              formattedEventStartTime: formatDateTime(
+                booking.eventStartTime,
+                true
+              ),
+              customerBookingId: booking.bookingId,
+              eventName, // Add computed event name
+            };
+          });
 
           return {
             bookings: pastBookingsAdapter.setAll(

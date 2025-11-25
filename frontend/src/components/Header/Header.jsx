@@ -15,7 +15,7 @@ import { motion, AnimatePresence } from "framer-motion";
 const NavLinks = [
   { path: "#services", display: "Services" },
   { path: "#about", display: "About Me" },
-  { path: "#faq", display: "FAQ's" },
+  { path: "#faq", display: "FAQs" },
 ];
 
 const Header = () => {
@@ -112,7 +112,7 @@ const Header = () => {
                     >
                       <a
                         href={link.path}
-                        className={`text-textColor text-[16px] font-medium py-2 px-4 rounded-full border border-transparent hover:bg-orangeBg hover:border-orangeBg/90 transition-colors duration-300`}
+                        className="text-textColor text-[16px] font-medium py-2 px-4 rounded-full transition-colors duration-200 hover:text-lightPink hover:bg-white/70"
                       >
                         {link.display}
                       </a>
@@ -123,18 +123,18 @@ const Header = () => {
 
               {/* Right side buttons container */}
               <div className="flex-shrink-0 hidden md:flex items-center gap-3">
-                {/* Contact Me button moved here */}
+                {/* Contact Me button (primary) */}
                 <motion.button
                   initial={{ opacity: 0, x: 10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.3, delay: 0.3 }}
                   onClick={togglePopup}
-                  className="h-10 text-buttonTextBlack text-[16px] text-bold font-medium py-0 px-6 bg-orangeButton rounded-full shadow-sm hover:bg-lightPink hover:shadow-md transition-colors duration-300 flex items-center justify-center"
+                  className="h-10 text-white text-[16px] py-0 px-6 rounded-full bg-lightPink border border-lightPink shadow-sm hover:bg-[#D16B73] hover:shadow-md transition-all duration-200 flex items-center justify-center"
                 >
                   Contact Me
                 </motion.button>
 
-                {/* Sign in / Dashboard button */}
+                {/* Sign in / Dashboard button (secondary outline) */}
                 <motion.div
                   initial={{ opacity: 0, x: 10 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -144,14 +144,24 @@ const Header = () => {
                     <a
                       href="#"
                       onClick={handleDashboardClick}
-                      className="h-10 text-buttonTextBlack text-[16px] font-medium py-0 px-6 bg-orangeButton rounded-full shadow-sm hover:bg-lightPink hover:shadow-md transition-colors duration-300 flex items-center justify-center"
+                      className="
+                        h-10 text-[16px] font-medium py-0 px-6 rounded-full
+                        border border-lightPink text-lightPink bg-white
+                        hover:bg-lightPink hover:text-white hover:shadow-md
+                        transition-all duration-200 flex items-center justify-center
+                      "
                     >
                       Dashboard
                     </a>
                   ) : (
                     <Link
                       to="/signin"
-                      className="h-10 text-buttonTextBlack text-[16px] font-medium py-0 px-6 bg-orangeButton rounded-full shadow-sm hover:bg-lightPink hover:shadow-md transition-colors duration-300 flex items-center justify-center"
+                      className="
+                          h-10 text-[16px] font-medium py-0 px-6 rounded-full
+                          border border-lightPink text-lightPink bg-white
+                          hover:bg-lightPink hover:text-white hover:shadow-md
+                          transition-all duration-200 flex items-center justify-center
+                        "
                     >
                       Sign In
                     </Link>
@@ -291,7 +301,7 @@ const Header = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-70 md:p-4 z-[700]" // Removed p-4 for mobile
+            className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-70 md:p-4 z-[700]"
             onClick={(e) => {
               // Only close when clicking outside
               if (e.target === e.currentTarget) {
@@ -304,18 +314,18 @@ const Header = () => {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               transition={{ duration: 0.3 }}
-              className="bg-whiteBg md:rounded-xl md:shadow-xl relative w-full h-full md:max-w-lg md:h-auto md:mt-0" // Changed bg-white to bg-whiteBg
+              className="bg-whiteBg md:rounded-xl md:shadow-xl relative w-full h-full md:max-w-lg md:h-auto md:mt-0"
               style={{
                 maxHeight: "100vh",
                 md: { maxHeight: "calc(100vh - 80px)" },
                 overflowY: "auto",
-              }} // Full viewport height on mobile
+              }}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Add close button that's always visible */}
               <button
                 onClick={togglePopup}
-                className="absolute top-4 right-4 z-10 p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors duration-300 text-textColor" // Adjusted top/right for consistency
+                className="absolute top-4 right-4 z-10 p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors duration-300 text-textColor"
                 aria-label="Close"
               >
                 <IoMdClose className="w-6 h-6" />
