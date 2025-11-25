@@ -19,11 +19,12 @@
  */
 
 const mongoose = require("mongoose");
-const User = require("./models/User");
-const Booking = require("./models/Booking");
+const User = require("../models/User");
+const Booking = require("../models/Booking");
+const path = require("path");
 
-// Load environment variables
-require("dotenv").config();
+// Load env from backend directory
+require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
 
 async function migrateDatabase() {
   try {
@@ -165,8 +166,22 @@ async function migrateDatabase() {
         if (booking.location && booking.location.join_url) {
           // Rename join_url to meetingLink
           $set["location.meetingLink"] = booking.location.join_url;
-          $unset["location.join_url"] = "";
+          $unset["location.join_url"] = ""; // Remove legacy field
           $unset["location.zoom_pwd"] = ""; // Remove zoom_pwd
+        }
+
+        // Add cancellation object if missing
+        if (!booking.cancellation) {
+          $set.cancellation = {
+            isCancelled: false,
+            reason: null,
+            cancelledBy: null,
+          };
+        }
+
+        // Set eventTimezone if missing (default to UTC for existing bookings)
+        if (!booking.eventTimezone) {
+          $set.eventTimezone = "UTC";
         }
 
         // Add Google Calendar sync fields
@@ -182,8 +197,9 @@ async function migrateDatabase() {
           continue;
         }
 
-        // Apply the updates
-        await Booking.updateOne({ _id: booking._id }, updateDoc);
+        // IMPORTANT: Use raw collection to bypass Mongoose strict schema
+        // so we can $unset legacy fields that are no longer in the schema
+        await Booking.collection.updateOne({ _id: booking._id }, updateDoc);
 
         migratedCount++;
 
