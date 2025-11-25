@@ -1,82 +1,53 @@
 import React, { useState, useEffect, useCallback } from "react";
-// DataTable and Column are removed as BillingTable handles this
-import { useGetPaymentLinkMutation } from "../../../../features/payments/paymentApiSlice";
-import { useGetPastBookingsQuery } from "../../../../features/bookings/bookingApiSlice";
 import { ProgressSpinner } from "primereact/progressspinner";
-import { InputText } from "primereact/inputtext";
-import { Dropdown } from "primereact/dropdown";
-import { Button } from "primereact/button";
-import { Calendar } from "primereact/calendar"; // Import Calendar
 import debounce from "lodash/debounce";
 import Pagination from "../../../../components/pagination";
-import BillingTable from "./BillingTable"; // Import BillingTable
-import {
-  BiInfoCircle,
-  BiErrorCircle,
-  BiFilterAlt,
-  BiSearch,
-  BiRefresh,
-} from "react-icons/bi";
-import { Badge } from "primereact/badge";
-import { toast } from "react-toastify";
-import "./calendar-custom.css"; // We'll create this file for custom calendar styling
-import PaymentInfoPopup from "../MyBookings/PaymentInfoPopup"; // Import the payment info popup
+import { BiInfoCircle, BiErrorCircle, BiRefresh } from "react-icons/bi";
+
+// Import custom components
+import UserBookingFilters from "./UserBookingFilters";
+import UserBookingTable from "./UserBookingTable";
+import ExpandedRowContent from "./ExpandedRowContent";
 import HelpButton from "../../../../components/HelpButton";
+import PaymentInfoPopup from "../MyBookings/PaymentInfoPopup";
+
+// Import RTK Query hooks
+import { useGetPaymentLinkMutation } from "../../../../features/payments/paymentApiSlice";
+import { useGetPastBookingsQuery } from "../../../../features/bookings/bookingApiSlice";
 
 const Billing = () => {
   const [bookingsData, setBookingsData] = useState([]);
   const [expandedRows, setExpandedRows] = useState({});
   const [payingBookingId, setPayingBookingId] = useState(null);
-  const [showPaymentInfoPopup, setShowPaymentInfoPopup] = useState(false); // New state for popup
+  const [showPaymentInfoPopup, setShowPaymentInfoPopup] = useState(false);
 
-  // Filters state
-  const [bookingIdInput, setBookingIdInput] = useState(""); // Temporary input for debouncing
-  const [bookingIdSearch, setBookingIdSearch] = useState(""); // Actual search term for query
-  const [transactionRefInput, setTransactionRefInput] = useState(""); // New state for transaction reference input
-  const [transactionRefSearch, setTransactionRefSearch] = useState(""); // Actual search term for transaction reference
-  const [selectedPaymentStatus, setSelectedPaymentStatus] = useState("");
-  const [selectedDate, setSelectedDate] = useState(null);
-  const [selectedLocation, setSelectedLocation] = useState(""); // New state for location filter
+  // Filters state - simplified
+  const [searchInput, setSearchInput] = useState(""); // Local input state
+  const [searchTerm, setSearchTerm] = useState(""); // Debounced search term for API
+  const [searchError, setSearchError] = useState(""); // Error message for invalid input
+  const [filters, setFilters] = useState({
+    status: "",
+    datePreset: "",
+    location: "",
+    paymentStatus: "",
+  });
 
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [limit] = useState(10);
 
-  // New state for filter visibility
-  const [filtersVisible, setFiltersVisible] = useState(false);
-
-  // Add new state variables for validation errors
-  const [bookingIdError, setBookingIdError] = useState(false);
-  const [transactionRefError, setTransactionRefError] = useState(false);
-
   // Construct query params for the API call
-  const queryParams = { page: currentPage, limit };
+  const queryParams = {
+    page: currentPage,
+    limit,
+  };
 
-  // Only add bookingId search if it has 3 or more digits
-  if (bookingIdSearch && bookingIdSearch.length >= 3) {
-    queryParams.search = bookingIdSearch;
-  }
-
-  // Only add transaction reference if it has exactly 5 characters
-  if (transactionRefSearch && transactionRefSearch.length === 5) {
-    queryParams.transactionRef = transactionRefSearch;
-  }
-
-  queryParams.paymentStatus = selectedPaymentStatus;
-
-  if (selectedDate) {
-    const date = new Date(selectedDate);
-    // Create start of day (00:00:00)
-    const startDate = new Date(date);
-    startDate.setHours(0, 0, 0, 0);
-    // Create end of day (23:59:59.999)
-    const endDate = new Date(date);
-    endDate.setHours(23, 59, 59, 999);
-
-    queryParams.startDate = startDate.toISOString();
-    queryParams.endDate = endDate.toISOString();
-  }
-  if (selectedLocation) queryParams.location = selectedLocation;
+  // Only add non-empty params
+  if (searchTerm) queryParams.search = searchTerm;
+  if (filters.status) queryParams.status = filters.status;
+  if (filters.location) queryParams.location = filters.location;
+  if (filters.paymentStatus) queryParams.paymentStatus = filters.paymentStatus;
+  if (filters.datePreset) queryParams.datePreset = filters.datePreset;
 
   const {
     data: pastBookingsResponseData,
@@ -90,222 +61,113 @@ const Billing = () => {
 
   const [triggerGetPaymentLink] = useGetPaymentLinkMutation();
 
-  // Effect to update payments state from server response
+  // Effect to update bookings state from server response
   useEffect(() => {
     try {
       if (isSuccess && pastBookingsResponseData) {
-        if (
-          pastBookingsResponseData.bookings &&
-          pastBookingsResponseData.bookings.entities
-        ) {
-          const allBookingsOnPage = Object.values(
-            pastBookingsResponseData.bookings.entities
-          );
-          setBookingsData(allBookingsOnPage);
-        } else {
-          console.warn(
-            "No booking entities found in response:",
-            pastBookingsResponseData
-          );
-          setBookingsData([]);
-        }
+        // Extract bookings from normalized state
+        // pastBookingsResponseData.bookings is an entity adapter state { ids: [], entities: {} }
+        const bookingsState = pastBookingsResponseData.bookings;
+        const bookingsArray =
+          bookingsState?.ids?.map((id) => bookingsState.entities[id]) || [];
 
-        if (pastBookingsResponseData.pagination) {
-          setTotalPages(pastBookingsResponseData.pagination.totalPages || 1);
-        } else {
-          console.warn("No pagination info found in response");
-          setTotalPages(1);
-        }
-      } else if (!isLoading && !isFetching && !isSuccess && !isError) {
+        setBookingsData(bookingsArray);
+        setTotalPages(pastBookingsResponseData.pagination?.totalPages || 1);
+      } else if (isError) {
         setBookingsData([]);
       }
     } catch (error) {
-      console.error("Error processing booking data:", error);
+      console.error("Error processing bookings data:", error);
       setBookingsData([]);
-      setTotalPages(1);
     }
-  }, [isSuccess, pastBookingsResponseData, isLoading, isFetching, isError]);
+  }, [isSuccess, isError, pastBookingsResponseData]);
 
-  // Update the debounced function for bookingIdSearch to handle validation
-  const debouncedSetBookingIdSearch = useCallback(
+  // Debounced search handler
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const debouncedSearch = useCallback(
     debounce((value) => {
-      if (value.length === 0) {
-        // Clear search if empty
-        setBookingIdSearch("");
-        setBookingIdError(false); // Clear error when empty
-        // Only reset page if there was a previous search term
-        if (bookingIdSearch !== "") setCurrentPage(1);
-      } else if (value.length >= 3) {
-        // Only set search term if 3+ digits
-        setBookingIdSearch(value);
-        setBookingIdError(false); // Clear error when valid
-        // Only reset page if the search term actually changed
-        if (bookingIdSearch !== value) setCurrentPage(1);
+      // Validate: only numeric input allowed for booking ID search
+      if (value && isNaN(value)) {
+        setSearchError("Please enter a valid numeric Booking ID");
+        setSearchTerm(""); // Don't send invalid search to API
       } else {
-        // If input is less than 3 digits but not empty, show error
-        setBookingIdSearch("");
-        setBookingIdError(true); // Set error flag
-        // Only reset page if there was a previous search term
-        if (bookingIdSearch !== "") setCurrentPage(1);
+        setSearchError("");
+        setSearchTerm(value);
       }
-    }, 500),
-    [bookingIdSearch] // Remove currentPage dependency
-  );
-
-  // Update debounce function for transactionRef to handle validation
-  const debouncedSetTransactionRefSearch = useCallback(
-    debounce((value) => {
-      if (value.length === 0) {
-        // Clear search if empty
-        setTransactionRefSearch("");
-        setTransactionRefError(false); // Clear error when empty
-        // Only reset page if there was a previous search term
-        if (transactionRefSearch !== "") setCurrentPage(1);
-      } else if (value.length === 5) {
-        // Only set search term if exactly 5 characters
-        setTransactionRefSearch(value);
-        setTransactionRefError(false); // Clear error when valid
-        // Only reset page if the search term actually changed
-        if (transactionRefSearch !== value) setCurrentPage(1);
-      } else {
-        // If not empty and not 5 chars, show error
-        setTransactionRefSearch("");
-        setTransactionRefError(true); // Set error flag
-        // Only reset page if there was a previous search term
-        if (transactionRefSearch !== "") setCurrentPage(1);
-      }
-    }, 500),
-    [transactionRefSearch] // Remove currentPage dependency
-  );
-
-  useEffect(() => {
-    debouncedSetBookingIdSearch(bookingIdInput);
-    // Cleanup function for debounce
-    return () => {
-      debouncedSetBookingIdSearch.cancel();
-    };
-  }, [bookingIdInput, debouncedSetBookingIdSearch]);
-
-  useEffect(() => {
-    debouncedSetTransactionRefSearch(transactionRefInput);
-    return () => {
-      debouncedSetTransactionRefSearch.cancel();
-    };
-  }, [transactionRefInput, debouncedSetTransactionRefSearch]);
-
-  // Generic handler to reset to page 1 when filters change
-  const handleFilterChange = useCallback((newValue, currentValue) => {
-    // Only reset to page 1 if the filter value actually changed
-    if (newValue !== currentValue) {
       setCurrentPage(1);
-    }
-  }, []); // Remove currentPage dependency
+    }, 500),
+    []
+  );
 
-  // Add an immediate validation function for Booking ID
-  const handleBookingIdInputChange = (e) => {
+  // Handle search input change
+  const handleSearchChange = (e) => {
     const value = e.target.value;
-    setBookingIdInput(value); // Update temporary input immediately
-
-    // Show error immediately if not empty and less than 3 digits
-    if (value.length > 0 && value.length < 3) {
-      setBookingIdError(true);
-    } else {
-      setBookingIdError(false);
-    }
+    setSearchInput(value); // Update local input immediately
+    debouncedSearch(value); // Debounce the API call
   };
 
-  // Add an immediate validation function for Transaction Ref
-  const handleTransactionRefInputChange = (e) => {
-    const value = e.target.value;
-    setTransactionRefInput(value);
-
-    // Show error immediately if not empty and not 5 chars
-    if (value.length > 0 && value.length !== 5) {
-      setTransactionRefError(true);
-    } else {
-      setTransactionRefError(false);
-    }
+  // Handle filter changes
+  const handleFilterChange = (filterType, value) => {
+    setFilters((prev) => ({ ...prev, [filterType]: value }));
+    setCurrentPage(1); // Reset to first page when filtering
   };
 
-  const handlePaymentStatusChange = (e) => {
-    const newValue = e.value;
-    // Only reset page if value actually changed
-    handleFilterChange(newValue, selectedPaymentStatus);
-    setSelectedPaymentStatus(newValue);
-  };
-
-  const handleDateChange = (e) => {
-    const newValue = e.value;
-    // Only reset page if value actually changed
-    const currentDateString = selectedDate ? selectedDate.toISOString() : null;
-    const newDateString = newValue ? newValue.toISOString() : null;
-    handleFilterChange(newDateString, currentDateString);
-    setSelectedDate(newValue);
-  };
-
-  const handleLocationChange = (e) => {
-    const newValue = e.value;
-    // Only reset page if value actually changed
-    handleFilterChange(newValue, selectedLocation);
-    setSelectedLocation(newValue);
-  };
-
+  // Clear all filters
   const clearFilters = () => {
-    setBookingIdInput(""); // Clear temporary input
-    setBookingIdSearch(""); // Clear actual search term
-    setTransactionRefInput(""); // Clear transaction reference input
-    setTransactionRefSearch(""); // Clear transaction reference search
-    setSelectedPaymentStatus("");
-    setSelectedDate(null);
-    setSelectedLocation(""); // Clear location filter
+    setSearchInput("");
+    setSearchTerm("");
+    setSearchError("");
+    setFilters({
+      status: "",
+      datePreset: "",
+      location: "",
+      paymentStatus: "",
+    });
     if (currentPage !== 1) {
       setCurrentPage(1);
     }
-    // RTK Query will refetch due to queryParams changing.
   };
 
+  // Pagination handler
   const handlePageChange = (page) => {
-    // Just set the page without any additional checks or side effects
     setCurrentPage(page);
     setExpandedRows({});
   };
 
+  // Handle row toggle for expanding/collapsing
   const onRowToggle = (data) => {
-    const newExpandedRows = { ...expandedRows };
-    if (newExpandedRows[data._id]) {
-      delete newExpandedRows[data._id];
-    } else {
-      newExpandedRows[data._id] = true;
-    }
-    setExpandedRows(newExpandedRows);
+    setExpandedRows((prev) => {
+      const newState = { ...prev };
+      if (newState[data._id]) {
+        delete newState[data._id];
+      } else {
+        newState[data._id] = true;
+      }
+      return newState;
+    });
   };
 
+  // Payment redirect handler (button hidden for now)
   const redirectToPayment = async (bookingId) => {
     if (!bookingId) {
-      console.error("redirectToPayment: bookingId is undefined");
+      console.error("No booking ID provided");
       return;
     }
     // Show the payment info popup instead of redirecting
     setShowPaymentInfoPopup(true);
-    // setPayingBookingId(bookingId);
-    // try {
-    //   const response = await triggerGetPaymentLink({ bookingId }).unwrap();
-    //   if (response.url) {
-    //     window.location.href = response.url;
-    //   } else {
-    //     // Show error to user
-    //     console.error("Failed to fetch payment link: No URL found");
-    //   }
-    // } catch (error) {
-    //   // Show error to user
-    //   console.error("Failed to fetch payment link:", error);
-    // } finally {
-    //   setPayingBookingId(null);
-    // }
   };
 
+  // Check if any filters are active
+  const anyFiltersActive =
+    filters.status ||
+    filters.datePreset ||
+    filters.location ||
+    filters.paymentStatus ||
+    searchTerm ||
+    searchInput;
+
+  // Loading state
   if (isLoading || isFetching) {
-    // Show loader if loading or fetching
     return (
       <div className="flex justify-center items-center p-10">
         <ProgressSpinner
@@ -316,10 +178,8 @@ const Billing = () => {
     );
   }
 
+  // Error state
   if (isError) {
-    // Log the full error for debugging
-    console.error("Error object details:", bookingFetchError);
-
     return (
       <div
         className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative m-4"
@@ -331,7 +191,6 @@ const Billing = () => {
         <span className="block sm:inline">
           {bookingFetchError?.data?.message ||
             bookingFetchError?.error ||
-            JSON.stringify(bookingFetchError) ||
             "Failed to load booking history."}
         </span>
         <div className="mt-3">
@@ -339,6 +198,7 @@ const Billing = () => {
             onClick={refetch}
             className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
           >
+            <BiRefresh className="inline-block mr-1" />
             Try Again
           </button>
         </div>
@@ -346,53 +206,49 @@ const Billing = () => {
     );
   }
 
+  // Empty state - no bookings at all
   if (
     isSuccess &&
     !isFetching &&
     bookingsData.length === 0 &&
-    !bookingIdSearch && // Check actual search term
-    !selectedPaymentStatus &&
-    !selectedDate &&
-    !selectedLocation && // Check location filter
+    !anyFiltersActive &&
     pastBookingsResponseData?.pagination?.totalBookings === 0
   ) {
     return (
-      <div className="text-center p-10 bg-white rounded-lg shadow-md">
-        <BiInfoCircle className="w-12 h-12 text-textColor mx-auto mb-4" />
-        <h3 className="text-xl font-semibold text-textColor">
-          No Booking History
-        </h3>
-        <p className="text-textColor">
-          Only bookings in the past will show up here.
-        </p>
+      <div className="max-w-7xl mx-auto">
+        {/* Help Button */}
+        <HelpButton />
+
+        <header className="mb-6">
+          <h1 className="text-2xl font-bold text-textColor">Past Bookings</h1>
+          <p className="mt-1 text-textColor">
+            View and manage your Past Bookings
+          </p>
+        </header>
+
+        <div className="text-center p-10 bg-white rounded-lg shadow-md">
+          <BiInfoCircle className="w-12 h-12 text-textColor mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-textColor">
+            No Booking History
+          </h3>
+          <p className="text-textColor">
+            Only bookings in the past will show up here.
+          </p>
+        </div>
       </div>
     );
   }
 
-  const paymentStatusOptions = [
-    { label: "All Payment Statuses", value: "" },
-    { label: "Completed", value: "Completed" },
-    { label: "Failed", value: "Failed" },
-    { label: "Refunded", value: "Refunded" },
-    { label: "Not Initiated", value: "Not Initiated" },
-    { label: "Refund Requested", value: "Refund Requested" },
-    // Add other relevant payment statuses
-  ];
-
-  const locationOptions = [
-    { label: "All Locations", value: "" },
-    { label: "Online", value: "online" },
-    { label: "In-Person", value: "in-person" },
-  ];
-
-  // Calculate active filters count - add transactionRefSearch
-  const activeFiltersCount = [
-    bookingIdSearch,
-    transactionRefSearch,
-    selectedPaymentStatus,
-    selectedDate,
-    selectedLocation,
-  ].filter(Boolean).length;
+  // Render expanded row content
+  const expandedRowTemplate = (booking) => {
+    return (
+      <ExpandedRowContent
+        data={booking}
+        onRedirectToPayment={redirectToPayment}
+        payingBookingId={payingBookingId}
+      />
+    );
+  };
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -415,190 +271,17 @@ const Billing = () => {
         </p>
       </header>
 
-      <div className="mb-6 bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="p-4 flex justify-between items-center">
-          <div className="flex space-x-2">
-            <button
-              className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
-                filtersVisible
-                  ? "bg-lightPink text-white"
-                  : "bg-lightPink text-white"
-              }`}
-              onClick={() => setFiltersVisible(!filtersVisible)}
-            >
-              <BiFilterAlt />
-              <span>Filters</span>
-              {activeFiltersCount > 0 && (
-                <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-orangeHeader rounded-full">
-                  {activeFiltersCount}
-                </span>
-              )}
-            </button>
+      {/* Filters Section */}
+      <UserBookingFilters
+        searchInput={searchInput}
+        searchError={searchError}
+        onSearchChange={handleSearchChange}
+        filters={filters}
+        onFilterChange={handleFilterChange}
+        clearFilters={clearFilters}
+      />
 
-            <button
-              className="flex items-center gap-2 px-4 py-2 bg-lightPink text-white rounded-md transition-colors"
-              onClick={() => {
-                if (
-                  currentPage !== 1 &&
-                  !bookingIdSearch &&
-                  !selectedPaymentStatus &&
-                  !selectedDate &&
-                  !selectedLocation
-                ) {
-                  setCurrentPage(1);
-                } else {
-                  refetch();
-                }
-                setExpandedRows({});
-              }}
-            >
-              <BiRefresh />
-              <span>Refresh</span>
-            </button>
-          </div>
-
-          {activeFiltersCount > 0 && (
-            <button
-              className="text-orangeText hover:underline font-medium"
-              onClick={clearFilters}
-            >
-              Clear All Filters
-            </button>
-          )}
-        </div>
-
-        {/* Collapsible filter section */}
-        {filtersVisible && (
-          <div className="border-t border-gray-200 p-4 bg-gray-50 transition-all duration-300">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="filter-group lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label
-                    htmlFor="bookingIdSearch"
-                    className="block text-sm font-medium text-textColor mb-2"
-                  >
-                    Booking ID
-                  </label>
-                  <InputText
-                    id="bookingIdSearch"
-                    value={bookingIdInput}
-                    onChange={handleBookingIdInputChange}
-                    placeholder="Enter ID number"
-                    className={`w-full border-gray-300 shadow-sm rounded-md filter-input-height ${
-                      bookingIdError ? "p-invalid" : ""
-                    }`}
-                    type="number"
-                  />
-                  {bookingIdError ? (
-                    <div className="text-xs text-red-500 mt-1">
-                      Booking ID must be at least 3 digits
-                    </div>
-                  ) : (
-                    <div className="text-xs text-gray-500 mt-1">
-                      Exactly 3 or more digits required
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="transactionRefSearch"
-                    className="block text-sm font-medium text-textColor mb-2"
-                  >
-                    Transaction Reference
-                  </label>
-                  <div className="p-inputgroup shadow-sm rounded-md overflow-hidden">
-                    <span className="p-inputgroup-addon bg-gray-100 text-gray-700 font-medium border-0">
-                      T-
-                    </span>
-                    <InputText
-                      id="transactionRefSearch"
-                      value={transactionRefInput}
-                      onChange={handleTransactionRefInputChange}
-                      placeholder="bQmGc"
-                      className={`w-full border-gray-300 border-0 ${
-                        transactionRefError ? "p-invalid" : ""
-                      }`}
-                    />
-                  </div>
-                  {transactionRefError ? (
-                    <div className="text-xs text-red-500 mt-1">
-                      Transaction reference must be exactly 5 characters
-                    </div>
-                  ) : (
-                    <div className="text-xs text-gray-500 mt-1">
-                      Exactly 5 characters required
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="filter-group">
-                <label
-                  htmlFor="paymentStatusFilter"
-                  className="block text-sm font-medium text-textColor mb-2"
-                >
-                  Payment Status
-                </label>
-                <Dropdown
-                  id="paymentStatusFilter"
-                  value={selectedPaymentStatus}
-                  options={paymentStatusOptions}
-                  onChange={handlePaymentStatusChange}
-                  placeholder="Select Status"
-                  className="w-full shadow-sm rounded-md dropdown-custom"
-                  panelClassName="dropdown-panel-custom !bg-white border-0 shadow-lg rounded-md"
-                  panelStyle={{ backgroundColor: "white" }}
-                />
-              </div>
-
-              <div className="filter-group">
-                <label
-                  htmlFor="locationFilter"
-                  className="block text-sm font-medium text-textColor mb-2"
-                >
-                  Location
-                </label>
-                <Dropdown
-                  id="locationFilter"
-                  value={selectedLocation}
-                  options={locationOptions}
-                  onChange={handleLocationChange}
-                  placeholder="Select Location"
-                  className="w-full shadow-sm rounded-md dropdown-custom"
-                  panelClassName="dropdown-panel-custom !bg-white border-0 shadow-lg rounded-md"
-                  panelStyle={{ backgroundColor: "white" }}
-                />
-              </div>
-
-              <div className="filter-group">
-                <label
-                  htmlFor="dateFilter"
-                  className="block text-sm font-medium text-textColor mb-2"
-                >
-                  Session Date
-                </label>
-                <Calendar
-                  id="dateFilter"
-                  value={selectedDate}
-                  onChange={handleDateChange}
-                  dateFormat="dd-mm-yy"
-                  placeholder="Select Date (DD-MM-YYYY)"
-                  showIcon
-                  iconClassName="text-orangeText"
-                  className="w-full shadow-sm rounded-md calendar-custom"
-                  panelClassName="calendar-panel-custom !bg-white shadow-lg rounded-md overflow-hidden border-0"
-                  panelStyle={{ backgroundColor: "white" }}
-                  monthNavigatorClassName="month-nav-custom"
-                  yearNavigatorClassName="year-nav-custom"
-                  todayButtonClassName="today-btn-custom"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
+      {/* Results count */}
       <div className="mb-4">
         <span className="text-gray-600">
           Showing <span className="font-medium">{bookingsData.length}</span> of{" "}
@@ -609,20 +292,25 @@ const Billing = () => {
         </span>
       </div>
 
-      <BillingTable
-        paymentsData={bookingsData}
+      {/* Bookings Table */}
+      <UserBookingTable
+        bookings={bookingsData}
         expandedRows={expandedRows}
-        onRowToggle={onRowToggle}
-        onRedirectToPayment={redirectToPayment}
-        payingBookingId={payingBookingId}
+        setExpandedRows={setExpandedRows}
+        clearFilters={clearFilters}
+        anyFiltersActive={anyFiltersActive}
+        expandedRowTemplate={expandedRowTemplate}
       />
 
-      {totalPages > 1 && (
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={handlePageChange}
-        />
+      {/* Pagination */}
+      {totalPages > 1 && bookingsData.length > 0 && (
+        <div className="mt-6">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={handlePageChange}
+          />
+        </div>
       )}
     </div>
   );

@@ -74,6 +74,37 @@ const BillingTable = ({
     );
   };
 
+  const sourceBodyTemplate = (rowData) => {
+    if (!rowData || !rowData.source) return <span>--</span>;
+
+    let sourceLabel, sourceColor;
+    switch (rowData.source) {
+      case "calendly":
+        sourceLabel = "Calendly";
+        sourceColor = "text-blue-700 bg-blue-100";
+        break;
+      case "admin":
+        sourceLabel = "Admin";
+        sourceColor = "text-purple-700 bg-purple-100";
+        break;
+      case "system":
+        sourceLabel = "Recurring";
+        sourceColor = "text-orange-700 bg-orange-100";
+        break;
+      default:
+        sourceLabel = rowData.source;
+        sourceColor = "text-gray-600 bg-gray-100";
+    }
+
+    return (
+      <span
+        className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium ${sourceColor}`}
+      >
+        {sourceLabel}
+      </span>
+    );
+  };
+
   const rowExpansionTemplate = (data) => {
     // data here is a single booking object
     if (!data) return null;
@@ -147,6 +178,14 @@ const BillingTable = ({
           header="Session Date/Time"
           sortField="eventStartTime" // Sort by actual date object if possible
           style={{ minWidth: "14rem" }}
+          headerClassName="bg-gray-50 text-gray-600 text-xs uppercase font-medium px-4 py-3"
+          bodyClassName="px-4 py-3 text-sm text-gray-700"
+        />
+        <Column
+          field="source"
+          header="Source"
+          body={sourceBodyTemplate}
+          style={{ minWidth: "10rem" }}
           headerClassName="bg-gray-50 text-gray-600 text-xs uppercase font-medium px-4 py-3"
           bodyClassName="px-4 py-3 text-sm text-gray-700"
         />

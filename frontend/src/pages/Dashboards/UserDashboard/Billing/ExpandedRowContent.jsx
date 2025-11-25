@@ -77,7 +77,31 @@ const ExpandedRowContent = ({
     transactionStatusDisplay:
       initialData.transactionStatusDisplay ||
       getStatusDisplay(initialData.payment?.transactionStatus),
+    // Compute event name if missing
+    eventName: initialData.eventName || computeEventName(initialData),
   });
+
+  // Helper function to compute event name based on source
+  function computeEventName(booking) {
+    if (!booking) return "Session";
+
+    if (booking.source === "calendly" && booking.calendly?.eventName) {
+      return booking.calendly.eventName;
+    } else if (booking.source === "system" && booking.recurring?.state) {
+      const intervals = {
+        weekly: "Weekly",
+        biweekly: "Bi-weekly",
+        monthly: "Monthly",
+      };
+      const intervalLabel =
+        intervals[booking.recurring.interval] || "Recurring";
+      return `${intervalLabel} Session`;
+    } else if (booking.source === "admin") {
+      return "Admin Scheduled Session";
+    }
+
+    return "Session";
+  }
 
   const calculateDuration = (startTime, endTime) => {
     if (!startTime || !endTime) return "--";
@@ -113,11 +137,16 @@ const ExpandedRowContent = ({
       }
       // If bookingDetails has a more up-to-date status or other fields, they are now in newData
       newData.status = bookingDetails.status || newData.status;
-      newData.eventName = bookingDetails.eventName || newData.eventName;
+      newData.eventName =
+        bookingDetails.eventName ||
+        computeEventName(bookingDetails) ||
+        newData.eventName;
       newData.location = bookingDetails.location || newData.location;
       newData.notes = bookingDetails.notes || newData.notes;
       newData.cancellation =
         bookingDetails.cancellation || newData.cancellation;
+      newData.source = bookingDetails.source || newData.source;
+      newData.recurring = bookingDetails.recurring || newData.recurring;
     }
 
     if (paymentDetails && !paymentLoading && !paymentError) {
@@ -238,213 +267,264 @@ const ExpandedRowContent = ({
           initialData.formattedPaymentCompletedDate // Example fallback
     );
 
+  // Flag to show/hide payment button (set to false for now)
+  const showPaymentButton = false;
+
   return (
-    <div className="p-4 bg-gray-50 rounded-lg">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-800 mb-3">
-            Payment Details
-          </h3>
-          <div className="bg-white p-4 rounded-lg shadow-sm">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <div>
-                  <p className="text-sm text-gray-500">Transaction ID</p>
-                  <p className="font-medium">
-                    {combinedData.payment?.transactionReferenceNumber ||
-                      combinedData.payment?.reference_number ||
-                      "--"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Amount</p>
-                  <p className="font-medium">
-                    {typeof combinedData.payment?.amount === "number"
-                      ? `${combinedData.payment.amount.toLocaleString()} ${
-                          combinedData.payment?.currency || "PKR"
-                        }`
-                      : "--"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Payment Status</p>
-                  <div>
-                    <ExpandedStatusDisplay
-                      transactionStatusDisplay={
-                        combinedData.transactionStatusDisplay
-                      }
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div>
-                  <p className="text-sm text-gray-500">{paymentDateTitle}</p>
-                  <p className="font-medium">{paymentDateValue}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Payment Method</p>
-                  <p className="font-medium">
-                    {combinedData.payment?.paymentMethod || "--"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Currency</p>
-                  <p className="font-medium">
-                    {combinedData.payment?.currency || "PKR"}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Refund request info - now full width */}
-            {combinedData.payment?.transactionStatus === "Refund Requested" && (
-              <div className="mt-4 px-3 py-2 bg-blue-50 border-l-4 border-blue-300 rounded w-full">
-                <div className="flex items-start">
-                  <FaInfoCircle className="text-blue-400 mt-0.5 mr-2 flex-shrink-0" />
-                  <div>
-                    <p className="text-s font-medium text-blue-700">
-                      Refund Request Status
-                    </p>
-                    <ul className="mt-1 text-s text-gray-600 list-disc pl-4 space-y-1">
-                      <li>
-                        Your request has been received and is being processed
-                      </li>
-                      <li>
-                        Please allow 2-3 business days for the refund to be
-                        initiated
-                      </li>
-                      <li>
-                        If you don't receive an email after this period, please
-                        contact us with the transaction ID above
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {(combinedData.payment?.transactionStatus === "Not Initiated" ||
-              combinedData.payment?.transactionStatus === "Cancelled" ||
-              combinedData.payment?.transactionStatus === "Failed") &&
-              combinedData._id && (
-                <div className="mt-4 flex justify-end">
-                  <button
-                    onClick={() => onRedirectToPayment(combinedData._id)}
-                    disabled={payingBookingId === combinedData._id}
-                    className="inline-flex items-center justify-center bg-gray-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 disabled:opacity-70 disabled:cursor-not-allowed"
-                  >
-                    {payingBookingId === combinedData._id ? (
-                      <>
-                        <BiLoaderAlt className="animate-spin mr-2 h-5 w-5" />
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <BiDollarCircle className="mr-2 h-5 w-5" />
-                        Make Payment
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Payment Details Section */}
+      <section>
+        <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">
+          Payment Details
+        </h3>
+        <dl className="space-y-3">
+          <div className="flex justify-between items-start">
+            <dt className="text-sm text-gray-500 font-medium">
+              Transaction ID
+            </dt>
+            <dd className="text-sm text-gray-900 text-right">
+              {combinedData.payment?.transactionReferenceNumber ||
+                combinedData.payment?.reference_number ||
+                "--"}
+            </dd>
           </div>
-        </div>
+          <div className="flex justify-between items-start">
+            <dt className="text-sm text-gray-500 font-medium">Amount</dt>
+            <dd className="text-sm text-gray-900 font-semibold text-right">
+              {typeof combinedData.payment?.amount === "number"
+                ? `${combinedData.payment.amount.toLocaleString()} ${
+                    combinedData.payment?.currency || "PKR"
+                  }`
+                : "--"}
+            </dd>
+          </div>
+          <div className="flex justify-between items-start">
+            <dt className="text-sm text-gray-500 font-medium">
+              Payment Status
+            </dt>
+            <dd className="text-sm text-gray-900 text-right">
+              <ExpandedStatusDisplay
+                transactionStatusDisplay={combinedData.transactionStatusDisplay}
+              />
+            </dd>
+          </div>
+          <div className="flex justify-between items-start">
+            <dt className="text-sm text-gray-500 font-medium">
+              {paymentDateTitle}
+            </dt>
+            <dd className="text-sm text-gray-900 text-right">
+              {paymentDateValue}
+            </dd>
+          </div>
+          <div className="flex justify-between items-start">
+            <dt className="text-sm text-gray-500 font-medium">
+              Payment Method
+            </dt>
+            <dd className="text-sm text-gray-900 text-right">
+              {combinedData.payment?.paymentMethod || "--"}
+            </dd>
+          </div>
+          <div className="flex justify-between items-start">
+            <dt className="text-sm text-gray-500 font-medium">Currency</dt>
+            <dd className="text-sm text-gray-900 text-right">
+              {combinedData.payment?.currency || "PKR"}
+            </dd>
+          </div>
+        </dl>
 
-        <div>
-          <h3 className="text-lg font-semibold text-gray-800 mb-3">
-            Session Details
-          </h3>
-          <div className="bg-white p-4 rounded-lg shadow-sm">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <div>
-                  <p className="text-sm text-gray-500">Event Name</p>
-                  <p className="font-medium">
-                    {combinedData.eventName || "--"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Booking ID</p>
-                  <p className="font-medium">
-                    {combinedData.customerBookingId ||
-                      combinedData.bookingId ||
-                      "--"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Session Status</p>
-                  {/* 'status' on combinedData is the booking status */}
-                  <p className="font-medium">{combinedData.status || "--"}</p>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div>
-                  <p className="text-sm text-gray-500">Session Date & Time</p>
-                  <p className="font-medium">
-                    {/* Use eventStartTime from combinedData, format it */}
-                    {combinedData.eventStartTime
-                      ? formatReadableDate(combinedData.eventStartTime)
-                      : "--"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Location</p>
-                  <p className="font-medium">
-                    {formatLocation(combinedData.location)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Duration</p>
-                  <p className="font-medium">
-                    {combinedData.sessionDuration || "--"}
-                  </p>
-                </div>
+        {/* Refund request info */}
+        {combinedData.payment?.transactionStatus === "Refund Requested" && (
+          <div className="mt-4 px-3 py-2 bg-blue-50 border-l-4 border-blue-300 rounded">
+            <div className="flex items-start">
+              <FaInfoCircle className="text-blue-400 mt-0.5 mr-2 flex-shrink-0" />
+              <div>
+                <p className="text-xs font-medium text-blue-700">
+                  Refund Request Status
+                </p>
+                <ul className="mt-1 text-xs text-gray-600 list-disc pl-4 space-y-1">
+                  <li>Your request has been received and is being processed</li>
+                  <li>
+                    Please allow 2-3 business days for the refund to be
+                    initiated
+                  </li>
+                  <li>
+                    If you don't receive an email after this period, please
+                    contact us with the transaction ID above
+                  </li>
+                </ul>
               </div>
             </div>
-            {combinedData.notes && (
-              <div className="mt-4">
-                <p className="text-sm text-gray-500">Session Notes</p>
-                <p className="text-sm bg-gray-50 p-2 rounded mt-1">
-                  {combinedData.notes}
-                </p>
-              </div>
-            )}
-            {combinedData.cancellation?.reason && (
-              <div className="mt-4 p-2 bg-red-50 rounded-md border border-red-200">
-                <p className="text-sm text-gray-700 font-medium">
-                  Cancellation Details
-                </p>
-                <p className="text-sm text-red-600">
-                  Reason: {combinedData.cancellation.reason}
-                </p>
-                {combinedData.cancellation.date && (
-                  <p className="text-sm text-gray-600">
-                    Cancelled on:{" "}
-                    {formatReadableDate(combinedData.cancellation.date)}
-                  </p>
+          </div>
+        )}
+
+        {/* Payment Button - Hidden for now, but logic preserved */}
+        {showPaymentButton &&
+          (combinedData.payment?.transactionStatus === "Not Initiated" ||
+            combinedData.payment?.transactionStatus === "Cancelled" ||
+            combinedData.payment?.transactionStatus === "Failed") &&
+          combinedData._id && (
+            <div className="mt-4">
+              <button
+                onClick={() => onRedirectToPayment(combinedData._id)}
+                disabled={payingBookingId === combinedData._id}
+                className="w-full inline-flex items-center justify-center bg-[#DF9E7A] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#DF9E7A]/90 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#DF9E7A] focus:ring-opacity-50 disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {payingBookingId === combinedData._id ? (
+                  <>
+                    <BiLoaderAlt className="animate-spin mr-2 h-5 w-5" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <BiDollarCircle className="mr-2 h-5 w-5" />
+                    Make Payment
+                  </>
                 )}
-              </div>
-            )}
-            {combinedData.location?.type === "online" &&
-              (combinedData.status === "Active" ||
-                combinedData.status === "active") && // check for 'active' too
-              combinedData.location?.join_url && (
-                <div className="mt-4 flex justify-end">
-                  <a
-                    href={combinedData.location.join_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center bg-green-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50"
-                    onClick={(e) => e.stopPropagation()} // Prevent row click if needed
-                  >
-                    <BiVideo className="mr-2 h-5 w-5" /> Join Session
-                  </a>
-                </div>
-              )}
+              </button>
+            </div>
+          )}
+      </section>
+
+      {/* Session Details Section */}
+      <section>
+        <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">
+          Session Details
+        </h3>
+        <dl className="space-y-3">
+          <div className="flex justify-between items-start">
+            <dt className="text-sm text-gray-500 font-medium">Event Name</dt>
+            <dd className="text-sm text-gray-900 text-right">
+              {combinedData.eventName || "--"}
+            </dd>
           </div>
-        </div>
-      </div>
+          <div className="flex justify-between items-start">
+            <dt className="text-sm text-gray-500 font-medium">Booking ID</dt>
+            <dd className="text-sm text-gray-900 text-right">
+              {combinedData.customerBookingId || combinedData.bookingId || "--"}
+            </dd>
+          </div>
+          <div className="flex justify-between items-start">
+            <dt className="text-sm text-gray-500 font-medium">
+              Session Status
+            </dt>
+            <dd className="text-sm text-gray-900 text-right">
+              {combinedData.status || "--"}
+            </dd>
+          </div>
+          <div className="flex justify-between items-start">
+            <dt className="text-sm text-gray-500 font-medium">
+              Session Date & Time
+            </dt>
+            <dd className="text-sm text-gray-900 text-right">
+              {combinedData.eventStartTime
+                ? formatReadableDate(combinedData.eventStartTime)
+                : "--"}
+            </dd>
+          </div>
+          <div className="flex justify-between items-start">
+            <dt className="text-sm text-gray-500 font-medium">Location</dt>
+            <dd className="text-sm text-gray-900 text-right">
+              {formatLocation(combinedData.location)}
+            </dd>
+          </div>
+          <div className="flex justify-between items-start">
+            <dt className="text-sm text-gray-500 font-medium">Duration</dt>
+            <dd className="text-sm text-gray-900 text-right">
+              {combinedData.sessionDuration || "--"}
+            </dd>
+          </div>
+        </dl>
+
+        {/* Session Notes */}
+        {combinedData.notes && (
+          <div className="mt-4 p-3 bg-white rounded-md border border-gray-200">
+            <p className="text-xs font-medium text-gray-700 mb-1">
+              Session Notes
+            </p>
+            <p className="text-sm text-gray-600">{combinedData.notes}</p>
+          </div>
+        )}
+
+        {/* Recurring Session Details */}
+        {combinedData.source === "system" && combinedData.recurring?.state && (
+          <div className="mt-4 p-3 bg-orange-50 rounded-md border border-orange-200">
+            <p className="text-xs font-medium text-gray-700 mb-2">
+              Recurring Session Details
+            </p>
+            <div className="space-y-1 text-sm text-gray-600">
+              <p>
+                <span className="font-medium">Schedule:</span>{" "}
+                {combinedData.recurring.interval === "weekly" && "Weekly"}
+                {combinedData.recurring.interval === "biweekly" && "Bi-weekly"}
+                {combinedData.recurring.interval === "monthly" && "Monthly"}
+              </p>
+              {combinedData.recurring.time && (
+                <p>
+                  <span className="font-medium">Time:</span>{" "}
+                  {combinedData.recurring.time}
+                </p>
+              )}
+              {combinedData.recurring.day !== undefined && (
+                <p>
+                  <span className="font-medium">Day:</span>{" "}
+                  {
+                    [
+                      "Sunday",
+                      "Monday",
+                      "Tuesday",
+                      "Wednesday",
+                      "Thursday",
+                      "Friday",
+                      "Saturday",
+                    ][combinedData.recurring.day]
+                  }
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Cancellation Details */}
+        {combinedData.cancellation?.reason && (
+          <div className="mt-4 p-3 bg-red-50 rounded-md border border-red-200">
+            <p className="text-xs font-medium text-gray-700 mb-1">
+              Cancellation Details
+            </p>
+            <p className="text-sm text-red-600">
+              Reason: {combinedData.cancellation.reason}
+            </p>
+            {combinedData.cancellation.date && (
+              <p className="text-sm text-gray-600">
+                Cancelled on:{" "}
+                {formatReadableDate(combinedData.cancellation.date)}
+              </p>
+            )}
+            {combinedData.cancellation.cancelledBy && (
+              <p className="text-sm text-gray-600">
+                Cancelled by: {combinedData.cancellation.cancelledBy}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Join Session Button */}
+        {combinedData.location?.type === "online" &&
+          (combinedData.status === "Active" ||
+            combinedData.status === "active") &&
+          combinedData.location?.join_url && (
+            <div className="mt-4">
+              <a
+                href={combinedData.location.join_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full inline-flex items-center justify-center bg-green-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <BiVideo className="mr-2 h-5 w-5" /> Join Session
+              </a>
+            </div>
+          )}
+      </section>
     </div>
   );
 };
