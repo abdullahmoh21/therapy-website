@@ -140,7 +140,7 @@ const Metrics = () => {
   return (
     <div className="max-w-7xl mx-auto">
       <header className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">Business Dashboard</h1>
+        <h1 className="text-3xl font-semibold text-gray-800">Business Dashboard</h1>
         <p className="mt-2 text-gray-600">
           A quick view of how your therapy practice is doing.
         </p>
@@ -152,7 +152,7 @@ const Metrics = () => {
           className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4"
           role="alert"
         >
-          <strong className="font-bold">Error: </strong>
+          <strong className="font-semibold">Error: </strong>
           <span className="block sm:inline">{errorMessage}</span>
           <button
             onClick={refetchAll}
@@ -224,7 +224,7 @@ const Metrics = () => {
                 </h3>
               </div>
               <div className="flex items-baseline">
-                <span className="text-2xl font-bold text-gray-900">
+                <span className="text-2xl font-semibold text-gray-900">
                   {formatCurrency(estimatedRevenue)}
                 </span>
               </div>
@@ -241,7 +241,7 @@ const Metrics = () => {
                 </h3>
               </div>
               <div className="flex items-baseline">
-                <span className="text-2xl font-bold text-gray-900">
+                <span className="text-2xl font-semibold text-gray-900">
                   {sessionsCompleted}
                 </span>
               </div>
@@ -258,7 +258,7 @@ const Metrics = () => {
                 </h3>
               </div>
               <div className="flex items-baseline">
-                <span className="text-2xl font-bold text-gray-900">
+                <span className="text-2xl font-semibold text-gray-900">
                   {newUsers}
                 </span>
               </div>
@@ -275,7 +275,7 @@ const Metrics = () => {
                 </h3>
               </div>
               <div className="flex items-baseline">
-                <span className="text-2xl font-bold text-gray-900">
+                <span className="text-2xl font-semibold text-gray-900">
                   {cancellations}
                 </span>
               </div>
@@ -294,7 +294,7 @@ const Metrics = () => {
                 </h3>
               </div>
               <div className="flex items-baseline">
-                <span className="text-2xl font-bold text-gray-900">
+                <span className="text-2xl font-semibold text-gray-900">
                   {inquiriesInPeriod}
                 </span>
               </div>
@@ -341,7 +341,7 @@ const Metrics = () => {
                   Upcoming (next 7 days)
                 </h3>
               </div>
-              <div className="text-2xl font-bold text-gray-900">
+              <div className="text-2xl font-semibold text-gray-900">
                 {upcomingSessionsNext7d}
               </div>
             </div>
@@ -356,7 +356,7 @@ const Metrics = () => {
                   Active clients (last 60 days)
                 </h3>
               </div>
-              <div className="text-2xl font-bold text-gray-900">
+              <div className="text-2xl font-semibold text-gray-900">
                 {activeClientsLast60d}
               </div>
             </div>
@@ -371,7 +371,7 @@ const Metrics = () => {
                   Recurring clients
                 </h3>
               </div>
-              <div className="text-2xl font-bold text-gray-900">
+              <div className="text-2xl font-semibold text-gray-900">
                 {recurringClientsCount}
               </div>
             </div>
@@ -386,7 +386,7 @@ const Metrics = () => {
                   Unpaid sessions
                 </h3>
               </div>
-              <div className="text-2xl font-bold text-gray-900">
+              <div className="text-2xl font-semibold text-gray-900">
                 {unpaidSessions}
               </div>
             </div>
@@ -410,7 +410,7 @@ const Metrics = () => {
                 <BiGroup className="text-2xl" />
               </div>
               <div>
-                <div className="text-3xl font-bold text-gray-900">
+                <div className="text-3xl font-semibold text-gray-900">
                   {totalUsers}
                 </div>
                 <div className="text-sm text-gray-500">
@@ -453,7 +453,7 @@ const Metrics = () => {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-lg font-bold text-gray-900">
+                      <div className="text-lg font-semibold text-gray-900">
                         {user.bookingCount}
                       </div>
                       <div className="text-xs text-gray-500">

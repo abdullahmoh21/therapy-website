@@ -14,23 +14,25 @@ const ConsultationLanding = () => {
   const fullName = decodeURIComponent(
     params.get("invitee_full_name") || "Valued Client"
   );
-  
+
   // Get contact information
   const email = decodeURIComponent(params.get("invitee_email") || "");
   const phone = decodeURIComponent(
     params.get("text_reminder_number") || params.get("answer_1") || ""
   ).trim();
-  
+
   // Fix date parsing by properly decoding URI components
-  const rawStart = params.get("event_start_time") ? 
-    decodeURIComponent(params.get("event_start_time")).replace(' ', '+') : null;
-  const rawEnd = params.get("event_end_time") ? 
-    decodeURIComponent(params.get("event_end_time")).replace(' ', '+') : null;
+  const rawStart = params.get("event_start_time")
+    ? decodeURIComponent(params.get("event_start_time")).replace(" ", "+")
+    : null;
+  const rawEnd = params.get("event_end_time")
+    ? decodeURIComponent(params.get("event_end_time")).replace(" ", "+")
+    : null;
 
   // Add error handling for date parsing
   let startDate = null;
   let endDate = null;
-  
+
   try {
     startDate = rawStart ? new Date(rawStart) : null;
     // Validate the date is valid
@@ -40,7 +42,7 @@ const ConsultationLanding = () => {
   } catch (error) {
     console.error("Error parsing start date:", error);
   }
-  
+
   try {
     endDate = rawEnd ? new Date(rawEnd) : null;
     // Validate the date is valid
@@ -110,7 +112,7 @@ const ConsultationLanding = () => {
               <h1 className="orelega-one text-5xl md:text-6xl text-lightPink leading-tight mb-4">
                 Begin Your Healing Journey
               </h1>
-              <h2 className="text-3xl md:text-4xl text-orangeHeader font-light mb-6">
+              <h2 className="text-3xl md:text-4xl text-orangeHeader font-normal mb-6">
                 15-Minute Consultation Session
               </h2>
               <div className="h-1 w-24 bg-lightPink mx-auto rounded-full mb-6"></div>
@@ -133,7 +135,9 @@ const ConsultationLanding = () => {
               className="bg-white rounded-2xl shadow-lg overflow-hidden mb-10"
             >
               <div className="bg-gradient-to-r from-lightPink to-orangeHeader p-6 text-white">
-                <h2 className="text-2xl font-bold">Why Get a Consultation?</h2>
+                <h2 className="text-2xl font-semibold">
+                  Why Get a Consultation?
+                </h2>
               </div>
               <div className="p-6 md:p-8">
                 <p className="text-textColor mb-6">
@@ -321,7 +325,7 @@ const ConsultationLanding = () => {
                   </svg>
                 </NavLink>
               </div>
-              
+
               {/* Added Home Navigation Link */}
               <div className="flex justify-center mt-4">
                 <NavLink
@@ -383,7 +387,7 @@ const ConsultationLanding = () => {
             <h1 className="orelega-one text-5xl md:text-6xl text-lightPink leading-tight mb-4">
               Hi {fullName.split(" ")[0]}!
             </h1>
-            <h2 className="text-3xl md:text-4xl text-orangeHeader font-light mb-6">
+            <h2 className="text-3xl md:text-4xl text-orangeHeader font-normal mb-6">
               Your consultation is confirmed
             </h2>
             <div className="h-1 w-24 bg-lightPink mx-auto rounded-full mb-6"></div>
@@ -406,7 +410,9 @@ const ConsultationLanding = () => {
             className="bg-white rounded-2xl shadow-lg overflow-hidden mb-10 border-t-4 border-lightPink"
           >
             <div className="bg-gradient-to-r from-lightPink to-orangeHeader p-6 text-white">
-              <h2 className="text-2xl font-bold">Your Appointment Details</h2>
+              <h2 className="text-2xl font-semibold">
+                Your Appointment Details
+              </h2>
             </div>
             <div className="p-6 md:p-8 flex flex-wrap gap-6">
               {formattedDate && (
@@ -437,14 +443,14 @@ const ConsultationLanding = () => {
                   Fatima Mohsin Naqvi
                 </p>
               </div>
-              
+
               {email && (
                 <div className="bg-whiteBg p-4 rounded-lg flex-1 min-w-[200px]">
                   <p className="text-orangeText font-medium mb-1">Your Email</p>
                   <p className="text-lg font-medium break-all">{email}</p>
                 </div>
               )}
-              
+
               {phone && (
                 <div className="bg-whiteBg p-4 rounded-lg flex-1 min-w-[200px]">
                   <p className="text-orangeText font-medium mb-1">Your Phone</p>

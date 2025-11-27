@@ -34,7 +34,7 @@ const GoogleCalendarCallback = () => {
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <BiLoaderAlt className="mx-auto h-12 w-12 text-[#DF9E7A] animate-spin" />
-          <h2 className="mt-6 text-3xl font-bold text-gray-900">
+          <h2 className="mt-6 text-3xl font-semibold text-gray-900">
             Processing Google Calendar Authorization
           </h2>
           <p className="mt-2 text-sm text-gray-600">

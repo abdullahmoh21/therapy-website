@@ -13,7 +13,7 @@ const DeleteBookingModal = ({ isOpen, onClose, onConfirm, isDeleting }) => {
         <>
           <p>
             Are you sure you want to delete this booking? This action is
-            permanent and <span className="font-bold">cannot be undone</span>.
+            permanent and <span className="font-semibold">cannot be undone</span>.
           </p>
           <div className="mt-3 bg-yellow-50 border border-yellow-200 p-3 rounded-md">
             <p className="text-yellow-700 font-medium">Important Notice:</p>

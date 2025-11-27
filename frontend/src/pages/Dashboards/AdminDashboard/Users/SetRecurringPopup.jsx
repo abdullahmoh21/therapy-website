@@ -252,7 +252,7 @@ const SetRecurringPopup = ({
               <BiCalendarEvent className="text-white text-lg sm:text-xl" />
             </div>
             <div>
-              <h2 className="text-lg sm:text-xl font-bold text-gray-800">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-800">
                 Set Up Recurring Sessions
               </h2>
               <p className="text-xs sm:text-sm text-gray-600">

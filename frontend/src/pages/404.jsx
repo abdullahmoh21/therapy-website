@@ -5,7 +5,7 @@ const NotFound = () => {
   return (
     <div className="bg-whiteBg min-h-screen flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="container mx-auto text-center">
-        <h1 className="orelega-one text-5xl md:text-7xl text-orangeHeader font-bold mb-4">
+        <h1 className="orelega-one text-5xl md:text-7xl text-orangeHeader font-semibold mb-4">
           404
         </h1>
 
@@ -25,6 +25,7 @@ const NotFound = () => {
             src={dog}
             alt="Maggie the goodest doggo"
             className="w-56 h-56 object-cover rounded-full shadow-lg border-4 border-lightPink"
+            loading="lazy"
           />
         </div>
 

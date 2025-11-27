@@ -18,7 +18,7 @@ export default {
         lightOrange: "#e0c3b8",
       },
       boxShadow: {
-        panelShadow: "rgba(17, 12, 46, 0.15) 0px 48px 100px 0px;",
+        panelShadow: "0px 48px 100px 0px rgba(17, 12, 46, 0.15)",
       },
       animation: {
         "spin-slow": "spin 3s linear infinite",

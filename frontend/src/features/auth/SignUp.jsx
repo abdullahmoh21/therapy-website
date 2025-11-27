@@ -365,7 +365,7 @@ const SignUp = () => {
           className="w-full max-w-[420px] bg-white p-10 rounded-3xl shadow-xl text-center"
         >
           <img src={logo} alt="logo" height={60} width={135} />
-          <h1 className="mb-4 text-2xl font-bold text-orangeText">
+          <h1 className="mb-4 text-2xl font-semibold text-orangeText">
             Invitation Required
           </h1>
           <p className="mb-6 text-textColor">
@@ -402,7 +402,7 @@ const SignUp = () => {
         >
           <div className="mb-8 flex flex-col items-center">
             <img src={logo} alt="logo" height={60} width={135} />
-            <h1 className="text-center text-2xl pt-2 font-bold leading-tight text-orangeText">
+            <h1 className="text-center text-2xl pt-2 font-semibold leading-tight text-orangeText">
               Create Your Account
             </h1>
           </div>

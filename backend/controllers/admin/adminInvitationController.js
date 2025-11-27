@@ -198,6 +198,7 @@ const inviteUser = asyncHandler(async (req, res) => {
     try {
       await sendEmail("UserInvitationEmail", {
         inviteeId: invitation._id.toString(),
+        invitationToken: token,
       });
       logger.info(`Invitation email sent successfully to: ${email}`);
       await invalidateByEvent("invitation-created");
@@ -300,6 +301,7 @@ const resendInvitation = asyncHandler(async (req, res) => {
       // Send invitation email
       await sendEmail("UserInvitationEmail", {
         inviteeId: invitee._id.toString(),
+        invitationToken: token,
       });
 
       // Success response

@@ -69,7 +69,7 @@ const SystemHealth = () => {
         className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative m-4"
         role="alert"
       >
-        <strong className="font-bold mr-2">
+        <strong className="font-semibold mr-2">
           <FaTimesCircle className="inline-block mb-1" /> Error:
         </strong>
         <span className="block sm:inline">
@@ -101,7 +101,7 @@ const SystemHealth = () => {
     <div className="max-w-7xl mx-auto">
       <header className="mb-8 flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800">System Health</h1>
+          <h1 className="text-3xl font-semibold text-gray-800">System Health</h1>
           <p className="mt-2 text-gray-600">
             Monitor server performance and system status
           </p>

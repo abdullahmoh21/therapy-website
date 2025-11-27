@@ -361,7 +361,7 @@ const UpcomingBookings = () => {
         className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative"
         role="alert"
       >
-        <strong className="font-bold">Error: </strong>
+        <strong className="font-semibold">Error: </strong>
         <span className="block sm:inline">
           Failed to load booking data. Please try again later.
         </span>
@@ -376,7 +376,7 @@ const UpcomingBookings = () => {
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-black mb-2">
+              <h1 className="text-3xl font-semibold text-black mb-2">
                 Upcoming Sessions
               </h1>
               <p className="text-gray-600">
@@ -386,7 +386,7 @@ const UpcomingBookings = () => {
             <div className="hidden lg:flex items-center space-x-4">
               <div className="bg-white p-4 border border-[#E27A82] rounded-lg">
                 <div className="text-sm text-gray-600">Total Sessions</div>
-                <div className="text-2xl font-bold text-[#E27A82]">
+                <div className="text-2xl font-semibold text-[#E27A82]">
                   {bookings.length}
                 </div>
               </div>
@@ -508,7 +508,7 @@ const UpcomingBookings = () => {
                                   <BiUser className="text-[#E27A82] text-lg" />
                                 </div>
                                 <div>
-                                  <h3 className="text-xl font-bold text-black">
+                                  <h3 className="text-xl font-semibold text-black">
                                     {booking.userId?.name || "Unknown User"}
                                   </h3>
                                   <div className="flex items-center space-x-2 text-gray-600">
@@ -725,7 +725,7 @@ const UpcomingBookings = () => {
                     </div>
                     <div className="flex justify-between">
                       <span className="font-medium text-gray-600">Amount:</span>
-                      <span className="text-black font-bold">
+                      <span className="text-black font-semibold">
                         {selectedPayment?.amount?.toLocaleString() || "0"}{" "}
                         {selectedPayment?.currency || "PKR"}
                       </span>

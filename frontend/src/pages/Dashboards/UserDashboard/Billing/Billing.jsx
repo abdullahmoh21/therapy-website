@@ -185,7 +185,7 @@ const Billing = () => {
         className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative m-4"
         role="alert"
       >
-        <strong className="font-bold mr-2">
+        <strong className="font-semibold mr-2">
           <BiErrorCircle className="inline-block mb-1" /> Error:
         </strong>
         <span className="block sm:inline">
@@ -220,7 +220,7 @@ const Billing = () => {
         <HelpButton />
 
         <header className="mb-6">
-          <h1 className="text-2xl font-bold text-textColor">Past Bookings</h1>
+          <h1 className="text-2xl font-semibold text-textColor">Past Bookings</h1>
           <p className="mt-1 text-textColor">
             View and manage your Past Bookings
           </p>
@@ -265,7 +265,7 @@ const Billing = () => {
       />
 
       <header className="mb-6">
-        <h1 className="text-2xl font-bold text-textColor">Past Bookings</h1>
+        <h1 className="text-2xl font-semibold text-textColor">Past Bookings</h1>
         <p className="mt-1 text-textColor">
           View and manage your Past Bookings
         </p>

@@ -21,7 +21,7 @@ const EditUserWarningModal = ({ isOpen, onClose, onConfirm }) => {
               <BiErrorCircle className="text-white text-lg sm:text-xl" />
             </div>
             <div>
-              <h2 className="text-lg sm:text-xl font-bold text-gray-800">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-800">
                 Are you sure this is necessary?
               </h2>
               <p className="text-xs sm:text-sm text-gray-600">

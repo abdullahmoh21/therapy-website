@@ -71,6 +71,22 @@ async function addJob(jobName, jobData, options = {}) {
           priority: options.priority || 0,
           ...options,
         });
+
+        // Mark as promoted in MongoDB to prevent promoter from re-adding it
+        try {
+          const Job = require("../../models/Job");
+          const mongoJob = await Job.findOne({ jobId });
+          if (mongoJob && mongoJob.status === "pending") {
+            await mongoJob.markPromoted();
+            logger.debug(`Marked job ${jobId} as promoted in MongoDB`);
+          }
+        } catch (mongoError) {
+          logger.warn(
+            `Failed to mark job ${jobId} as promoted in MongoDB: ${mongoError.message}`
+          );
+          // Continue - job is already in Redis, this is just status tracking
+        }
+
         logger.debug(
           `Job ${jobName} added to Redis queue with delay ${delay}ms`
         );

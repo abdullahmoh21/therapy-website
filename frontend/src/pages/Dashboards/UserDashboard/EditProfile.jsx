@@ -232,7 +232,7 @@ const EditProfile = forwardRef(({ user, onUserUpdate }, ref) => {
 
   return (
     <form onSubmit={handleSubmit}>
-      <h2 className="text-2xl font-bold mb-6 text-center text-textColor">
+      <h2 className="text-2xl font-semibold mb-6 text-center text-textColor">
         Edit Your Details
       </h2>
       <div className="space-y-5">

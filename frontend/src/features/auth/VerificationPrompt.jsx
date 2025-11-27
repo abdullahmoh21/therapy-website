@@ -15,7 +15,7 @@ const VerificationPrompt = ({ sendingEV, handleResendVerification }) => {
               className="w-[135px] sm:w-[160px] md:w-[180px] h-auto"
             />
           </Link>
-          <h1 className="text-[26px] leading-[36px] sm:leading-[46px] font-bold text-[#c45e3e] pb-3">
+          <h1 className="text-[26px] leading-[36px] sm:leading-[46px] font-semibold text-[#c45e3e] pb-3">
             Welcome to Fatima's Clinic
           </h1>
         </div>

@@ -330,7 +330,7 @@ const SystemConfig = () => {
         className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative m-4"
         role="alert"
       >
-        <strong className="font-bold mr-2">
+        <strong className="font-semibold mr-2">
           <FaTimesCircle className="inline-block mb-1" /> Error:
         </strong>
         <span className="block sm:inline">
@@ -353,7 +353,7 @@ const SystemConfig = () => {
   return (
     <div className="max-w-7xl mx-auto">
       <header className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">
+        <h1 className="text-3xl font-semibold text-gray-800">
           System Configuration
         </h1>
         <p className="mt-2 text-gray-600">

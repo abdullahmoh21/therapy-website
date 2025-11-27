@@ -67,6 +67,10 @@ const Home = () => {
                 }`}
                 onLoad={() => setImageLoaded(true)}
                 onError={() => setImageLoaded(true)}
+                width={734} // intrinsic image size (or whatever your file actually is)
+                height={1064}
+                loading="eager"
+                fetchpriority="high"
               />
             </div>
           </motion.div>

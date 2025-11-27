@@ -452,7 +452,7 @@ const MyBookings = () => {
       {/* One-Off Bookings Section */}
       {recurringSchedule && (
         <div className="mb-6">
-          <h3 className="text-2xl font-bold text-gray-800 mb-4">
+          <h3 className="text-2xl font-semibold text-gray-800 mb-4">
             Additional Sessions
           </h3>
           <p className="text-gray-600 mb-6">

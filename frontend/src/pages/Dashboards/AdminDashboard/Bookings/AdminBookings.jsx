@@ -322,7 +322,7 @@ const AdminBookings = () => {
       <header className="mb-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-800">
+            <h1 className="text-3xl font-semibold text-gray-800">
               Booking Management
             </h1>
             <p className="mt-2 text-gray-600">

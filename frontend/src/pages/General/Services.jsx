@@ -203,6 +203,7 @@ const Services = () => {
               src={service_hero}
               alt="Service Image"
               className="w-full object-cover z-[20] shadow-md"
+              loading="lazy"
             />
           </div>
         </div>

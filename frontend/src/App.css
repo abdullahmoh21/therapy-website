@@ -15,14 +15,6 @@
   font-weight: 400;
   src: url("/fonts/noto-serif-v30-latin-regular.woff2") format("woff2");
 }
-/* noto-serif-italic - latin */
-@font-face {
-  font-display: swap;
-  font-family: "Noto Serif";
-  font-style: italic;
-  font-weight: 400;
-  src: url("/fonts/noto-serif-v30-latin-italic.woff2") format("woff2");
-}
 /* noto-serif-500 - latin */
 @font-face {
   font-display: swap;
@@ -31,14 +23,6 @@
   font-weight: 500;
   src: url("/fonts/noto-serif-v30-latin-500.woff2") format("woff2");
 }
-/* noto-serif-500italic - latin */
-@font-face {
-  font-display: swap;
-  font-family: "Noto Serif";
-  font-style: italic;
-  font-weight: 500;
-  src: url("/fonts/noto-serif-v30-latin-500italic.woff2") format("woff2");
-}
 /* noto-serif-600 - latin */
 @font-face {
   font-display: swap;
@@ -46,14 +30,6 @@
   font-style: normal;
   font-weight: 600;
   src: url("/fonts/noto-serif-v30-latin-600.woff2") format("woff2");
-}
-/* noto-serif-700 - latin */
-@font-face {
-  font-display: swap;
-  font-family: "Noto Serif";
-  font-style: normal;
-  font-weight: 700;
-  src: url("/fonts/noto-serif-v30-latin-700.woff2") format("woff2");
 }
 
 /* Add global font-family rule */

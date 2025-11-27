@@ -13,6 +13,9 @@ function getJobUniqueId(jobName, jobData) {
     case "sendInvitation":
       stableKey = jobData.recipient;
       break;
+    case "UserInvitationEmail":
+      stableKey = jobData.inviteeId;
+      break;
     case "adminCancellationNotif":
     case "refundConfirmation":
       stableKey = jobData.payment?._id || jobData.payment?.id;

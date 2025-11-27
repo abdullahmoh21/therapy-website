@@ -27,7 +27,11 @@ const handleUserInvitationEmail = async (job) => {
     }
 
     // Build invitation link (moved from call site)
-    const link = `${process.env.FRONTEND_URL}/register?token=${invitationToken}`;
+    const link = `${
+      process.env.FRONTEND_URL
+    }/signup?invitation=${invitationToken}&email=${encodeURIComponent(
+      invitee.email
+    )}`;
 
     logger.debug(
       `Sending invitation email to ${invitee.email} with link: ${link}`
