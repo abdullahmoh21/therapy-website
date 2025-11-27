@@ -695,7 +695,7 @@ const InvitedUsers = ({ onSwitchToUsers, onInviteUser }) => {
         message="Are you sure you want to delete this invitation? The user will no longer be able to register with this invitation link."
         confirmText={
           isDeleting ? (
-            <FaSpinner className="animate-spin mx-auto" />
+            <BiLoaderAlt className="animate-spin mx-auto" />
           ) : (
             "Delete Invitation"
           )
@@ -712,7 +712,7 @@ const InvitedUsers = ({ onSwitchToUsers, onInviteUser }) => {
         message="Are you sure you want to resend this invitation? The user will receive another email with a new invitation link, and the expiration date will be extended."
         confirmText={
           isResendLoading ? (
-            <FaSpinner className="animate-spin mx-auto" />
+            <BiLoaderAlt className="animate-spin mx-auto" />
           ) : (
             "Resend Invitation"
           )
