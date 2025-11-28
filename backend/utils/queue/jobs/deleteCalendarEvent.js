@@ -1,7 +1,7 @@
 const { google } = require("googleapis");
 const logger = require("../../../logs/logger");
 const Booking = require("../../../models/Booking");
-const { createOAuth2Client } = require("../../googleOAuth");
+const { createOAuth2Client, getSystemCalendar } = require("../../googleOAuth");
 
 /**
  * Handle Google Calendar event deletion
@@ -54,10 +54,14 @@ const handleGoogleCalendarDeletion = async (job) => {
     const oauth2Client = await createOAuth2Client();
     const calendar = google.calendar({ version: "v3", auth: oauth2Client });
 
+    // Get the system calendar ID
+    const calendarId = await getSystemCalendar();
+    logger.debug(`Using calendar ID: ${calendarId}`);
+
     // Delete the event from Google Calendar
     try {
       await calendar.events.delete({
-        calendarId: process.env.GOOGLE_CALENDAR_ID || "primary",
+        calendarId: calendarId,
         eventId: googleEventId,
       });
       logger.info(

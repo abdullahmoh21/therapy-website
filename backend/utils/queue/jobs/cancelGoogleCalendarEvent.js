@@ -1,9 +1,8 @@
-// Google Calendar cancellation worker
 const { google } = require("googleapis");
 const Booking = require("../../../models/Booking");
 const User = require("../../../models/User");
 const logger = require("../../../logs/logger");
-const { createOAuth2Client } = require("../../googleOAuth");
+const { createOAuth2Client, getSystemCalendar } = require("../../googleOAuth");
 
 /**
  * Handle Google Calendar event cancellation
@@ -44,9 +43,13 @@ const handleGoogleCalendarCancellation = async (jobData) => {
     const oauth2Client = await createOAuth2Client();
     const calendar = google.calendar({ version: "v3", auth: oauth2Client });
 
+    // Get the system calendar ID
+    const calendarId = await getSystemCalendar();
+    logger.debug(`Using calendar ID: ${calendarId}`);
+
     // Delete the event from Google Calendar
     await calendar.events.delete({
-      calendarId: process.env.GOOGLE_CALENDAR_ID || "primary",
+      calendarId: calendarId,
       eventId: booking.googleEventId,
     });
 

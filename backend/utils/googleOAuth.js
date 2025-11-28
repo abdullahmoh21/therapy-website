@@ -163,6 +163,7 @@ const clearTokens = async () => {
       Config.setValue("googleTokenExpiry", null),
       Config.setValue("googleUserEmail", null),
       Config.setValue("googleTokenInvalidated", "false"),
+      Config.setValue("googleSystemCalendarId", null),
     ]);
 
     logger.info("Google OAuth tokens cleared from Config model");
@@ -264,6 +265,78 @@ const getConnectionStatus = async () => {
   }
 };
 
+/**
+ * Get or create the system calendar for therapy bookings
+ * This function is idempotent - it will:
+ * 1. Try to fetch the calendar ID from Config
+ * 2. Verify the calendar still exists in Google
+ * 3. If not found, create a new calendar
+ * 4. Fallback to "primary" if creation fails
+ *
+ * @returns {Promise<string>} Calendar ID to use for events
+ */
+const getSystemCalendar = async () => {
+  const CALENDAR_NAME = "Therapy Sessions - Booking System";
+  const CALENDAR_DESCRIPTION =
+    "Automated calendar for managing therapy sessions. Please do not add or remove bookings from this calender. All changes should be made via https://fatimanaqvi.com";
+  const CALENDAR_TIMEZONE = "Asia/Karachi";
+
+  try {
+    const oauth2Client = await createOAuth2Client();
+    const calendar = google.calendar({ version: "v3", auth: oauth2Client });
+
+    let storedCalendarId = await Config.getValue("googleSystemCalendarId");
+
+    if (storedCalendarId) {
+      try {
+        await calendar.calendars.get({ calendarId: storedCalendarId });
+        logger.debug(`System calendar found: ${storedCalendarId}`);
+        return storedCalendarId;
+      } catch (error) {
+        if (error.code === 404) {
+          logger.warn(
+            `Stored calendar ${storedCalendarId} no longer exists, will create new one`
+          );
+          storedCalendarId = null; // Clear it so we create a new one
+        } else {
+          throw error; // Re-throw other errors
+        }
+      }
+    }
+
+    logger.info("Creating new system calendar for therapy bookings");
+    try {
+      const response = await calendar.calendars.insert({
+        requestBody: {
+          summary: CALENDAR_NAME,
+          description: CALENDAR_DESCRIPTION,
+          timeZone: CALENDAR_TIMEZONE,
+        },
+      });
+
+      const newCalendarId = response.data.id;
+      logger.info(`Created new system calendar: ${newCalendarId}`);
+
+      await Config.setValue("googleSystemCalendarId", newCalendarId);
+      logger.debug("Saved new calendar ID to Config");
+
+      return newCalendarId;
+    } catch (createError) {
+      logger.error(
+        `Failed to create system calendar: ${createError.message}, falling back to primary`
+      );
+      logger.debug(`Error details: ${createError.stack}`);
+      return "primary";
+    }
+  } catch (error) {
+    logger.error(
+      `Error in getSystemCalendar: ${error.message}, falling back to primary`
+    );
+    logger.debug(`Error details: ${error.stack}`);
+    return "primary";
+  }
+};
+
 module.exports = {
   createOAuth2Client,
   getValidAccessToken,
@@ -272,4 +345,5 @@ module.exports = {
   hasValidTokens,
   testConnection,
   getConnectionStatus,
+  getSystemCalendar,
 };

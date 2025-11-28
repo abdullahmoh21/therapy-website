@@ -2,7 +2,7 @@ const { google } = require("googleapis");
 const logger = require("../../../logs/logger");
 const Booking = require("../../../models/Booking");
 const User = require("../../../models/User");
-const { createOAuth2Client } = require("../../googleOAuth");
+const { createOAuth2Client, getSystemCalendar } = require("../../googleOAuth");
 
 /**
  * Handle adding client as attendee to Google Calendar event
@@ -73,16 +73,20 @@ const handleClientCalendarInvitation = async (job) => {
     const oauth2Client = await createOAuth2Client();
     const calendar = google.calendar({ version: "v3", auth: oauth2Client });
 
+    // Get the system calendar ID
+    const calendarId = await getSystemCalendar();
+    logger.debug(`Using calendar ID: ${calendarId}`);
+
     try {
       // First check if the event still exists
       await calendar.events.get({
-        calendarId: process.env.GOOGLE_CALENDAR_ID,
+        calendarId: calendarId,
         eventId: booking.googleEventId,
       });
 
       // Add client as attendee to the Google Calendar event
       await calendar.events.patch({
-        calendarId: process.env.GOOGLE_CALENDAR_ID,
+        calendarId: calendarId,
         eventId: booking.googleEventId,
         requestBody: {
           attendees: [

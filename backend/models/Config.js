@@ -4,6 +4,7 @@ const fs = require("fs");
 const path = require("path");
 const LOCAL_CONFIG_FILE = path.join(__dirname, "../configLocalCache.bin");
 
+// This array defines the config values for the website. setting viewable = true. will make the config value editable from the admin dashboard
 const REQUIRED_CONFIG_KEYS = [
   {
     key: "sessionPrice",
@@ -11,6 +12,7 @@ const REQUIRED_CONFIG_KEYS = [
     displayName: "Domestic Session Price",
     description:
       "Price per session in PKR. This rate will be applied to domestic clients.",
+    viewable: true,
   },
   {
     key: "intlSessionPrice",
@@ -18,6 +20,7 @@ const REQUIRED_CONFIG_KEYS = [
     displayName: "International Session Price",
     description:
       "Price per session in USD. This rate will be applied to international clients.",
+    viewable: true,
   },
   {
     key: "maxBookings",
@@ -25,6 +28,7 @@ const REQUIRED_CONFIG_KEYS = [
     displayName: "Maximum Bookings",
     description:
       "Maximum number of active booking allowed at a time. Please note that this is excluding any recurring sessions.",
+    viewable: true,
   },
   {
     key: "noticePeriod",
@@ -32,18 +36,21 @@ const REQUIRED_CONFIG_KEYS = [
     displayName: "Cancellation Notice Period",
     description:
       "The notice period for cancellations in days. If set to '2', users will only be able to cancel up to 2 days before a booking.",
+    viewable: true,
   },
   {
     key: "adminEmail",
     value: "abdullahmohsin21007@gmail.com",
     displayName: "Admin Email",
     description: "Admin email for system notifications",
+    viewable: true,
   },
   {
     key: "devEmail",
     value: "abdullahmohsin21007@gmail.com",
     displayName: "Developer Email",
     description: "Developer email for technical alerts",
+    viewable: true,
   },
   {
     key: "bankAccounts",
@@ -62,6 +69,7 @@ const REQUIRED_CONFIG_KEYS = [
     displayName: "Payment Accounts",
     description:
       "Bank account details for payments. Please ensure they are correct since all clients will see on their dashboard.",
+    viewable: true,
   },
   {
     key: "googleRefreshToken",
@@ -69,7 +77,7 @@ const REQUIRED_CONFIG_KEYS = [
     displayName: "Google Calendar Refresh Token",
     description:
       "OAuth2 refresh token for Google Calendar API access. This is automatically managed by the system.",
-    viewable: false, // Hidden from admin interface
+    viewable: false,
   },
   {
     key: "googleAccessToken",
@@ -77,7 +85,7 @@ const REQUIRED_CONFIG_KEYS = [
     displayName: "Google Calendar Access Token",
     description:
       "OAuth2 access token for Google Calendar API access. This is automatically refreshed and managed by the system.",
-    viewable: false, // Hidden from admin interface
+    viewable: false,
   },
   {
     key: "googleTokenExpiry",
@@ -85,7 +93,7 @@ const REQUIRED_CONFIG_KEYS = [
     displayName: "Google Token Expiry",
     description:
       "Expiry timestamp for Google access token. This is automatically updated when tokens are refreshed.",
-    viewable: false, // Hidden from admin interface
+    viewable: false,
   },
   {
     key: "googleUserEmail",
@@ -93,7 +101,7 @@ const REQUIRED_CONFIG_KEYS = [
     displayName: "Google Account Email",
     description:
       "Email address of the connected Google account. This is automatically set when connecting to Google Calendar.",
-    viewable: false, // Hidden from admin interface
+    viewable: false,
   },
   {
     key: "googleTokenInvalidated",
@@ -101,7 +109,15 @@ const REQUIRED_CONFIG_KEYS = [
     displayName: "Google Token Invalidation Status",
     description:
       "Flag indicating whether the Google OAuth tokens have been invalidated (due to invalid_grant or auth errors). This is automatically managed by the system.",
-    viewable: false, // Hidden from admin interface
+    viewable: false,
+  },
+  {
+    key: "googleSystemCalendarId",
+    value: null,
+    displayName: "Google System Calendar ID",
+    description:
+      "ID of the dedicated Google Calendar for therapy bookings. This calendar is automatically created and managed by the system.",
+    viewable: false,
   },
 ];
 
@@ -163,6 +179,7 @@ const CONFIG_DEFAULTS = {
   googleTokenExpiry: null,
   googleUserEmail: null,
   googleTokenInvalidated: "false",
+  googleSystemCalendarId: null,
 };
 
 // Track error logged state to prevent log spam
@@ -189,6 +206,7 @@ const configSchema = new mongoose.Schema(
             "googleTokenExpiry",
             "googleUserEmail",
             "googleTokenInvalidated",
+            "googleSystemCalendarId",
           ];
 
           // If it's a Google token key, allow null values
@@ -208,6 +226,7 @@ const configSchema = new mongoose.Schema(
           "googleAccessToken",
           "googleTokenExpiry",
           "googleUserEmail",
+          "googleSystemCalendarId",
         ];
         // Set default to "false" for googleTokenInvalidated
         if (this.key === "googleTokenInvalidated") {
@@ -343,6 +362,7 @@ configSchema.statics.setValue = async function (key, value) {
         "googleAccessToken",
         "googleTokenExpiry",
         "googleUserEmail",
+        "googleSystemCalendarId",
       ];
 
       const isGoogleToken = googleTokenKeys.includes(key);

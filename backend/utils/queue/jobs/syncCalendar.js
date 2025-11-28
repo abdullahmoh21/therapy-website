@@ -1,11 +1,10 @@
-// Google Calendar sync worker
 const { google } = require("googleapis");
 const Booking = require("../../../models/Booking");
 const User = require("../../../models/User");
 const Config = require("../../../models/Config");
 const logger = require("../../../logs/logger");
 const { utcToZonedTime, format } = require("date-fns-tz");
-const { createOAuth2Client } = require("../../googleOAuth");
+const { createOAuth2Client, getSystemCalendar } = require("../../googleOAuth");
 
 /**
  * Handle Google Calendar synchronization for a booking
@@ -89,6 +88,10 @@ const handleGoogleCalendarSync = async (jobData) => {
     const oauth2Client = await createOAuth2Client();
     const calendar = google.calendar({ version: "v3", auth: oauth2Client });
 
+    // Get the system calendar ID
+    const calendarId = await getSystemCalendar();
+    logger.debug(`Using calendar ID: ${calendarId}`);
+
     // 3) PKT → strings
     logger.debug(`Converting booking times to Pakistan timezone`);
     const startPk = utcToZonedTime(booking.eventStartTime, "Asia/Karachi");
@@ -149,7 +152,7 @@ const handleGoogleCalendarSync = async (jobData) => {
           `Updating existing Google Calendar event: ${booking.googleEventId}`
         );
         response = await calendar.events.update({
-          calendarId: process.env.GOOGLE_CALENDAR_ID || "primary",
+          calendarId: calendarId,
           eventId: booking.googleEventId,
           requestBody: eventData,
           conferenceDataVersion: booking.location?.type === "online" ? 1 : 0,
@@ -159,7 +162,7 @@ const handleGoogleCalendarSync = async (jobData) => {
       } else {
         logger.debug(`Creating new Google Calendar event`);
         response = await calendar.events.insert({
-          calendarId: process.env.GOOGLE_CALENDAR_ID || "primary",
+          calendarId: calendarId,
           requestBody: eventData,
           conferenceDataVersion: booking.location?.type === "online" ? 1 : 0,
         });
@@ -189,7 +192,7 @@ const handleGoogleCalendarSync = async (jobData) => {
         // Clear the invalid event ID and create a new event
         booking.googleEventId = null;
         response = await calendar.events.insert({
-          calendarId: process.env.GOOGLE_CALENDAR_ID || "primary",
+          calendarId: calendarId,
           requestBody: eventData,
           conferenceDataVersion: booking.location?.type === "online" ? 1 : 0,
         });
