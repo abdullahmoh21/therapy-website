@@ -576,8 +576,9 @@ const ExpandedBookings = ({ data: initialData, onDeleteClick }) => {
                   </span>
                 </div>
 
-                {/* Mark as Paid button */}
-                {booking.paymentId.transactionStatus !== "Completed" &&
+                {/* Mark as Paid button - only for active bookings */}
+                {booking.status === "Active" &&
+                  booking.paymentId.transactionStatus !== "Completed" &&
                   booking.paymentId.transactionStatus !== "Refunded" &&
                   !booking.eventName?.includes("15 Minute") &&
                   !booking.calendly?.eventName?.includes("15 Minute") && (

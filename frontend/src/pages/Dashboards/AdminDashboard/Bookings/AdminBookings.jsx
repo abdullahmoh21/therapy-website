@@ -422,6 +422,7 @@ const AdminBookings = () => {
           setBookingToDelete(null);
         }}
         onConfirm={confirmDelete}
+        isCalendlyBooking={bookingToDelete?.source === "calendly"}
         isDeleting={isDeleting}
       />
 

@@ -1,6 +1,7 @@
 const { transporter } = require("../../emailTransporter");
 const logger = require("../../../logs/logger");
 const User = require("../../../models/User");
+const Config = require("../../../models/Config");
 
 /**
  * Handle sending account verification email to user
@@ -27,11 +28,13 @@ const handleUserAccountVerificationEmail = async (job) => {
     // Build verification link (moved from call site)
     const link = `${process.env.FRONTEND_URL}/verifyEmail?token=${verificationToken}`;
 
+    const adminEmail = await Config.getValue("adminEmail");
+
     const mailOptions = {
       from: "verification@fatimanaqvi.com",
       to: user.email,
       subject: "Verify Account",
-      replyTo: "no-reply@fatimanaqvi.com",
+      replyTo: adminEmail || "no-reply@fatimanaqvi.com",
       template: "user_account_verification",
       context: {
         name: user.name,

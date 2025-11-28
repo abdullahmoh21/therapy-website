@@ -1,6 +1,7 @@
 const { transporter } = require("../../emailTransporter");
 const logger = require("../../../logs/logger");
 const User = require("../../../models/User");
+const Config = require("../../../models/Config");
 
 /**
  * Handle sending session deletion notification to user
@@ -37,11 +38,13 @@ const handleSessionDeletionNotification = async (job) => {
       minute: "2-digit",
     });
 
+    const adminEmail = await Config.getValue("adminEmail");
+
     const mailOptions = {
       from: "bookings@fatimanaqvi.com",
       to: user.email,
       subject: "Booking Canceled",
-      replyTo: "no-reply@fatimanaqvi.com",
+      replyTo: adminEmail || "no-reply@fatimanaqvi.com",
       template: "user_session_deletion_notice",
       context: {
         name: user.name,

@@ -113,7 +113,7 @@ const handleBookingCancellationNotifications = async (job) => {
         subject: isAdminCancelled
           ? "Session Cancellation Notice"
           : "Booking Cancellation Confirmation",
-        replyTo: "no-reply@fatimanaqvi.com",
+        replyTo: adminEmail || "no-reply@fatimanaqvi.com",
         template: userEmailTemplate,
         context: {
           name: userName,
@@ -159,6 +159,7 @@ const handleBookingCancellationNotifications = async (job) => {
           from: "admin@fatimanaqvi.com",
           to: adminEmail,
           subject: adminSubject,
+          replyTo: "no-reply@fatimanaqvi.com",
           template: "admin_booking_cancellation_alert",
           context: {
             name: userName,

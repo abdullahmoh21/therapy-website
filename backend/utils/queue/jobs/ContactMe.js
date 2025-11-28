@@ -36,7 +36,7 @@ const handleContactInquiry = async (job) => {
       from: "inquiries@fatimanaqvi.com",
       to: email,
       subject: "Thank you for contacting me",
-      replyTo: "no-reply@fatimanaqvi.com",
+      replyTo: adminEmail || "no-reply@fatimanaqvi.com",
       template: "user_contact_inquiry_confirmation",
       context: {
         name,
@@ -50,7 +50,7 @@ const handleContactInquiry = async (job) => {
       from: "inquiries@fatimanaqvi.com",
       to: adminEmail,
       subject: `Inquiry from ${name}`,
-      replyTo: email,
+      replyTo: "no-reply@fatimanaqvi.com",
       template: "admin_contact_inquiry",
       context: {
         name,

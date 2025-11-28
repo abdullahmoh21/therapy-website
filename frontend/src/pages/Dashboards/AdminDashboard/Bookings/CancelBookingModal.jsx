@@ -10,7 +10,7 @@ const CancelBookingModal = ({
   booking,
 }) => {
   const [reason, setReason] = useState("");
-  const [notifyUser, setNotifyUser] = useState(false);
+  const [notifyUser, setNotifyUser] = useState(true);
 
   const handleSubmit = (e) => {
     e.preventDefault();

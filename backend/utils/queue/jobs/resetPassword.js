@@ -1,6 +1,7 @@
 const { transporter } = require("../../emailTransporter");
 const logger = require("../../../logs/logger");
 const User = require("../../../models/User");
+const Config = require("../../../models/Config");
 
 /**
  * Handle sending password reset email to user
@@ -27,11 +28,13 @@ const handleUserPasswordResetEmail = async (job) => {
     // Build reset link (moved from call site)
     const link = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
 
+    const adminEmail = await Config.getValue("adminEmail");
+
     const mailOptions = {
       from: "reset@fatimanaqvi.com",
       to: user.email,
       subject: "Reset Password",
-      replyTo: "no-reply@fatimanaqvi.com",
+      replyTo: adminEmail || "no-reply@fatimanaqvi.com",
       template: "user_password_reset",
       context: {
         name: user.name,

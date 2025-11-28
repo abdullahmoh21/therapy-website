@@ -96,7 +96,7 @@ const sendUserInitiatedCancellationNotifications = async (job) => {
         from: "bookings@fatimanaqvi.com",
         to: user.email,
         subject: "Booking Cancellation Confirmation",
-        replyTo: "no-reply@fatimanaqvi.com",
+        replyTo: adminEmail || "no-reply@fatimanaqvi.com",
         template: "userCancellationNotif",
         context: {
           name: userName,
@@ -150,6 +150,7 @@ const sendUserInitiatedCancellationNotifications = async (job) => {
           from: "admin@fatimanaqvi.com",
           to: adminEmail,
           subject: `${name} Cancelled Session`,
+          replyTo: "no-reply@fatimanaqvi.com",
           template: "adminCancellationNotif",
           context: {
             name: userName,

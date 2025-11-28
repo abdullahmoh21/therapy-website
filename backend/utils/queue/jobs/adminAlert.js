@@ -53,6 +53,7 @@ const handleSystemAlert = async (job) => {
       from: "alert@fatimanaqvi.com",
       to: recipientEmails.join(", "),
       subject: alertConfig.subject,
+      replyTo: "no-reply@fatimanaqvi.com",
       template: "system_alert",
       context: {
         title: alertConfig.title,

@@ -1,6 +1,7 @@
 const { transporter } = require("../../emailTransporter");
 const logger = require("../../../logs/logger");
 const Invitee = require("../../../models/Invitee");
+const Config = require("../../../models/Config");
 
 /**
  * Handle sending user invitation email
@@ -37,11 +38,13 @@ const handleUserInvitationEmail = async (job) => {
       `Sending invitation email to ${invitee.email} with link: ${link}`
     );
 
+    const adminEmail = await Config.getValue("adminEmail");
+
     const mailOptions = {
       from: "invitations@fatimanaqvi.com",
       to: invitee.email,
       subject: "Invitation to join Fatima's Clinic!",
-      replyTo: "no-reply@fatimanaqvi.com",
+      replyTo: adminEmail || "no-reply@fatimanaqvi.com",
       template: "user_invitation",
       context: {
         link,

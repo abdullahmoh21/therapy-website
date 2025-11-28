@@ -276,7 +276,7 @@ const getConnectionStatus = async () => {
  * @returns {Promise<string>} Calendar ID to use for events
  */
 const getSystemCalendar = async () => {
-  const CALENDAR_NAME = "Therapy Sessions - Booking System";
+  const CALENDAR_NAME = "Fatima's Therapy Services";
   const CALENDAR_DESCRIPTION =
     "Automated calendar for managing therapy sessions. Please do not add or remove bookings from this calender. All changes should be made via https://fatimanaqvi.com";
   const CALENDAR_TIMEZONE = "Asia/Karachi";

@@ -36,9 +36,9 @@ async function initializeQueue() {
     queue = new Queue("myQueue", {
       connection,
       defaultJobOptions: {
-        removeOnComplete: { age: 3600, count: 1000 },
-        removeOnFail: false, // Keep failed jobs for debugging
-        attempts: 5,
+        removeOnComplete: { age: 1800, count: 500 },
+        removeOnFail: { age: 7 * 24 * 60 * 60, count: 200 },
+        attempts: 3,
       },
     });
 
