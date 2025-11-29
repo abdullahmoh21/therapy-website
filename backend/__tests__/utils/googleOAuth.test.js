@@ -573,7 +573,7 @@ describe("Google OAuth Utilities", () => {
       expect(calendarId).toBe("new_calendar_id_123");
       expect(mockCalendarsInsert).toHaveBeenCalledWith({
         requestBody: {
-          summary: "Therapy Sessions - Booking System",
+          summary: "Fatima's Therapy Services",
           description: expect.stringContaining("Automated calendar"),
           timeZone: "Asia/Karachi",
         },

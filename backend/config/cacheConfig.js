@@ -1,13 +1,3 @@
-/**
- * Cache Configuration
- *
- * This file defines the caching rules for different API endpoints.
- *
- * Structure:
- * - endpoints: Object mapping route patterns to caching configurations
- * - events: Object mapping event types to cache invalidation rules
- */
-
 module.exports = {
   defaultTTL: 21600, // 6 hours
 
