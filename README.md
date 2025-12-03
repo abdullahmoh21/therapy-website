@@ -12,7 +12,6 @@ This repository contains:
 - Background workers powered by BullMQ
 - Email templating & notification pipelines
 - Docker + Nginx production infrastructure
-- Admin dashboard demo video (link [here]())
 
 ## Features — Core Platform
 
