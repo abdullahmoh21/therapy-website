@@ -42,7 +42,7 @@
     "nanoid": "^5.0.8",
     "net": "^1.0.2",
     "node-cron": "^3.0.3",
-    "nodemailer": "^6.9.15",
+    "nodemailer": "^7.0.13",
     "nodemailer-express-handlebars": "^6.1.2",
     "open": "^10.2.0",
     "opossum": "^5.0.1",
