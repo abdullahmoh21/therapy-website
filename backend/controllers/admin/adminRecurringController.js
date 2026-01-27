@@ -2,6 +2,7 @@ const asyncHandler = require("express-async-handler");
 const logger = require("../../logs/logger");
 const { addJob } = require("../../utils/queue/index");
 const User = require("../../models/User");
+const JOB_NAMES = require("../../utils/queue/jobNames");
 
 //@desc Manually trigger recurring buffer maintenance for all users (for testing)
 //@param {Object} req with valid admin role
@@ -35,7 +36,7 @@ const triggerBufferMaintenance = asyncHandler(async (req, res) => {
     for (const user of recurringUsers) {
       try {
         await addJob(
-          "refreshRecurringBuffer",
+          JOB_NAMES.RECURRING_BOOKING_BUFFER_REFRESH,
           { userId: user._id.toString() },
           { priority: 1 } // High priority for manual triggers
         );
@@ -88,7 +89,7 @@ const triggerUserBufferRefresh = asyncHandler(async (req, res) => {
 
     // Queue the refresh job with immediate execution
     await addJob(
-      "refreshRecurringBuffer",
+      JOB_NAMES.RECURRING_BOOKING_BUFFER_REFRESH,
       { userId: userId.toString() },
       { priority: 10 } // Highest priority
     );

@@ -3,6 +3,7 @@ process.env.NODE_ENV = "test";
 
 // Mock googleapis
 const mockCalendarEventsDelete = jest.fn();
+const JOB_NAMES = require("../../../utils/queue/jobNames");
 
 jest.mock("googleapis", () => ({
   google: {
@@ -180,7 +181,7 @@ describe("handleGoogleCalendarCancellation", () => {
       expect(result.success).toBe(true);
       expect(mockUserFindById).toHaveBeenCalledWith("user123");
       expect(sendEmail).toHaveBeenCalledWith(
-        "BookingCancellationNotifications",
+        JOB_NAMES.BOOKING_CANCELLATION_NOTIFICATIONS,
         expect.objectContaining({
           bookingId: "booking123",
           userId: "user123",
@@ -203,7 +204,7 @@ describe("handleGoogleCalendarCancellation", () => {
       await handleGoogleCalendarCancellation(jobData);
 
       expect(sendEmail).toHaveBeenCalledWith(
-        "BookingCancellationNotifications",
+        JOB_NAMES.BOOKING_CANCELLATION_NOTIFICATIONS,
         expect.objectContaining({
           reason: "Session cancelled",
         })
@@ -216,7 +217,7 @@ describe("handleGoogleCalendarCancellation", () => {
       await handleGoogleCalendarCancellation(jobData);
 
       expect(sendEmail).toHaveBeenCalledWith(
-        "BookingCancellationNotifications",
+        JOB_NAMES.BOOKING_CANCELLATION_NOTIFICATIONS,
         expect.objectContaining({
           paymentId: null,
         })
@@ -392,7 +393,7 @@ describe("handleGoogleCalendarCancellation", () => {
       await handleGoogleCalendarCancellation(jobData);
 
       expect(sendEmail).toHaveBeenCalledWith(
-        "BookingCancellationNotifications",
+        JOB_NAMES.BOOKING_CANCELLATION_NOTIFICATIONS,
         expect.objectContaining({
           eventStartTime: mockBooking.eventStartTime,
           cancellationDate: expect.any(Date),
@@ -430,7 +431,7 @@ describe("handleGoogleCalendarCancellation", () => {
 
       expect(result.success).toBe(true);
       expect(sendEmail).toHaveBeenCalledWith(
-        "BookingCancellationNotifications",
+        JOB_NAMES.BOOKING_CANCELLATION_NOTIFICATIONS,
         expect.objectContaining({
           bookingIdNumber: undefined,
           paymentId: null,
@@ -446,7 +447,7 @@ describe("handleGoogleCalendarCancellation", () => {
 
       expect(result.success).toBe(true);
       expect(sendEmail).toHaveBeenCalledWith(
-        "BookingCancellationNotifications",
+        JOB_NAMES.BOOKING_CANCELLATION_NOTIFICATIONS,
         expect.objectContaining({
           reason: "A".repeat(1000),
         })

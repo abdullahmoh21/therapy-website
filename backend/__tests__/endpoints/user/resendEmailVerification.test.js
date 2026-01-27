@@ -8,6 +8,7 @@ const {
 } = require("../testSetup");
 const request = require("supertest");
 const userController = require("../../../controllers/userController");
+const JOB_NAMES = require("../../../utils/queue/jobNames");
 
 // Add spy to see what the controller's encrypt function is actually doing
 jest.spyOn(userController, "encrypt");
@@ -55,7 +56,7 @@ describe("POST /users/resendEmailVerification - Resend Email Verification", () =
     expect(res.statusCode).toBe(200);
     expect(res.body.message).toBe("Verification email sent");
     expect(sendEmail).toHaveBeenCalledWith(
-      "UserAccountVerificationEmail",
+      JOB_NAMES.USER_ACCOUNT_VERIFICATION_EMAIL,
       expect.objectContaining({
         userId: expect.any(String),
         verificationToken: expect.any(String),

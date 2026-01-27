@@ -7,6 +7,7 @@ const expressJoiValidation = require("express-joi-validation").createValidator(
 const { sendEmail } = require("../utils/queue/index");
 const logger = require("../logs/logger");
 const Inquiry = require("../models/Inquiry");
+const JOB_NAMES = require("../utils/queue/jobNames");
 
 // will store inquiry in the database and notify Admin as well as send an email to the user
 const saveInquiry = async (req, res) => {
@@ -24,7 +25,7 @@ const saveInquiry = async (req, res) => {
     logger.info(`New inquiry saved with ID: ${inquiry._id}`);
     try {
       logger.debug("Attempting to send emails");
-      await sendEmail("ContactMe", req.body);
+      await sendEmail(JOB_NAMES.CONTACT_INQUIRY, req.body);
     } catch (err) {
       logger.debug(`could not send email. following error: ${err}`);
       return res.status(200).json("Message received successfully");

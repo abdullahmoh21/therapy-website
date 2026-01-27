@@ -8,6 +8,7 @@ const {
   invalidateByEvent,
 } = require("../../testSetup");
 const request = require("supertest");
+const JOB_NAMES = require("../../../../utils/queue/jobNames");
 
 // Set NODE_ENV to test for this file
 process.env.NODE_ENV = "test";
@@ -229,7 +230,7 @@ describe("Admin Invitation Endpoints", () => {
 
       // Verify email was sent
       expect(sendEmail).toHaveBeenCalledWith(
-        "UserInvitationEmail",
+        JOB_NAMES.USER_INVITATION_EMAIL,
         expect.objectContaining({
           inviteeId: expect.any(String),
         })
@@ -250,6 +251,27 @@ describe("Admin Invitation Endpoints", () => {
 
       expect(res.statusCode).toBe(400);
       expect(res.body).toHaveProperty("message", "Email is required");
+    });
+
+    it("should return 400 if name is missing", async () => {
+      const res = await request(app).post("/admin/invitations").send({
+        email: "newuser@example.com",
+        accountType: "domestic",
+      });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body).toHaveProperty("message", "Name is required");
+    });
+
+    it("should return 400 if name is empty string", async () => {
+      const res = await request(app).post("/admin/invitations").send({
+        email: "newuser@example.com",
+        name: "   ",
+        accountType: "domestic",
+      });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body).toHaveProperty("message", "Name is required");
     });
 
     it("should return 400 if accountType is invalid", async () => {
@@ -360,7 +382,7 @@ describe("Admin Invitation Endpoints", () => {
 
       // Verify email was sent
       expect(sendEmail).toHaveBeenCalledWith(
-        "UserInvitationEmail",
+        JOB_NAMES.USER_INVITATION_EMAIL,
         expect.objectContaining({
           inviteeId: expect.any(String),
         })

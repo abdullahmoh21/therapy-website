@@ -17,6 +17,7 @@ const {
 } = require("../testSetup");
 const { addJob } = require("../../../utils/queue/index");
 const Job = require("../../../models/Job");
+const JOB_NAMES = require("../../../utils/queue/jobNames");
 
 // Mock the queue system
 jest.mock("../../../utils/queue/index");
@@ -116,16 +117,16 @@ describe("Recurring Bookings - Admin Endpoints", () => {
 
       // Verify buffer refresh job was scheduled
       expect(addJob).toHaveBeenCalledWith(
-        "refreshRecurringBuffer",
+        JOB_NAMES.RECURRING_BOOKING_BUFFER_REFRESH,
         { userId: testUserId.toString() },
         expect.objectContaining({
           runAt: expect.any(Date),
         })
       );
 
-      // Verify Google Calendar sync jobs were queued
+            // Verify Google Calendar sync jobs were queued
       const syncCalls = addJob.mock.calls.filter(
-        (call) => call[0] === "GoogleCalendarEventSync"
+        (call) => call[0] === JOB_NAMES.GOOGLE_CALENDAR_EVENT_SYNC
       );
       expect(syncCalls.length).toBeGreaterThan(0);
     });
@@ -355,7 +356,7 @@ describe("Recurring Bookings - Admin Endpoints", () => {
 
       // Should still succeed but not queue sync jobs
       const syncCalls = addJob.mock.calls.filter(
-        (call) => call[0] === "GoogleCalendarEventSync"
+        (call) => call[0] === JOB_NAMES.GOOGLE_CALENDAR_EVENT_SYNC
       );
       expect(syncCalls.length).toBe(0);
     });
@@ -482,7 +483,7 @@ describe("Recurring Bookings - Admin Endpoints", () => {
 
       // Verify Google Calendar deletion jobs were queued
       const deletionCalls = addJob.mock.calls.filter(
-        (call) => call[0] === "GoogleCalendarEventDeletion"
+        (call) => call[0] === JOB_NAMES.GOOGLE_CALENDAR_EVENT_DELETION
       );
       expect(deletionCalls.length).toBe(5);
 
@@ -516,7 +517,7 @@ describe("Recurring Bookings - Admin Endpoints", () => {
       let callCount = 0;
       addJob.mockImplementation((jobName) => {
         callCount++;
-        if (callCount % 2 === 0 && jobName === "GoogleCalendarEventDeletion") {
+        if (callCount % 2 === 0 && jobName === JOB_NAMES.GOOGLE_CALENDAR_EVENT_DELETION) {
           return Promise.reject(new Error("Queue failed"));
         }
         return Promise.resolve({ success: true });
@@ -602,7 +603,7 @@ describe("Recurring Bookings - Admin Endpoints", () => {
 
       // Verify jobs were queued
       const bufferCalls = addJob.mock.calls.filter(
-        (call) => call[0] === "refreshRecurringBuffer"
+        (call) => call[0] === JOB_NAMES.RECURRING_BOOKING_BUFFER_REFRESH
       );
       expect(bufferCalls.length).toBe(2);
     });
@@ -656,7 +657,7 @@ describe("Recurring Bookings - Admin Endpoints", () => {
       expect(response.body.userId).toBe(testUserId.toString());
 
       expect(addJob).toHaveBeenCalledWith(
-        "refreshRecurringBuffer",
+        JOB_NAMES.RECURRING_BOOKING_BUFFER_REFRESH,
         { userId: testUserId.toString() },
         { priority: 10 }
       );

@@ -3,6 +3,7 @@ const Booking = require("../../../models/Booking");
 const User = require("../../../models/User");
 const logger = require("../../../logs/logger");
 const { createOAuth2Client, getSystemCalendar } = require("../../googleOAuth");
+const JOB_NAMES = require("../jobNames");
 
 /**
  * Handle Google Calendar event cancellation
@@ -90,7 +91,7 @@ const handleGoogleCalendarCancellation = async (jobData) => {
           });
 
           const { sendEmail } = require("../jobScheduler"); // to avoid circular dependency
-          await sendEmail("BookingCancellationNotifications", {
+          await sendEmail(JOB_NAMES.BOOKING_CANCELLATION_NOTIFICATIONS, {
             bookingId: booking._id.toString(),
             userId: booking.userId.toString(),
             cancelledBy: "admin",
@@ -131,7 +132,7 @@ const handleGoogleCalendarCancellation = async (jobData) => {
           const user = await User.findById(booking?.userId);
           if (user && booking) {
             const { sendEmail } = require("../jobScheduler"); // to avoid circular dependency
-            await sendEmail("BookingCancellationNotifications", {
+            await sendEmail(JOB_NAMES.BOOKING_CANCELLATION_NOTIFICATIONS, {
               bookingId: booking._id.toString(),
               userId: booking.userId.toString(),
               cancelledBy: "admin",

@@ -11,6 +11,7 @@ const {
   invalidateByEvent,
 } = require("../middleware/redisCaching");
 const { sendEmail } = require("../utils/queue/index");
+const JOB_NAMES = require("../utils/queue/jobNames");
 const TOKEN_ENCRYPTION_KEY = process.env.TOKEN_ENCRYPTION_KEY;
 const TOKEN_ENCRYPTION_IV = process.env.TOKEN_ENCRYPTION_IV;
 
@@ -100,7 +101,7 @@ const resendEvLink = asyncHandler(async (req, res) => {
 
   // Add job to email queue
   try {
-    await sendEmail("UserAccountVerificationEmail", {
+    await sendEmail(JOB_NAMES.USER_ACCOUNT_VERIFICATION_EMAIL, {
       userId: user._id.toString(),
       verificationToken,
     });
@@ -199,7 +200,7 @@ const forgotPassword = asyncHandler(async (req, res) => {
   }
 
   try {
-    await sendEmail("UserPasswordResetEmail", {
+    await sendEmail(JOB_NAMES.USER_PASSWORD_RESET_EMAIL, {
       userId: user._id.toString(),
       resetToken,
     });
