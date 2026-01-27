@@ -4,12 +4,14 @@ const Payment = require("../../../models/Payment");
 const Config = require("../../../models/Config");
 const logger = require("../../../logs/logger");
 const mongoose = require("mongoose");
-const { addMinutes, addWeeks, addMonths, isBefore } = require("date-fns");
+const { addMinutes, addWeeks, addMonths, addDays, isBefore } = require("date-fns");
 const { utcToZonedTime, zonedTimeToUtc } = require("date-fns-tz");
 const { addJob, sendEmail } = require("../jobScheduler");
 const { getConnectionStatus } = require("../../googleOAuth");
 const ShortUniqueId = require("short-unique-id");
 const uid = new ShortUniqueId({ length: 5 });
+
+const JOB_NAMES = require("../jobNames");
 
 const TZ = "Asia/Karachi";
 const BUFFER_TARGET_MONTHS = 2; // Maintain 2 months of bookings ahead
@@ -92,7 +94,11 @@ const handleRecurringBookingBufferRefresh = async (job) => {
 
     const lastBookingDate = new Date(lastBooking.eventStartTime);
     const now = new Date();
-    const bufferEnd = addMonths(now, BUFFER_TARGET_MONTHS);
+    
+    // Calculate buffer end in the same timezone context as cursor for consistent comparison
+    // This ensures we're comparing apples-to-apples when checking booking window
+    const bufferEndLocal = addMonths(utcToZonedTime(now, TZ), BUFFER_TARGET_MONTHS);
+    const bufferEnd = zonedTimeToUtc(bufferEndLocal, TZ);
 
     logger.debug(
       `Last booking: ${lastBookingDate.toISOString()}, extending to: ${bufferEnd.toISOString()}`
@@ -125,7 +131,7 @@ const handleRecurringBookingBufferRefresh = async (job) => {
     let createdCount = 0;
     let skippedCount = 0;
 
-    while (isBefore(cursor, bufferEnd)) {
+    while (cursor <= bufferEnd) {
       const start = cursor;
       const end = addMinutes(start, sessionLengthMinutes);
 
@@ -223,7 +229,7 @@ const handleRecurringBookingBufferRefresh = async (job) => {
         // Queue sync job for Google Calendar
         for (const { bookingId } of newBookings) {
           try {
-            await addJob("GoogleCalendarEventSync", {
+            await addJob(JOB_NAMES.GOOGLE_CALENDAR_EVENT_SYNC, {
               bookingId: bookingId.toString(),
             });
             logger.debug(`Queued sync for booking ${bookingId}`);
@@ -266,7 +272,7 @@ const handleRecurringBookingBufferRefresh = async (job) => {
         // Schedule the next refresh job
         try {
           await addJob(
-            "handleRecurringBookingBufferRefresh",
+            JOB_NAMES.RECURRING_BOOKING_BUFFER_REFRESH,
             { userId: userId.toString() },
             { runAt: nextRefreshDate }
           );
@@ -287,18 +293,20 @@ const handleRecurringBookingBufferRefresh = async (job) => {
       );
 
       try {
-        await sendEmail("SystemAlert", {
+        await sendEmail(JOB_NAMES.SYSTEM_ALERT, {
           alertType: "buffer_refresh_failed",
-          userId: userId.toString(),
-          userName: user.name,
-          userEmail: user.email,
-          reason: "all_slots_conflicted",
-          skippedCount,
-          interval,
-          day,
-          time,
-          timestamp: new Date().toISOString(),
-          message: `Buffer refresh failed for ${user.name} (${user.email}). All ${skippedCount} time slots conflicted with existing bookings. Manual intervention required.`,
+          extraData: {
+            userId: userId.toString(),
+            userName: user.name,
+            userEmail: user.email,
+            reason: "all_slots_conflicted",
+            skippedCount,
+            interval,
+            day,
+            time,
+            timestamp: new Date().toISOString(),
+            message: `Buffer refresh failed for ${user.name} (${user.email}). All ${skippedCount} time slots conflicted with existing bookings. Manual intervention required.`,
+          },
         });
         logger.info(
           `Sent system alert to developer about failed buffer refresh for user ${userId}`

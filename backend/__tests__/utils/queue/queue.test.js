@@ -20,6 +20,8 @@ jest.mock("../../../logs/logger", () => ({
   debug: jest.fn(),
 }));
 
+const JOB_NAMES = require("../../../utils/queue/jobNames");
+
 // Mock BullMQ
 const mockAdd = jest.fn().mockResolvedValue({ id: "job123" });
 const mockQueue = { add: mockAdd };
@@ -153,10 +155,10 @@ describe("Queue System Tests", () => {
           verificationToken: "token123",
         };
 
-        await sendEmail("UserAccountVerificationEmail", jobData);
+        await sendEmail(JOB_NAMES.USER_ACCOUNT_VERIFICATION_EMAIL, jobData);
 
         expect(mockAdd).toHaveBeenCalledWith(
-          "UserAccountVerificationEmail",
+          JOB_NAMES.USER_ACCOUNT_VERIFICATION_EMAIL,
           jobData,
           expect.objectContaining({
             jobId: expect.any(String),
@@ -173,10 +175,10 @@ describe("Queue System Tests", () => {
           resetToken: "token123",
         };
 
-        await sendEmail("UserPasswordResetEmail", jobData);
+        await sendEmail(JOB_NAMES.USER_PASSWORD_RESET_EMAIL, jobData);
 
         expect(mockAdd).toHaveBeenCalledWith(
-          "UserPasswordResetEmail",
+          JOB_NAMES.USER_PASSWORD_RESET_EMAIL,
           jobData,
           expect.any(Object)
         );
@@ -187,10 +189,10 @@ describe("Queue System Tests", () => {
           inviteeId: "507f1f77bcf86cd799439011",
         };
 
-        await sendEmail("UserInvitationEmail", jobData);
+        await sendEmail(JOB_NAMES.USER_INVITATION_EMAIL, jobData);
 
         expect(mockAdd).toHaveBeenCalledWith(
-          "UserInvitationEmail",
+          JOB_NAMES.USER_INVITATION_EMAIL,
           jobData,
           expect.any(Object)
         );
@@ -198,17 +200,15 @@ describe("Queue System Tests", () => {
 
       it("should add a ContactInquiry job to the queue", async () => {
         const jobData = {
-          type: "General",
-          name: "Test User",
-          email: "test@example.com",
-          phone: "123-456-7890",
-          message: "This is a test message",
+          name: "John Doe",
+          email: "john@example.com",
+          message: "Hello",
         };
 
-        await sendEmail("ContactInquiry", jobData);
+        await sendEmail(JOB_NAMES.CONTACT_INQUIRY, jobData);
 
         expect(mockAdd).toHaveBeenCalledWith(
-          "ContactInquiry",
+          JOB_NAMES.CONTACT_INQUIRY,
           jobData,
           expect.any(Object)
         );
@@ -221,10 +221,10 @@ describe("Queue System Tests", () => {
           reason: "Test reason",
         };
 
-        await sendEmail("EventDeletedNotification", jobData);
+        await sendEmail(JOB_NAMES.EVENT_DELETED_NOTIFICATION, jobData);
 
         expect(mockAdd).toHaveBeenCalledWith(
-          "EventDeletedNotification",
+          JOB_NAMES.EVENT_DELETED_NOTIFICATION,
           jobData,
           expect.any(Object)
         );
@@ -243,10 +243,10 @@ describe("Queue System Tests", () => {
           notifyAdmin: true,
         };
 
-        await sendEmail("BookingCancellationNotifications", jobData);
+        await sendEmail(JOB_NAMES.BOOKING_CANCELLATION_NOTIFICATIONS, jobData);
 
         expect(mockAdd).toHaveBeenCalledWith(
-          "BookingCancellationNotifications",
+          JOB_NAMES.BOOKING_CANCELLATION_NOTIFICATIONS,
           jobData,
           expect.any(Object)
         );
@@ -258,10 +258,10 @@ describe("Queue System Tests", () => {
           extraData: { message: "Test error" },
         };
 
-        await sendEmail("SystemAlert", jobData);
+        await sendEmail(JOB_NAMES.SYSTEM_ALERT, jobData);
 
         expect(mockAdd).toHaveBeenCalledWith(
-          "SystemAlert",
+          JOB_NAMES.SYSTEM_ALERT,
           jobData,
           expect.any(Object)
         );
@@ -283,14 +283,14 @@ describe("Queue System Tests", () => {
           verificationToken: "token123",
         };
 
-        const result = await sendEmail("UserAccountVerificationEmail", jobData);
+        const result = await sendEmail(JOB_NAMES.USER_ACCOUNT_VERIFICATION_EMAIL, jobData);
 
         expect(result).toHaveProperty("success", true);
         expect(result).toHaveProperty("deferred", true);
 
         // Check that job was persisted to MongoDB
         const savedJob = await Job.findOne({
-          jobName: "UserAccountVerificationEmail",
+          jobName: JOB_NAMES.USER_ACCOUNT_VERIFICATION_EMAIL,
         });
         expect(savedJob).toBeTruthy();
         expect(savedJob.jobData).toMatchObject(jobData);
@@ -303,14 +303,14 @@ describe("Queue System Tests", () => {
           resetToken: "token123",
         };
 
-        const result = await sendEmail("UserPasswordResetEmail", jobData);
+        const result = await sendEmail(JOB_NAMES.USER_PASSWORD_RESET_EMAIL, jobData);
 
         expect(result).toHaveProperty("success", true);
         expect(result).toHaveProperty("deferred", true);
 
         // Check that job was persisted to MongoDB
         const savedJob = await Job.findOne({
-          jobName: "UserPasswordResetEmail",
+          jobName: JOB_NAMES.USER_PASSWORD_RESET_EMAIL,
         });
         expect(savedJob).toBeTruthy();
         expect(savedJob.jobData).toMatchObject(jobData);
@@ -326,13 +326,13 @@ describe("Queue System Tests", () => {
           message: "This is a test message",
         };
 
-        const result = await sendEmail("ContactInquiry", jobData);
+        const result = await sendEmail(JOB_NAMES.CONTACT_INQUIRY, jobData);
 
         expect(result).toHaveProperty("success", true);
         expect(result).toHaveProperty("deferred", true);
 
         // Check that job was persisted to MongoDB
-        const savedJob = await Job.findOne({ jobName: "ContactInquiry" });
+        const savedJob = await Job.findOne({ jobName: JOB_NAMES.CONTACT_INQUIRY });
         expect(savedJob).toBeTruthy();
         expect(savedJob.jobData).toMatchObject(jobData);
         expect(savedJob.status).toBe("pending");
@@ -366,14 +366,14 @@ describe("Queue System Tests", () => {
 
         // Get a fresh copy of the module with queue set to null
         const { sendEmail } = require("../../../utils/queue");
-        const result = await sendEmail("UserAccountVerificationEmail", jobData);
+        const result = await sendEmail(JOB_NAMES.USER_ACCOUNT_VERIFICATION_EMAIL, jobData);
 
         expect(result).toHaveProperty("success", true);
         expect(result).toHaveProperty("deferred", true);
 
         // Check that job was persisted to MongoDB
         const savedJob = await Job.findOne({
-          jobName: "UserAccountVerificationEmail",
+          jobName: JOB_NAMES.USER_ACCOUNT_VERIFICATION_EMAIL,
         });
         expect(savedJob).toBeTruthy();
         expect(savedJob.jobData).toMatchObject(jobData);

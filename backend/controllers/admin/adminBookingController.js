@@ -10,6 +10,7 @@ const sanitizeHtml = require("sanitize-html");
 const logger = require("../../logs/logger");
 const { addJob, sendEmail } = require("../../utils/queue/index");
 const { invalidateByEvent } = require("../../middleware/redisCaching");
+const JOB_NAMES = require("../../utils/queue/jobNames");
 
 /**
  * @desc Creates a one-off admin booking with Google Calendar integration
@@ -286,7 +287,7 @@ const createBooking = asyncHandler(async (req, res) => {
 
       // Queue sync job for Google Calendar with rollback on failure
       try {
-        await addJob("GoogleCalendarEventSync", {
+        await addJob(JOB_NAMES.GOOGLE_CALENDAR_EVENT_SYNC, {
           bookingId: booking._id.toString(),
         });
         logger.info(`Queued Google Calendar sync for booking ${booking._id}`);
@@ -453,7 +454,7 @@ const cancelBooking = asyncHandler(async (req, res) => {
     // This job will handle both Google Calendar deletion and user notification
     if (booking.googleEventId) {
       try {
-        await addJob("GoogleCalendarEventCancellation", {
+        await addJob(JOB_NAMES.GOOGLE_CALENDAR_EVENT_CANCELLATION, {
           bookingId: booking._id.toString(),
           notifyUser: notifyUser,
           reason: sanitizedReason,
@@ -474,7 +475,7 @@ const cancelBooking = asyncHandler(async (req, res) => {
       // No Google Calendar event, but still send notification if requested
       if (notifyUser) {
         try {
-          await sendEmail("BookingCancellationNotifications", {
+          await sendEmail(JOB_NAMES.BOOKING_CANCELLATION_NOTIFICATIONS, {
             bookingId: booking._id.toString(),
             userId: booking.userId.toString(),
             cancelledBy: "admin",
@@ -894,7 +895,7 @@ const deleteBooking = asyncHandler(async (req, res) => {
     if (isGoogleSynced) {
       // Queue the deletion job to handle Google Calendar deletion and database cleanup
       try {
-        await addJob("GoogleCalendarEventDeletion", {
+        await addJob(JOB_NAMES.GOOGLE_CALENDAR_EVENT_DELETION, {
           bookingId: bookingId.toString(),
           googleEventId: booking.googleEventId,
         });

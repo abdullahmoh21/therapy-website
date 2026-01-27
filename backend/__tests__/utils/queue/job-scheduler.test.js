@@ -4,6 +4,7 @@
  */
 
 const mongoose = require("mongoose");
+const { MongoMemoryServer } = require("mongodb-memory-server");
 const Job = require("../../../models/Job");
 const outboxService = require("../../../utils/queue/outbox");
 const { addJob } = require("../../../utils/queue/jobScheduler");
@@ -24,11 +25,13 @@ const mockRedisQueue = {
 };
 
 describe("Job Scheduler and Promoter System", () => {
+  let mongoServer;
+
   beforeAll(async () => {
+    mongoServer = await MongoMemoryServer.create();
+    const uri = mongoServer.getUri();
     if (mongoose.connection.readyState === 0) {
-      await mongoose.connect(
-        process.env.MONGO_URI || "mongodb://localhost:27017/test-scheduler"
-      );
+      await mongoose.connect(uri);
     }
   });
 
@@ -39,7 +42,8 @@ describe("Job Scheduler and Promoter System", () => {
   });
 
   afterAll(async () => {
-    await mongoose.connection.close();
+    await mongoose.disconnect();
+    await mongoServer.stop();
   });
 
   describe("Job Scheduler - addJob()", () => {

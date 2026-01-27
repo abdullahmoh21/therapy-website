@@ -4,6 +4,7 @@
  */
 
 const mongoose = require("mongoose");
+const { MongoMemoryServer } = require("mongodb-memory-server");
 const Job = require("../../../models/Job");
 const outboxService = require("../../../utils/queue/outbox");
 const { addJob, sendEmail } = require("../../../utils/queue/index");
@@ -18,12 +19,14 @@ jest.mock("../../../logs/logger", () => ({
 }));
 
 describe("Job Scheduling System", () => {
+  let mongoServer;
+
   beforeAll(async () => {
     // Connect to test database
+    mongoServer = await MongoMemoryServer.create();
+    const uri = mongoServer.getUri();
     if (mongoose.connection.readyState === 0) {
-      await mongoose.connect(
-        process.env.MONGO_URI || "mongodb://localhost:27017/test-jobs"
-      );
+      await mongoose.connect(uri);
     }
   });
 
@@ -33,7 +36,8 @@ describe("Job Scheduling System", () => {
   });
 
   afterAll(async () => {
-    await mongoose.connection.close();
+    await mongoose.disconnect();
+    await mongoServer.stop();
   });
 
   describe("MongoDB Job Persistence", () => {

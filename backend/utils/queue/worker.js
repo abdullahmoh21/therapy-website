@@ -48,7 +48,7 @@ async function buildWorker(queueName) {
         try {
           const mongoJob = await Job.findOne({ jobId: job.id });
           if (mongoJob) {
-            await mongoJob.markFailed(error.message);
+            await mongoJob.markFailed(error);
           }
         } catch (mongoError) {
           logger.error(

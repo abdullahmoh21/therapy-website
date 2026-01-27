@@ -5,6 +5,7 @@ const { invalidateByEvent } = require("../../middleware/redisCaching");
 const logger = require("../../logs/logger");
 const crypto = require("crypto");
 const { sendEmail } = require("../../utils/queue/index");
+const JOB_NAMES = require("../../utils/queue/jobNames");
 const mongoose = require("mongoose");
 
 // Helper function to safely convert user ID to a valid string for MongoDB ObjectId
@@ -138,6 +139,10 @@ const inviteUser = asyncHandler(async (req, res) => {
       return res.status(400).json({ message: "Email is required" });
     }
 
+    if (!name || !name.trim()) {
+      return res.status(400).json({ message: "Name is required" });
+    }
+
     if (accountType !== "domestic" && accountType !== "international") {
       return res.status(400).json({
         message:
@@ -178,33 +183,34 @@ const inviteUser = asyncHandler(async (req, res) => {
     const token = crypto.randomBytes(20).toString("hex");
 
     // Create new invitation record
+    const normalizedEmail = email.toLowerCase();
     const invitation = await Invitee.create({
-      email: email.toLowerCase(), // Ensure email is stored in lowercase
-      name,
+      email: normalizedEmail, // Ensure email is stored in lowercase
+      name: name.trim(),
       accountType,
       token,
       invitedBy: adminId,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
     });
 
-    // Generate invitation URL
+    // Generate invitation URL (use normalized email for consistency)
     const invitationUrl = `${
       process.env.FRONTEND_URL
-    }/signup?invitation=${token}&email=${encodeURIComponent(email)}`;
+    }/signup?invitation=${token}&email=${encodeURIComponent(normalizedEmail)}`;
 
-    logger.info(`Created invitation for: ${email}, URL: ${invitationUrl}`);
+    logger.info(`Created invitation for: ${normalizedEmail}, URL: ${invitationUrl}`);
 
     // Send invitation email
     try {
-      await sendEmail("UserInvitationEmail", {
+      await sendEmail(JOB_NAMES.USER_INVITATION_EMAIL, {
         inviteeId: invitation._id.toString(),
         invitationToken: token,
       });
-      logger.info(`Invitation email sent successfully to: ${email}`);
+      logger.info(`Invitation email sent successfully to: ${normalizedEmail}`);
       await invalidateByEvent("invitation-created");
     } catch (emailError) {
       logger.error(
-        `Failed to send invitation email to ${email}: ${emailError.message}`
+        `Failed to send invitation email to ${normalizedEmail}: ${emailError.message}`
       );
       // Don't fail the invitation creation, just log the error
       return res.status(201).json({
@@ -299,7 +305,7 @@ const resendInvitation = asyncHandler(async (req, res) => {
 
     try {
       // Send invitation email
-      await sendEmail("UserInvitationEmail", {
+      await sendEmail(JOB_NAMES.USER_INVITATION_EMAIL, {
         inviteeId: invitee._id.toString(),
         invitationToken: token,
       });

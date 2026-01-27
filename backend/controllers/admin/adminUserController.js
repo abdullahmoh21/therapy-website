@@ -6,6 +6,7 @@ const Booking = require("../../models/Booking");
 const Payment = require("../../models/Payment");
 const Config = require("../../models/Config");
 const Job = require("../../models/Job");
+const JOB_NAMES = require("../../utils/queue/jobNames");
 const { invalidateByEvent } = require("../../middleware/redisCaching");
 const { emailSchema } = require("../../utils/validation/ValidationSchemas");
 const {
@@ -116,7 +117,7 @@ const deleteUser = asyncHandler(async (req, res) => {
       hasRecurring
         ? Job.updateMany(
             {
-              jobName: "refreshRecurringBuffer",
+              jobName: JOB_NAMES.RECURRING_BOOKING_BUFFER_REFRESH,
               "jobData.userId": userId.toString(),
               status: { $in: ["pending", "promoted"] },
             },
@@ -645,7 +646,7 @@ const recurUser = asyncHandler(async (req, res, next) => {
 
         // Queue Google Calendar sync (which now includes Google Meet for online meetings)
         try {
-          await addJob("GoogleCalendarEventSync", {
+          await addJob(JOB_NAMES.GOOGLE_CALENDAR_EVENT_SYNC, {
             bookingId: bookingId.toString(),
           });
           logger.info(`Queued Google Calendar sync for booking ${bookingId}`);
@@ -683,7 +684,7 @@ const recurUser = asyncHandler(async (req, res, next) => {
       // Schedule the buffer refresh job
       try {
         await addJob(
-          "refreshRecurringBuffer",
+          JOB_NAMES.RECURRING_BOOKING_BUFFER_REFRESH,
           { userId: userId.toString() },
           { runAt: nextRefreshDate }
         );
@@ -889,7 +890,7 @@ const stopRecurring = asyncHandler(async (req, res, next) => {
       );
 
       try {
-        await addJob("GoogleCalendarEventDeletion", {
+        await addJob(JOB_NAMES.GOOGLE_CALENDAR_EVENT_DELETION, {
           bookingId: booking._id.toString(),
           googleEventId: booking.googleEventId,
         });

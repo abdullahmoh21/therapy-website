@@ -4,31 +4,130 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!-- Preheader text for inbox preview -->
     <style>
-      .preheader { display: none !important; visibility: hidden; opacity: 0;
-      color: transparent; height: 0; width: 0; overflow: hidden; mso-hide: all;
-      } body { font-family: Arial, sans-serif; color: #333; background-color:
-      #f9f9f9; margin: 0; padding: 0; } .container { max-width: 600px; margin:
-      40px auto; background-color: #ffffff; border: 1px solid #eee; border-left:
-      4px solid #e27a82; border-radius: 8px; padding: 24px; box-shadow: 0 2px
-      4px rgba(0, 0, 0, 0.05); } .header { text-align: center; margin-bottom:
-      30px; } .header img, .header .fallback-logo { display: block; margin: 0
-      auto 10px; max-width: 110px; max-height: 110px; } .fallback-logo { color:
-      #e27a82; font-size: 18px; font-weight: bold; } .title { font-size: 22px;
-      font-weight: bold; color: #e27a82; margin: 0; } .details { margin-top:
-      20px; line-height: 1.6; } .details p { margin: 12px 0; } .details a {
-      color: #0066cc; text-decoration: underline; word-break: break-word; }
-      .note { background-color: #f4f4f4; padding: 12px; border-left: 4px solid
-      #e27a82; margin: 20px 0; border-radius: 4px; font-style: italic; } .footer
-      { font-size: 13px; color: #777; text-align: center; margin-top: 40px;
-      border-top: 1px solid #eee; padding-top: 16px; }
+      .preheader {
+        display: none !important;
+        visibility: hidden;
+        opacity: 0;
+        color: transparent;
+        height: 0;
+        width: 0;
+        overflow: hidden;
+        mso-hide: all;
+      }
+
+      body {
+        font-family: Arial, sans-serif;
+        color: #333333;
+        background-color: #f9f9f9;
+        margin: 0;
+        padding: 0;
+      }
+
+      .container {
+        max-width: 600px;
+        margin: 40px auto;
+        background-color: #ffffff;
+        border: 1px solid #eee;
+        border-left: 4px solid #e27a82;
+        border-radius: 8px;
+        padding: 24px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      }
+
+      .header {
+        text-align: center;
+        margin-bottom: 20px;
+      }
+
+      .header img,
+      .header .fallback-logo {
+        display: block;
+        margin: 0 auto 10px;
+        max-width: 110px;
+        max-height: 110px;
+      }
+
+      .fallback-logo {
+        color: #e27a82;
+        font-size: 18px;
+        font-weight: bold;
+      }
+
+      .title {
+        font-size: 22px;
+        font-weight: bold;
+        color: #e27a82;
+        margin: 0;
+      }
+
+      .summary {
+        margin-top: 8px;
+        font-size: 14px;
+        color: #555555;
+      }
+
+      .details {
+        margin-top: 20px;
+        line-height: 1.6;
+        font-size: 14px;
+      }
+
+      .details p {
+        margin: 8px 0;
+      }
+
+      .details-label {
+        font-weight: bold;
+        color: #444444;
+      }
+
+      .details a {
+        color: #555555;
+        text-decoration: none;
+        border-bottom: 1px dotted #bbbbbb;
+        word-break: break-word;
+      }
+
+      .note {
+        background-color: #f4f4f4;
+        padding: 12px;
+        border-left: 4px solid #e27a82;
+        margin: 20px 0;
+        border-radius: 4px;
+        font-style: italic;
+        font-size: 13px;
+        color: #555555;
+      }
+
+      .message-box {
+        margin-top: 20px;
+        padding: 12px 14px;
+        background-color: #fff7f8;
+        border-left: 4px solid #e27a82;
+        border-radius: 4px;
+      }
+
+      .message-label {
+        font-weight: bold;
+        margin-bottom: 6px;
+        color: #444444;
+      }
+
+      .footer {
+        font-size: 13px;
+        color: #777777;
+        text-align: center;
+        margin-top: 32px;
+        border-top: 1px solid #eeeeee;
+        padding-top: 16px;
+      }
     </style>
     <title>New Client Inquiry</title>
   </head>
   <body>
     <!-- Preheader for email previews -->
     <div class="preheader">
-      You have a new inquiry from
-      {{name}}—see details inside.
+      You have a new inquiry from {{name}}—see details inside.
     </div>
 
     <div class="container">
@@ -42,27 +141,49 @@
           />
         </a>
         <h1 class="title">New Client Inquiry</h1>
+        <p class="summary">
+          You’ve received a new inquiry from <strong>{{name}}</strong> via the
+          website. Here are the details:
+        </p>
+      </div>
+
+      <!-- Reply-to note -->
+      <div class="note">
+        You can simply reply to this email to reach {{name}}&nbsp;– the reply
+        will go to their address ({{email}}). Their email is also listed below
+        in case you ever need to copy it manually.
       </div>
 
       <!-- Inquiry Details -->
       <div class="details">
-        <p><strong>Name:</strong> {{name}}</p>
-        <p><strong>Type:</strong> {{type}}</p>
-        <p><strong>Email:</strong>
+        <p>
+          <span class="details-label">Name:</span>
+          {{name}}
+        </p>
+        <p>
+          <span class="details-label">Type:</span>
+          {{type}}
+        </p>
+        <p>
+          <span class="details-label">Email:</span>
           <a href="mailto:{{email}}">{{email}}</a>
         </p>
-        <p><strong>Phone:</strong> {{phone}}</p>
-        <p><strong>Message:</strong></p>
-        <p>{{message}}</p>
+        <p>
+          <span class="details-label">Phone:</span>
+          {{phone}}
+        </p>
+
+        <div class="message-box">
+          <div class="message-label">Message</div>
+          <p>{{message}}</p>
+        </div>
       </div>
 
       <!-- Footer -->
       <div class="footer">
         Regards,<br />
         Fatima’s Therapy Services<br />
-        &copy;
-        {{currentYear}}
-        All rights reserved.
+        &copy; {{currentYear}} All rights reserved.
       </div>
     </div>
   </body>

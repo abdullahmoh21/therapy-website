@@ -4,6 +4,7 @@
  */
 
 const mongoose = require("mongoose");
+const { MongoMemoryServer } = require("mongodb-memory-server");
 const User = require("../../../models/User");
 const Booking = require("../../../models/Booking");
 const Payment = require("../../../models/Payment");
@@ -12,6 +13,7 @@ const handleRecurringBookingBufferRefresh = require("../../../utils/queue/jobs/r
 const { addJob } = require("../../../utils/queue/jobScheduler");
 const { getConnectionStatus } = require("../../../utils/googleOAuth");
 const { addMonths, addWeeks } = require("date-fns");
+const JOB_NAMES = require("../../../utils/queue/jobNames");
 
 // Mock dependencies
 jest.mock("../../../logs/logger", () => ({
@@ -32,17 +34,19 @@ jest.mock("../../../utils/googleOAuth", () => ({
 describe("Recurring Buffer Refresh Job Handler", () => {
   let testUserId;
   let seriesId;
+  let mongoServer;
 
   beforeAll(async () => {
+    mongoServer = await MongoMemoryServer.create();
+    const uri = mongoServer.getUri();
     if (mongoose.connection.readyState === 0) {
-      await mongoose.connect(
-        process.env.MONGO_URI || "mongodb://localhost:27017/test-buffer-refresh"
-      );
+      await mongoose.connect(uri);
     }
   });
 
   afterAll(async () => {
-    await mongoose.connection.close();
+    await mongoose.disconnect();
+    await mongoServer.stop();
   });
 
   beforeEach(async () => {
@@ -510,7 +514,7 @@ describe("Recurring Buffer Refresh Job Handler", () => {
 
       // Verify sync jobs were queued
       const syncCalls = addJob.mock.calls.filter(
-        (call) => call[0] === "GoogleCalendarEventSync"
+        (call) => call[0] === JOB_NAMES.GOOGLE_CALENDAR_EVENT_SYNC
       );
       expect(syncCalls.length).toBeGreaterThan(0);
     });
@@ -554,7 +558,7 @@ describe("Recurring Buffer Refresh Job Handler", () => {
 
       // Should not queue sync jobs
       const syncCalls = addJob.mock.calls.filter(
-        (call) => call[0] === "GoogleCalendarEventSync"
+        (call) => call[0] === JOB_NAMES.GOOGLE_CALENDAR_EVENT_SYNC
       );
       expect(syncCalls.length).toBe(0);
     });
@@ -600,7 +604,7 @@ describe("Recurring Buffer Refresh Job Handler", () => {
 
       // Verify refresh job was scheduled
       const refreshCalls = addJob.mock.calls.filter(
-        (call) => call[0] === "handleRecurringBookingBufferRefresh"
+        (call) => call[0] === JOB_NAMES.RECURRING_BOOKING_BUFFER_REFRESH
       );
       expect(refreshCalls.length).toBe(1);
       expect(refreshCalls[0][1]).toEqual({

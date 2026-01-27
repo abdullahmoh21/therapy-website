@@ -5,6 +5,7 @@ const Config = require("../../../models/Config");
 const logger = require("../../../logs/logger");
 const { utcToZonedTime, format } = require("date-fns-tz");
 const { createOAuth2Client, getSystemCalendar } = require("../../googleOAuth");
+const JOB_NAMES = require("../jobNames");
 
 /**
  * Handle Google Calendar synchronization for a booking
@@ -266,7 +267,7 @@ const handleGoogleCalendarSync = async (jobData) => {
 
       const { addJob } = require("../jobScheduler"); // to avoid circular dependency
       await addJob(
-        "ClientCalendarInvitation",
+        JOB_NAMES.CLIENT_CALENDAR_INVITATION,
         { bookingId: bookingId.toString() },
         { delay } // this will run ~2 days before the session
       );

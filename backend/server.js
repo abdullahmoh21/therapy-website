@@ -24,6 +24,7 @@ const startUpdateBookingStatusCron = require("./utils/cron/UpdateBookingStatus")
 const startClearLogFilesCron = require("./utils/cron/ClearLogFiles");
 const Config = require("./models/Config");
 const logger = require("./logs/logger");
+const JOB_NAMES = require("./utils/queue/jobNames");
 
 const PORT = process.env.PORT || 3200;
 let server;
@@ -46,7 +47,7 @@ async function bootstrap() {
   } catch (err) {
     logger.error("Could not connect to Calendly — aborting startup.");
     if (process.env.NODE_ENV === "production") {
-      await sendEmail("SystemAlert", {
+      await sendEmail(JOB_NAMES.SYSTEM_ALERT, {
         alertType: "calendlyWebhookDown",
       }).catch(() => {});
     }
@@ -59,7 +60,7 @@ async function bootstrap() {
   } catch (err) {
     logger.warn(`Redis Cache unavailable — caching disabled: ${err.message}`);
     if (process.env.NODE_ENV === "production") {
-      await sendEmail("SystemAlert", {
+      await sendEmail(JOB_NAMES.SYSTEM_ALERT, {
         alertType: "redisCacheDisconnectedInitial",
       }).catch(() => {});
     }
@@ -73,7 +74,7 @@ async function bootstrap() {
       `Redis Queue unavailable — jobs will be MongoDB-only: ${err.message}`
     );
     if (process.env.NODE_ENV === "production") {
-      await sendEmail("SystemAlert", {
+      await sendEmail(JOB_NAMES.SYSTEM_ALERT, {
         alertType: "redisQueueDisconnectedInitial",
       }).catch(() => {});
     }
@@ -97,7 +98,7 @@ async function bootstrap() {
   server.on("error", async (error) => {
     logger.error(`Server error: ${error.message}`);
     if (process.env.NODE_ENV === "production") {
-      await sendEmail("SystemAlert", {
+      await sendEmail(JOB_NAMES.SYSTEM_ALERT, {
         alertType: "serverError",
         extraData: { error: error.message },
       }).catch(() => {});

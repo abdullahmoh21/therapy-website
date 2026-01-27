@@ -64,6 +64,14 @@ const jobSchema = new mongoose.Schema(
       type: String,
     },
 
+    errorHistory: [
+      {
+        message: String,
+        stack: String,
+        attemptAt: Date,
+      },
+    ],
+
     lastAttemptAt: {
       type: Date,
     },
@@ -131,8 +139,16 @@ jobSchema.methods.markCompleted = async function (result = null) {
 
 jobSchema.methods.markFailed = async function (error) {
   this.attempts += 1;
-  this.lastError = error;
+  
+  const errorMessage = error.message || String(error);
+  this.lastError = errorMessage;
   this.lastAttemptAt = new Date();
+
+  this.errorHistory.push({
+    message: errorMessage,
+    stack: error.stack,
+    attemptAt: new Date(),
+  });
 
   if (this.attempts >= this.maxAttempts) {
     this.status = "failed";

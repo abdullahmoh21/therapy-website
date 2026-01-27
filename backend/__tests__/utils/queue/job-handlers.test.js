@@ -57,18 +57,19 @@ const { transporter } = require("../../../utils/emailTransporter");
 const logger = require("../../../logs/logger");
 
 // Import job handlers to test (using new naming convention)
-const {
-  UserAccountVerificationEmail: verifyEmail,
-  UserPasswordResetEmail: resetPassword,
-  UserInvitationEmail: sendInvitation,
-  ContactInquiry: ContactMe,
-  BookingCancellationNotifications: adminCancellationNotif,
-  PaymentRefundConfirmation: refundConfirmation,
-  EventDeletedNotification: eventDeleted,
-  UnauthorizedBookingNotification: unauthorizedBooking,
-  SystemAlert: adminAlert,
-  DatabaseCleanup: deleteDocuments,
-} = require("../../../utils/queue/jobs/index");
+const jobHandlers = require("../../../utils/queue/jobs/index");
+const JOB_NAMES = require("../../../utils/queue/jobNames");
+
+const verifyEmail = jobHandlers[JOB_NAMES.USER_ACCOUNT_VERIFICATION_EMAIL];
+const resetPassword = jobHandlers[JOB_NAMES.USER_PASSWORD_RESET_EMAIL];
+const sendInvitation = jobHandlers[JOB_NAMES.USER_INVITATION_EMAIL];
+const ContactMe = jobHandlers[JOB_NAMES.CONTACT_INQUIRY];
+const adminCancellationNotif = jobHandlers[JOB_NAMES.BOOKING_CANCELLATION_NOTIFICATIONS];
+const refundConfirmation = jobHandlers[JOB_NAMES.PAYMENT_REFUND_CONFIRMATION];
+const eventDeleted = jobHandlers[JOB_NAMES.EVENT_DELETED_NOTIFICATION];
+const unauthorizedBooking = jobHandlers[JOB_NAMES.UNAUTHORIZED_BOOKING_NOTIFICATION];
+const adminAlert = jobHandlers[JOB_NAMES.SYSTEM_ALERT];
+const deleteDocuments = jobHandlers[JOB_NAMES.DATABASE_CLEANUP];
 
 // Import real models
 const User = require("../../../models/User");

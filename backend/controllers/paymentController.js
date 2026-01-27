@@ -7,6 +7,7 @@ const logger = require("../logs/logger");
 const Config = require("../models/Config"); // Import Config model
 const { sendEmail } = require("../utils/queue/index");
 const { invalidateByEvent } = require("../middleware/redisCaching");
+const JOB_NAMES = require("../utils/queue/jobNames");
 
 //production: change to main api
 const safepay = new Safepay({
@@ -85,7 +86,7 @@ const handleSafepayWebhook = asyncHandler(async (req, res) => {
   //send email to user on refund
   if (payment.transactionStatus === "Refunded") {
     try {
-      await sendEmail("PaymentRefundConfirmation", {
+      await sendEmail(JOB_NAMES.PAYMENT_REFUND_CONFIRMATION, {
         paymentId: payment._id.toString(),
       });
     } catch (error) {

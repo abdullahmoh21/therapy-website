@@ -66,6 +66,7 @@ jest.mock("../../../utils/queue/jobScheduler", () => ({
 const handleGoogleCalendarSync = require("../../../utils/queue/jobs/syncCalendar");
 const logger = require("../../../logs/logger");
 const { addJob } = require("../../../utils/queue/jobScheduler");
+const JOB_NAMES = require("../../../utils/queue/jobNames");
 
 describe("handleGoogleCalendarSync", () => {
   let mockBooking, mockUser, jobData;
@@ -297,7 +298,7 @@ describe("handleGoogleCalendarSync", () => {
 
       expect(result.success).toBe(true);
       expect(addJob).toHaveBeenCalledWith(
-        "ClientCalendarInvitation",
+        JOB_NAMES.CLIENT_CALENDAR_INVITATION,
         { bookingId: "booking123" },
         expect.objectContaining({
           delay: expect.any(Number),

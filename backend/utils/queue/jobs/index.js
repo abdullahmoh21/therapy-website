@@ -14,33 +14,33 @@ const handleGoogleCalendarDeletion = require("./deleteCalendarEvent");
 const handleClientCalendarInvitation = require("./addClientAttendee");
 const handleGoogleCalendarCancellation = require("./cancelGoogleCalendarEvent");
 const handleRecurringBookingBufferRefresh = require("./refreshRecurringBuffer");
+const JOB_NAMES = require("../jobNames");
 
 module.exports = {
   // Email jobs - Authentication & Verification
-  UserAccountVerificationEmail: handleUserAccountVerificationEmail,
-  UserPasswordResetEmail: handleUserPasswordResetEmail,
+  [JOB_NAMES.USER_ACCOUNT_VERIFICATION_EMAIL]: handleUserAccountVerificationEmail,
+  [JOB_NAMES.USER_PASSWORD_RESET_EMAIL]: handleUserPasswordResetEmail,
 
-  // Email jobs - Booking Cancellations (consolidated)
-  BookingCancellationNotifications: handleBookingCancellationNotifications,
-  EventDeletedNotification: handleSessionDeletionNotification,
-  UnauthorizedBookingNotification: handleUnauthorizedBookingNotification,
+  // Email jobs - Booking Cancellations 
+  [JOB_NAMES.BOOKING_CANCELLATION_NOTIFICATIONS]: handleBookingCancellationNotifications,
+  [JOB_NAMES.EVENT_DELETED_NOTIFICATION]: handleSessionDeletionNotification,
+  [JOB_NAMES.UNAUTHORIZED_BOOKING_NOTIFICATION]: handleUnauthorizedBookingNotification,
 
   // Email jobs - Payments
-  PaymentRefundConfirmation: handlePaymentRefundConfirmation,
+  [JOB_NAMES.PAYMENT_REFUND_CONFIRMATION]: handlePaymentRefundConfirmation,
 
   // Email jobs - Other
-  ContactInquiry: handleContactInquiry,
-  UserInvitationEmail: handleUserInvitationEmail,
-  SystemAlert: handleSystemAlert,
+  [JOB_NAMES.CONTACT_INQUIRY]: handleContactInquiry,
+  [JOB_NAMES.USER_INVITATION_EMAIL]: handleUserInvitationEmail,
+  [JOB_NAMES.SYSTEM_ALERT]: handleSystemAlert,
 
   // Non-email jobs - Calendar sync & management
-  GoogleCalendarEventSync: handleGoogleCalendarSync,
-  GoogleCalendarEventDeletion: handleGoogleCalendarDeletion,
-  GoogleCalendarEventCancellation: handleGoogleCalendarCancellation,
-  ClientCalendarInvitation: handleClientCalendarInvitation,
-  handleClientCalendarInvitation: handleClientCalendarInvitation, // Backwards compatibility alias
+  [JOB_NAMES.GOOGLE_CALENDAR_EVENT_SYNC]: handleGoogleCalendarSync,
+  [JOB_NAMES.GOOGLE_CALENDAR_EVENT_DELETION]: handleGoogleCalendarDeletion,
+  [JOB_NAMES.GOOGLE_CALENDAR_EVENT_CANCELLATION]: handleGoogleCalendarCancellation,
+  [JOB_NAMES.CLIENT_CALENDAR_INVITATION]: handleClientCalendarInvitation,
 
   // Non-email jobs - System tasks
-  RecurringBookingBufferRefresh: handleRecurringBookingBufferRefresh,
-  DatabaseCleanup: handleDatabaseCleanup,
+  [JOB_NAMES.RECURRING_BOOKING_BUFFER_REFRESH]: handleRecurringBookingBufferRefresh,
+  [JOB_NAMES.DATABASE_CLEANUP]: handleDatabaseCleanup,
 };

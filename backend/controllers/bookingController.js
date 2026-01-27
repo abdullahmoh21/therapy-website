@@ -6,6 +6,7 @@ const mongoose = require("mongoose");
 const sanitizeHtml = require("sanitize-html");
 const { invalidateByEvent } = require("../middleware/redisCaching");
 const { sendEmail, addJob } = require("../utils/queue/index");
+const JOB_NAMES = require("../utils/queue/jobNames");
 const User = require("../models/User");
 const Booking = require("../models/Booking");
 const Payment = require("../models/Payment");
@@ -440,7 +441,7 @@ async function cancelBooking({
   }
 
   // Send cancellation notification (to user and admin)
-  await sendEmail("BookingCancellationNotifications", {
+  await sendEmail(JOB_NAMES.BOOKING_CANCELLATION_NOTIFICATIONS, {
     bookingId: booking._id.toString(),
     userId: booking.userId.toString(),
     cancelledBy: canceler_type === "invitee" ? "user" : "admin",
@@ -498,16 +499,16 @@ async function deleteEvent(
     logger.info(`Event deleted: ${eventURI} – ${reasonText}`);
 
     if (isRegisteredUser && userEmail) {
-      await sendEmail("EventDeletedNotification", {
+      await sendEmail(JOB_NAMES.EVENT_DELETED_NOTIFICATION, {
         userId: user._id.toString(),
         eventStartTime,
         reason: reasonText,
       });
       logger.info(`Event-deleted email sent to registered user: ${userEmail}`);
     } else if (calendlyEmail) {
-      await sendEmail("UnauthorizedBookingNotification", {
-        calendlyEmail,
-        inviteeName,
+      await sendEmail(JOB_NAMES.UNAUTHORIZED_BOOKING_NOTIFICATION, {
+        email: calendlyEmail,
+        userName: inviteeName,
       });
       logger.info(`Unauthorized-booking email sent to: ${calendlyEmail}`);
     } else {
@@ -796,7 +797,7 @@ const cancelMyBooking = asyncHandler(async (req, res) => {
     // Queue Google Calendar deletion job if needed
     if (booking.googleEventId) {
       try {
-        await addJob("GoogleCalendarEventCancellation", {
+        await addJob(JOB_NAMES.GOOGLE_CALENDAR_EVENT_CANCELLATION, {
           bookingId: booking._id.toString(),
           notifyUser: false,
           reason: reason.trim(),
@@ -813,7 +814,7 @@ const cancelMyBooking = asyncHandler(async (req, res) => {
     }
 
     try {
-      await sendEmail("BookingCancellationNotifications", {
+      await sendEmail(JOB_NAMES.BOOKING_CANCELLATION_NOTIFICATIONS, {
         bookingId: booking._id.toString(),
         userId: booking.userId.toString(),
         cancelledBy: "user",

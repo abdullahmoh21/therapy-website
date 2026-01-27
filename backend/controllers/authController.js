@@ -32,10 +32,11 @@ function encrypt(text) {
   return encrypted.toString("hex");
 }
 
-//@desc Creates a new session and returns jwt and refresh cookie
-//@param {Object} req with valid email, password
-//@route POST /auth
-//@access Public
+const JOB_NAMES = require("../utils/queue/jobNames");
+
+// @desc Login
+// @route POST /auth
+// @access Public
 const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
@@ -320,7 +321,7 @@ const register = async (req, res) => {
     // Step 5: Send verification email (non-critical, don't rollback if this fails)
     let emailSent = false;
     try {
-      await sendEmail("UserAccountVerificationEmail", {
+      await sendEmail(JOB_NAMES.USER_ACCOUNT_VERIFICATION_EMAIL, {
         userId: createdUser._id.toString(),
         verificationToken,
       });

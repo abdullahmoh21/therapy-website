@@ -13,6 +13,7 @@ const {
   createObjectId,
 } = require("../testSetup");
 const request = require("supertest");
+const JOB_NAMES = require("../../../utils/queue/jobNames");
 
 describe("POST /bookings/calendly - Calendly Webhook", () => {
   const app = setupBookingApp();
@@ -94,7 +95,7 @@ describe("POST /bookings/calendly - Calendly Webhook", () => {
 
     // Check that BookingCancellationNotifications job was queued
     expect(sendEmail).toHaveBeenCalledWith(
-      "BookingCancellationNotifications",
+      JOB_NAMES.BOOKING_CANCELLATION_NOTIFICATIONS,
       expect.objectContaining({
         bookingId: expect.any(String),
         userId: expect.any(String),
@@ -811,7 +812,7 @@ describe("POST /bookings/calendly - Calendly Webhook", () => {
 
     // Email should be sent to the user's email from our database, not the Calendly-provided one
     expect(sendEmail).toHaveBeenCalledWith(
-      "EventDeletedNotification",
+      JOB_NAMES.EVENT_DELETED_NOTIFICATION,
       expect.objectContaining({
         userId: expect.any(String),
         eventStartTime: expect.anything(), // Can be Date or ISO string
@@ -858,10 +859,10 @@ describe("POST /bookings/calendly - Calendly Webhook", () => {
 
     // Should send unauthorized booking email to the email provided in Calendly
     expect(sendEmail).toHaveBeenCalledWith(
-      "UnauthorizedBookingNotification",
+      JOB_NAMES.UNAUTHORIZED_BOOKING_NOTIFICATION,
       expect.objectContaining({
-        calendlyEmail: "unregistered@example.com", // Email from Calendly payload
-        inviteeName: "Unregistered User", // Name from Calendly payload
+        email: "unregistered@example.com", // Email from Calendly payload
+        userName: "Unregistered User", // Name from Calendly payload
       })
     );
 
