@@ -8,7 +8,7 @@ const Home = () => {
 
   // Shared classes so the skeleton and the image are always the same size
   const heroFrameClasses =
-    "rounded-lg border-4 border-lightPink shadow-lg " +
+    "rounded-lg border-4 border-lightPink shadow-lg overflow-hidden " +
     // width scales up with screen size
     "w-[300px] sm:w-[320px] lg:w-[360px] xl:w-[400px] 2xl:w-[440px] " +
     // height slightly reduced on xl/2xl (fix)
@@ -53,25 +53,26 @@ const Home = () => {
             <div className="relative inline-block">
               <div className="absolute inset-0 bg-lightPink opacity-20 -z-10 rounded-lg" />
 
-              {!imageLoaded && (
-                <div
-                  className={"animate-pulse bg-lightPink " + heroFrameClasses}
-                />
-              )}
+              {/* This wrapper owns the size */}
+              <div className={"relative " + heroFrameClasses}>
+                {!imageLoaded && (
+                  <div className="absolute inset-0 animate-pulse bg-lightPink" />
+                )}
 
-              <img
-                src={fatima_hero}
-                alt="Fatima Mohsin Picture"
-                className={`${heroFrameClasses} object-cover object-top transition-opacity duration-300 ${
-                  imageLoaded ? "opacity-100" : "opacity-0"
-                }`}
-                onLoad={() => setImageLoaded(true)}
-                onError={() => setImageLoaded(true)}
-                width={734} // intrinsic image size (or whatever your file actually is)
-                height={1064}
-                loading="eager"
-                fetchpriority="high"
-              />
+                <img
+                  src={fatima_hero}
+                  alt="Fatima Mohsin Picture"
+                  className={`absolute inset-0 w-full h-full object-cover object-top transition-opacity duration-300 ${
+                    imageLoaded ? "opacity-100" : "opacity-0"
+                  }`}
+                  onLoad={() => setImageLoaded(true)}
+                  onError={() => setImageLoaded(true)}
+                  width={734} // intrinsic image size (or whatever your file actually is)
+                  height={1064}
+                  loading="eager"
+                  fetchpriority="high"
+                />
+              </div>
             </div>
           </motion.div>
 
