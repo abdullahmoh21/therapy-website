@@ -138,7 +138,7 @@ const logout = asyncHandler(async (req, res) => {
     return res.sendStatus(204);
   }
 
-  const { email } = decoded;
+  const email = decoded?.user?.email || decoded?.email;
   if (!email) return res.sendStatus(204);
 
   const user = await User.findOne({ email }).exec();
@@ -151,7 +151,7 @@ const logout = asyncHandler(async (req, res) => {
 
   if (cookieHash === user.refreshTokenHash) {
     user.refreshTokenHash = "";
-    user.refreshTokenExp = 0;
+    user.refreshTokenExp = null;
     await user.save();
   }
 

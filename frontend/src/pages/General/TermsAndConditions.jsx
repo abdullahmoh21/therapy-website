@@ -179,7 +179,7 @@ const TermsAndConditions = () => {
               <a href="mailto:fatimamohsin40@gmail.com">
                 fatimamohsin40@gmail.com
               </a>{" "}
-              or call +92 333 4245151. Full contact details are on our Contact
+              or call +92 323 6544668. Full contact details are on our Contact
               Us page.
             </p>
           </div>

@@ -230,12 +230,12 @@ const HelpButton = () => {
               <FaWhatsapp className="text-darkPink flex-shrink-0" />
               <span>WhatsApp:</span>
               <a
-                href="https://wa.me/+923334245151"
+                href="https://wa.me/923236544668"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-darkPink hover:text-lightPink font-medium underline transition-colors"
               >
-                +92 333 4245151
+                +92 323 6544668
               </a>
             </li>
           </ul>

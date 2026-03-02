@@ -87,12 +87,12 @@ const ChangeSchedulePopup = ({ show, onClose }) => {
               <p>
                 • WhatsApp:{" "}
                 <a
-                  href="https://wa.me/923334245151"
+                  href="https://wa.me/923236544668"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-[#DF9E7A] hover:text-[#C88761] transition-colors font-medium"
                 >
-                  +92 333 4245151
+                  +92 323 6544668
                 </a>
               </p>
             </div>

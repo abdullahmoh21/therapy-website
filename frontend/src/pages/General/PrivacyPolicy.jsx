@@ -59,7 +59,7 @@ const PrivacyPolicy = () => {
               <a href="mailto:fatimamohsin40@gmail.com">
                 fatimamohsin40@gmail.com
               </a>{" "}
-              or call +92 333 4245151. Full contact details are available on our
+              or call +92 323 6544668. Full contact details are available on our
               Contact page.
             </p>
 
@@ -372,7 +372,7 @@ const PrivacyPolicy = () => {
               <a href="mailto:fatimamohsin40@gmail.com">
                 fatimamohsin40@gmail.com
               </a>{" "}
-              or call +92 333 4245151.
+              or call +92 323 6544668.
             </p>
           </div>
         </motion.div>

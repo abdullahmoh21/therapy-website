@@ -26,10 +26,10 @@ const Footer = () => {
           <div className="flex items-center pb-[5px] group">
             <FaPhoneAlt className="text-textColor mr-3 text-xl transition-colors duration-300" />
             <a
-              href="tel:+923334245151"
+              href="tel:+923236544668"
               className="text-textColor text-center md:text-left underline transition-colors duration-300"
             >
-              +92 333 4245151
+              +92 323 6544668
             </a>
           </div>
           <div className="flex items-center group">
@@ -72,7 +72,7 @@ const Footer = () => {
               <FaTwitter className="text-textColor transition-colors duration-300" />
             </a>
             <a
-              href="https://wa.me/+923334245151"
+              href="https://wa.me/923236544668"
               target="_blank"
               rel="noopener noreferrer"
               className="text-textColor text-xl transform hover:scale-125 transition-all duration-300 "

@@ -11,11 +11,13 @@ const inflateAsync = promisify(zlib.inflate);
 const deflateAsync = promisify(zlib.deflate);
 const crypto = require("crypto");
 const cacheConfig = require("../config/cacheConfig");
+const ENFORCE_REDIS_AVAILABILITY = process.env.NODE_ENV !== "test";
 
 // Track Redis availability status to prevent repeated logs
 let redisAvailable = null; // null means not checked yet
 let lastRedisCheckTime = 0;
-const REDIS_CHECK_INTERVAL = 60000; // Check at most once per minute
+const REDIS_CHECK_INTERVAL =
+  process.env.NODE_ENV === "test" ? 0 : 60000; // Check at most once per minute (always refresh in tests)
 
 // Check if Redis is working using the utility from redisClient
 async function isRedisWorking() {
@@ -230,7 +232,8 @@ function generateKey(userId, path, query = null, config = null) {
  * Invalidate cache based on a specific event
  */
 async function invalidateByEvent(eventName, options = {}) {
-  if (!isRedisWorking()) {
+  const redisWorking = await isRedisWorking();
+  if (ENFORCE_REDIS_AVAILABILITY && !redisWorking) {
     logger.debug(
       `Cannot invalidate cache by event: Redis not working (event: ${eventName})`
     );
@@ -347,7 +350,8 @@ async function invalidateByEvent(eventName, options = {}) {
 
 // Add data to cache
 async function addToCache(keyName, data, options = { EX: 1800 }) {
-  if (!isRedisWorking()) {
+  const redisWorking = await isRedisWorking();
+  if (ENFORCE_REDIS_AVAILABILITY && !redisWorking) {
     logger.debug(`Cannot add to cache: Redis not working (key: ${keyName})`);
     return;
   }
@@ -376,7 +380,8 @@ async function addToCache(keyName, data, options = { EX: 1800 }) {
 
 // Retrieve data from cache, parse if JSON, otherwise return as-is
 async function getFromCache(key) {
-  if (!isRedisWorking()) {
+  const redisWorking = await isRedisWorking();
+  if (ENFORCE_REDIS_AVAILABILITY && !redisWorking) {
     return null; // Silently return null when Redis is unavailable
   }
 
@@ -416,7 +421,8 @@ function redisCaching(options = {}) {
       return next();
     }
 
-    if (!isRedisWorking()) {
+    const redisWorking = await isRedisWorking();
+    if (ENFORCE_REDIS_AVAILABILITY && !redisWorking) {
       logger.debug("Skipping cache: Redis not available");
       return next();
     }
@@ -459,7 +465,7 @@ function redisCaching(options = {}) {
       if (cachedValue !== null) {
         logger.info(`[CACHE HIT] key: ${key} path: ${fullPath}`);
 
-        if (isRedisWorking()) {
+        if (!ENFORCE_REDIS_AVAILABILITY || (await isRedisWorking())) {
           try {
             // Reset expiry on cache hit
             await redisCacheClient.expire(key, cacheTTL);

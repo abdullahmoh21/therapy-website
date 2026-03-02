@@ -97,7 +97,7 @@ const handleSafepayWebhook = asyncHandler(async (req, res) => {
 
   // Invalidate cache
   try {
-    await invalidateByEvent("payment-updated", payment.userId);
+    await invalidateByEvent("payment-updated", { userId: payment.userId });
   } catch (cacheErr) {
     logger.error(`Cache invalidation failed: ${cacheErr.message}`);
     // Don't fail the request - cache will eventually expire
@@ -112,12 +112,13 @@ const handleSafepayWebhook = asyncHandler(async (req, res) => {
 //@access Private
 const createPayment = asyncHandler(async (req, res) => {
   const { bookingId } = req.body;
+  const userId = req.user.id;
   if (!bookingId)
     return res.status(400).json({ message: "BookingId is required" }); // Bad Request
 
   try {
     // Find the corresponding Payment document
-    const payment = await Payment.findOne({ bookingId }).exec();
+    const payment = await Payment.findOne({ bookingId, userId }).exec();
     if (!payment) return res.sendStatus(404); // Not Found
 
     // Use the amount stored in the payment document itself
